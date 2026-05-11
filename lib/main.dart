@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tag/core/constants/app_routes.dart';
 import 'feature/splash/view/splash_screen.dart';
 
 void main() {
@@ -20,15 +21,12 @@ class MyApp extends StatelessWidget {
       // Start with Splash
       home: const SplashScreen(),
       // Define your routes
-      routes: {
-        '/home': (context) => const HomeScreen(), // Replace with your screen
-        // Add more routes as needed
-      },
+      routes: AppRoutes.routes,
     );
   }
 }
 
-// Placeholder for your next screen
+/// Placeholder for your next screen--- and will be removed
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
   @override

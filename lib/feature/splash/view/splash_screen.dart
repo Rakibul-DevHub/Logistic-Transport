@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import '../../../core/constants/app_routes.dart';
 import '../../../shared/widget/gradient_arc_loader.dart';
 import 'splash_cubit.dart';
 
@@ -50,11 +51,7 @@ class _SplashView extends StatelessWidget {
   }
 
   void _navigateToNext(BuildContext context) {
-    // Replace with your actual navigation logic
-    Navigator.of(context).pushReplacementNamed('/home');
-
-    // OR for named routes without context:
-    // Navigator.pushReplacementNamed(context, '/home');
+    Navigator.pushNamed(context, AppRoutes.onboard);
   }
 }
 
@@ -67,12 +64,12 @@ class _CenterImage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       constraints: const BoxConstraints(maxWidth: 280, maxHeight: 280),
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(0),
       child: SvgPicture.asset(
         'assets/images/splash_image.svg',
-        width: 250,  // ✅ Use fixed width, not double.infinity
+        width: MediaQuery.of(context).size.width,
         height: 250,
-        fit: BoxFit.contain,  // ✅ Add fit for proper scaling
+        fit: BoxFit.contain,
       ),
     );
   }
