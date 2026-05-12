@@ -1,4 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:tag/feature/auth/view/login_screen.dart';
 import 'package:tag/feature/welcome/view/welcome_screen.dart';
 
 import '../../feature/onboard/controller/onboard_cubit.dart';
@@ -31,7 +32,7 @@ class AppRoutes {
       child: const OnboardingScreen(),
     ),
     welcome: (context) => const WelcomeScreen(),
-    login: (context) => const WelcomeScreen(),
+    login: (context) => const LoginScreen(),
     signup: (context) => const WelcomeScreen(),
     home: (context) => const HomeScreen(),
   };

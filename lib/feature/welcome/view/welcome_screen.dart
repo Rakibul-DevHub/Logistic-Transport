@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:tag/core/constants/app_routes.dart';
 import 'package:tag/core/theme/app_colors.dart';
 import 'package:tag/core/theme/app_text_style.dart';
 
@@ -61,46 +62,9 @@ class WelcomeScreen extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Column(
                   children: [
-                    // CustomElevatedButton(
-                    //   onPressed: () {
-                    //     debugPrint('Log in pressed');
-                    //   },
-                    //   buttonText: 'Log in',
-                    //   backgroundColor: const Color(0xFF1E3A5F),
-                    //   foregroundColor: Colors.white,
-                    //   height: 56,
-                    //   isFullWidth: true,
-                    //   isRounded: true,
-                    //   fontSize: 16,
-                    //   fontWeight: FontWeight.w600,
-                    //   margin: const EdgeInsets.only(bottom: 16),
-                    // ),
-                    // CustomElevatedButton(
-                    //   onPressed: () {
-                    //     debugPrint('Create Account pressed');
-                    //   },
-                    //   buttonText: 'Create Account',
-                    //   backgroundColor: Colors.white,
-                    //   foregroundColor: const Color(0xFF1E3A5F),
-                    //   height: 56,
-                    //   isFullWidth: true,
-                    //   isRounded: true,
-                    //   fontSize: 16,
-                    //   fontWeight: FontWeight.w600,
-                    //   hasShadow: true,
-                    //   shadowColor: Colors.black12,
-                    // ),
-
-
-                    // Inside WelcomeScreen's build method...
-
-// Log in Button
                     CustomElevatedButton(
                       onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const LoginScreen()), // 👈 Navigate to Login
-                        );
+                        Navigator.pushReplacementNamed(context, AppRoutes.login);
                       },
                       buttonText: 'Log in',
                       backgroundColor: const Color(0xFF1E3A5F),

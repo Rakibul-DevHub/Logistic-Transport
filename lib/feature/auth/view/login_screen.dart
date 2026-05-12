@@ -13,6 +13,7 @@ class LoginScreen extends StatefulWidget {
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
+
 }
 
 class _LoginScreenState extends State<LoginScreen> {
@@ -49,7 +50,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       children: [
                         // SVG Image
                         SizedBox(
-                          height: 120,
+                          height: 150,
                           child: SvgPicture.asset(
                             'assets/images/splash_image.svg',
                             fit: BoxFit.contain,
@@ -62,7 +63,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           'Welcome to T.A.G',
                           style: AppTextStyle.BricolageGrotesque_24pt_Regular.copyWith(
                             fontWeight: FontWeight.bold,
-                            fontSize: 28,
+                            fontSize: 25,
                             color: const Color(0xFF1E3A5F),
                           ),
                         ),
@@ -71,8 +72,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         // Subtitle
                         Text(
                           'Log in to access your account',
-                          style: AppTextStyle.BricolageGrotesque_24pt_Regular.copyWith(
-                            fontSize: 14,
+                          style: AppTextStyle.SFProDisplay_Regular.copyWith(
+                            fontSize: 20,
                             color: Colors.grey[600],
                           ),
                         ),
@@ -151,25 +152,6 @@ class _LoginScreenState extends State<LoginScreen> {
                           color: const Color(0xFF1E3A5F),
                         ),
                       ),
-                      TextButton(
-                        onPressed: () {
-                          debugPrint('Forgot Password pressed');
-                          // Navigator.pushNamed(context, '/forgot-password');
-                        },
-                        style: TextButton.styleFrom(
-                          padding: EdgeInsets.zero,
-                          minimumSize: const Size(0, 0),
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                        child: Text(
-                          'Forget Password?',
-                          style: TextStyle(
-                            color: const Color(0xFF1E3A5F),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
                     ],
                   ),
                   const SizedBox(height: 8),
@@ -179,7 +161,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
+                          color: Colors.black.withValues(alpha: 0.05),
                           blurRadius: 10,
                           offset: const Offset(0, 4),
                         ),
@@ -189,7 +171,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       controller: _passwordController,
                       obscureText: _obscurePassword,
                       decoration: InputDecoration(
-                        hintText: 'Enter your password', // Updated hint to match context
+                        hintText: 'Enter your password',
                         hintStyle: TextStyle(
                           color: Colors.grey[400],
                           fontSize: 14,
@@ -230,8 +212,32 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
 
-                  const SizedBox(height: 40),
-
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () {
+                          debugPrint('Forgot Password pressed');
+                          // Navigator.pushNamed(context, '/forgot-password');
+                        },
+                        style: TextButton.styleFrom(
+                          padding: EdgeInsets.zero,
+                          minimumSize: const Size(0, 0),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        child: Text(
+                          'Forget Password?',
+                          style: TextStyle(
+                            color: const Color(0xFF1E3A5F),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: MediaQuery.of(context).size.height * 0.2),
                   // Login Button
                   CustomElevatedButton(
                     onPressed: () {

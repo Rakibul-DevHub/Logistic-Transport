@@ -19,8 +19,9 @@ class MyApp extends StatelessWidget {
         scaffoldBackgroundColor: const Color(0xFFF5F7FA),
       ),
       // Start with Splash
-      home: const SplashScreen(),
+      // home: const SplashScreen(),
       // Define your routes
+      initialRoute: AppRoutes.splash,
       routes: AppRoutes.routes,
     );
   }
