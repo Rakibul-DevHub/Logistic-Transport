@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:tag/core/theme/app_colors.dart';
 import 'package:tag/core/theme/app_text_style.dart';
 
 import '../../../core/constants/app_routes.dart';
@@ -226,20 +227,19 @@ class _LoginScreenState extends State<LoginScreen> {
                           padding: EdgeInsets.zero,
                           minimumSize: const Size(0, 0),
                           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          overlayColor: Colors.transparent,
                         ),
                         child: Text(
                           'Forget Password?',
-                          style: TextStyle(
-                            color: const Color(0xFF1E3A5F),
+                          style: AppTextStyle.SFProDisplay_Regular.copyWith(
                             fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                          ),
+                          )
                         ),
                       ),
                     ],
                   ),
                   SizedBox(height: MediaQuery.of(context).size.height * 0.2),
-                  // Login Button
+                  ///--- Login Button
                   CustomElevatedButton(
                     onPressed: () {
                       if (_formKey.currentState!.validate()) {
@@ -247,7 +247,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         debugPrint('Password: ${_passwordController.text}');
 
                         // Example: Navigate to Home or Dashboard
-                        // Navigator.pushNamed(context, '/home');
+                        Navigator.pushNamed(context, AppRoutes.home);
                       }
                     },
                     buttonText: 'Log in',

@@ -84,7 +84,7 @@ class MyApp extends StatelessWidget {
         ),
 
         // ✅ Use routes map for named navigation
-        initialRoute: AppRoutes.splash,
+        initialRoute: AppRoutes.home,
         routes: AppRoutes.routes,
 
         // ✅ Optional: Handle unknown routes gracefully
@@ -97,32 +97,6 @@ class MyApp extends StatelessWidget {
               ),
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Placeholder for your next screen --- will be removed
-class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Home')),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text('Home Screen', style: TextStyle(fontSize: 24)),
-            const SizedBox(height: 16),
-            // Quick test: navigate to create account
-            ElevatedButton(
-              onPressed: () => Navigator.pushNamed(context, AppRoutes.createAccount),
-              child: const Text('Go to Create Account'),
-            ),
-          ],
         ),
       ),
     );
