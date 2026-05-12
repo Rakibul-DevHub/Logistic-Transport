@@ -6,6 +6,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:pinput/pinput.dart';
 import 'package:tag/core/theme/app_colors.dart';
 import 'package:tag/core/theme/app_text_style.dart';
+import '../../../core/constants/app_routes.dart';
 import '../cubit/auth_resigstration_cubit.dart';
 import '../../../shared/components/custom_background.dart';
 import '../../../shared/components/Custom_Elevated_Button.dart';
@@ -75,15 +76,8 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
       // ✅ Clear sensitive data after successful verification
       context.read<AuthRegistrationCubit>().clearData();
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Verification successful!'),
-          backgroundColor: Colors.green,
-        ),
-      );
-
       // Navigate to next screen
-      // Navigator.pushReplacementNamed(context, AppRoutes.createNewPassword);
+      Navigator.pushReplacementNamed(context, AppRoutes.login);
     });
   }
 
@@ -227,36 +221,39 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                 const SizedBox(height: 32),
 
                 // Resend Code Section
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      "Didn't get the code? ",
-                      style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                    ),
-                    if (!_canResend)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
                       Text(
-                        '00:${_resendTimer.toString().padLeft(2, '0')}',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.primaryColor,
-                        ),
+                        "Didn't get the code? ",
+                        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                       ),
-                    if (_canResend)
-                      GestureDetector(
-                        onTap: _handleResendCode,
-                        child: Text(
-                          'Resend Code',
+                      if (!_canResend)
+                        Text(
+                          '00:${_resendTimer.toString().padLeft(2, '0')}',
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
                             color: AppColors.primaryColor,
-                            decoration: TextDecoration.underline,
                           ),
                         ),
-                      ),
-                  ],
+                      if (_canResend)
+                        GestureDetector(
+                          onTap: _handleResendCode,
+                          child: Text(
+                            'Resend Code',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.primaryColor,
+                              decoration: TextDecoration.underline,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
 
                 const Spacer(),
