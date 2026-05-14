@@ -1,6 +1,9 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:tag/core/constants/app_routes.dart';
 import 'package:tag/core/theme/app_text_style.dart';
+import 'package:tag/feature/home/bill_of_loading/bill_of_loading.dart';
 import 'package:tag/feature/notification/view/notification_screen.dart';
 import '../../../shared/widget/build_action_button.dart';
 import '../../../shared/widget/build_load_card.dart';
@@ -46,13 +49,11 @@ class HomeScreen extends StatelessWidget {
                   // Notification Button
                   InkWell(
                     onTap: () {
-                      // Navigator.
-                      Navigator.pushReplacement(
+                      Navigator.pushReplacementNamed(
                         context,
-                        MaterialPageRoute(
-                          builder: (context) => NotificationScreen(),
-                        ),
+                        AppRoutes.notification,
                       );
+
                     },
                     child: Container(
                       width: 48,
@@ -202,7 +203,11 @@ class HomeScreen extends StatelessWidget {
                     child: buildActionButton(
                       title: 'Scan BOL',
                       icon: 'assets/icons/scan.svg',
-                      onTap: () {},
+                      onTap: () {
+                        // Navigator.pushReplacement(context, AppRoutes.bol);
+                        Navigator.pushNamed(context, AppRoutes.camScan);
+                        // AppRoutes.camScan;
+                      },
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -412,3 +417,9 @@ class HomeScreen extends StatelessWidget {
     ];
   }
 }
+
+
+
+
+
+
