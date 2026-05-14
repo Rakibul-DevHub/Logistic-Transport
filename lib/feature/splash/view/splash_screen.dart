@@ -101,7 +101,13 @@ class _LoaderSection extends StatelessWidget {
 
 
 
-
+///
+///
+///
+/// todo:: with video//gif//svg
+///
+///
+///
 
 
 
@@ -196,7 +202,7 @@ class _LoaderSection extends StatelessWidget {
 //                       borderRadius: BorderRadius.circular(16),
 //                       child: GifView.asset(
 //                         'assets/images/splash_screen_gify.gif',
-//                         controller: _gifController,
+//                         cubit: _gifController,
 //                         fit: BoxFit.cover,
 //                       ),
 //                     ),

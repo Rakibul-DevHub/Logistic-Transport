@@ -238,7 +238,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ],
                   ),
-                  SizedBox(height: MediaQuery.of(context).size.height * 0.2),
+                  SizedBox(height: MediaQuery.of(context).size.height * 0.07),
                   ///--- Login Button
                   CustomElevatedButton(
                     onPressed: () {

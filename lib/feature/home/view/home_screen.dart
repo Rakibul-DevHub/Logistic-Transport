@@ -1,7 +1,7 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:tag/core/theme/app_text_style.dart';
+import 'package:tag/feature/notification/view/notification_screen.dart';
 import '../../../shared/widget/build_action_button.dart';
 import '../../../shared/widget/build_load_card.dart';
 import '../../../shared/widget/build_status_card.dart';
@@ -44,25 +44,36 @@ class HomeScreen extends StatelessWidget {
                     ],
                   ),
                   // Notification Button
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(24),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.grey.withOpacity(0.1),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
+                  InkWell(
+                    onTap: () {
+                      // Navigator.
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => NotificationScreen(),
                         ),
-                      ],
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(24),
-                      child: SvgPicture.asset(
-                        'assets/icons/notification_button_with_circle.svg',
-                        fit: BoxFit.cover,
+                      );
+                    },
+                    child: Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.grey.withOpacity(0.1),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(24),
+                        child: SvgPicture.asset(
+                          'assets/icons/notification_button_with_circle.svg',
+                          fit: BoxFit.cover,
+                        ),
                       ),
                     ),
                   ),
@@ -336,10 +347,8 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-
-// Status Overview Section
-  Widget buildStatusSection()
-  {
+  // Status Overview Section
+  Widget buildStatusSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -378,7 +387,8 @@ class HomeScreen extends StatelessWidget {
       ],
     );
   }
-// Status Data
+
+  // Status Data
   List<Map<String, dynamic>> _getStatusData() {
     return [
       {
@@ -401,5 +411,4 @@ class HomeScreen extends StatelessWidget {
       },
     ];
   }
-
 }

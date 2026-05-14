@@ -3,7 +3,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:tag/core/theme/app_text_style.dart';
 
 class ProfileScreen extends StatelessWidget {
-  const ProfileScreen({Key? key}) : super(key: key);
+  const ProfileScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -14,17 +14,6 @@ class ProfileScreen extends StatelessWidget {
           padding: const EdgeInsets.all(16.0),
           child: Column(
             children: [
-              // Profile Header
-              // const Text(
-              //   'Profile',
-              //   style: TextStyle(
-              //     fontSize: 20,
-              //     fontWeight: FontWeight.w600,
-              //     color: Colors.black87,
-              //   ),
-              // ),
-              // const SizedBox(height: 24),
-
               // Profile Card
               Container(
                 padding: const EdgeInsets.all(24),
@@ -45,41 +34,30 @@ class ProfileScreen extends StatelessWidget {
                     Stack(
                       children: [
                         Container(
-                          width: 100,
-                          height: 100,
+                          width: 120,
+                          height: 120,
                           decoration: const BoxDecoration(
                             shape: BoxShape.circle,
-                            color: Colors.grey,
                           ),
-                          child: ClipOval(
-                            child: Image.asset(
-                              'assets/images/demo_user.jpg',
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                return const Icon(
-                                  Icons.person,
-                                  size: 50,
-                                  color: Colors.white,
-                                );
-                              },
+                          child: Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: ClipOval(
+                              child: Image.asset(
+                                'assets/images/demo_user.jpg',
+                                height: 110,
+                                width: 110,
+                                fit: BoxFit.cover,
+                              ),
                             ),
                           ),
                         ),
                         Positioned(
-                          right: 0,
-                          bottom: 0,
-                          child: Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: const BoxDecoration(
-                              color: Color(0xFF4A90E2),
-                              shape: BoxShape.circle,
-                            ),
-                            child: SvgPicture.asset(
-                              'assets/icons/edit.svg', // Your SVG icon
-                              width: 16,
-                              height: 16,
-                              color: Colors.white,
-                            ),
+                          right: 8,
+                          bottom: 06,
+                          child: SvgPicture.asset(
+                            'assets/icons/edit_profile_image.svg',
+                            width: 25,
+                            height: 25,
                           ),
                         ),
                       ],

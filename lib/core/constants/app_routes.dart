@@ -4,6 +4,7 @@ import 'package:tag/feature/auth/view/create_account_screen.dart';
 import 'package:tag/feature/auth/view/login_screen.dart';
 import 'package:tag/feature/auth/view/otp_verify_screen.dart';
 import 'package:tag/feature/load/view/load_screen.dart';
+import 'package:tag/feature/notification/view/notification_screen.dart';
 import 'package:tag/feature/profile/view/profile_screen.dart';
 import 'package:tag/feature/report/view/report_screen.dart';
 import 'package:tag/feature/welcome/view/welcome_screen.dart';
@@ -29,6 +30,7 @@ class AppRoutes {
   static const String otpVerify = '/otpVerify';
   static const String bottomNav = '/bottomNav';
   static const String home = '/home';
+  static const String notification = '/notification';
   static const String load = '/load';
   static const String report = '/report';
   static const String profile = '/profile';
@@ -48,6 +50,7 @@ class AppRoutes {
     otpVerify: (context) => const OtpVerificationScreen(),
     bottomNav: (context) => const BottomNav(),
     home: (context) => const HomeScreen(),
+    notification: (context) => const NotificationScreen(),
     load: (context) => const LoadScreen(),
     report: (context) => const ReportScreen(),
     profile: (context) => const ProfileScreen(),
