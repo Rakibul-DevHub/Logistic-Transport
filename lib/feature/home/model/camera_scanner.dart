@@ -12,7 +12,6 @@ class CameraScanScreen extends StatefulWidget {
 
 class _CameraScanScreenState extends State<CameraScanScreen> {
   final ImagePicker _picker = ImagePicker();
-  bool _isLaunching = true;
 
   @override
   void initState() {

@@ -381,7 +381,7 @@ class HomeScreen extends StatelessWidget {
               final data = _getStatusData()[index];
 
               return SizedBox(
-                width: 180,
+                width: 160,
                 child: buildStatusCard(
                   title: data['title'],
                   count: data['count'],
@@ -413,7 +413,7 @@ class HomeScreen extends StatelessWidget {
         'color': const Color(0xFFEAAA08),
       },
       {
-        'title': 'Missing Expense',
+        'title': 'Expense',
         'count': '12',
         'icon': 'assets/icons/expense.svg',
         'color': const Color(0xFFD92D20),

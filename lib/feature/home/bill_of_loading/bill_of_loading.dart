@@ -48,7 +48,10 @@ class BillOfLoadingScreen extends StatelessWidget {
                         const SizedBox(height: 16),
                         Text(
                           'Failed to load image',
-                          style: TextStyle(color: Colors.grey[400], fontSize: 14),
+                          style: AppTextStyle.SFProDisplay_Regular.copyWith(
+                            color: Colors.grey[400],
+                            fontSize: 14,
+                          ),
                         ),
                         const SizedBox(height: 12),
                         ElevatedButton.icon(
@@ -93,9 +96,13 @@ class BillOfLoadingScreen extends StatelessWidget {
                         child: const Icon(Icons.close_rounded, color: Colors.white, size: 24),
                       ),
                     ),
-                    const Text(
+                    Text(
                       'Original Document',
-                      style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+                      style: AppTextStyle.SFProDisplay_Regular.copyWith(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     const SizedBox(width: 40),
                   ],
@@ -114,14 +121,18 @@ class BillOfLoadingScreen extends StatelessWidget {
                     borderRadius: BorderRadius.circular(24),
                     border: Border.all(color: Colors.white.withOpacity(0.2)),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.pinch_rounded, size: 16, color: Colors.white70),
-                      SizedBox(width: 8),
+                      const Icon(Icons.pinch_rounded, size: 16, color: Colors.white70),
+                      const SizedBox(width: 8),
                       Text(
                         'Pinch to zoom • Drag to pan',
-                        style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w500),
+                        style: AppTextStyle.SFProDisplay_Regular.copyWith(
+                          color: Colors.white70,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ],
                   ),
@@ -160,30 +171,45 @@ class BillOfLoadingScreen extends StatelessWidget {
               child: Icon(Icons.receipt_long_rounded, size: 48, color: AppColors.primaryColor),
             ),
             const SizedBox(height: 12),
-            Text('Scanned Document', style: TextStyle(color: Colors.grey[700], fontSize: 14, fontWeight: FontWeight.w500)),
+            Text(
+              'Scanned Document',
+              style: AppTextStyle.SFProDisplay_Regular.copyWith(
+                color: Colors.grey[700],
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
             const SizedBox(height: 4),
-            Text('Tap to view original', style: TextStyle(color: Colors.grey[500], fontSize: 12)),
+            Text(
+              'Tap to view original',
+              style: AppTextStyle.SFProDisplay_Regular.copyWith(
+                color: Colors.grey[500],
+                fontSize: 12,
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  /// Single Info Field Widget
+  /// Single Info Field Widget with full style support
   Widget _buildInfoField({
     required String label,
     required String value,
     IconData? icon,
     Color? valueColor,
+    TextStyle? customLabelStyle,
+    TextStyle? customValueStyle,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
-          style: const TextStyle(
+          style: (customLabelStyle ?? AppTextStyle.SFProDisplay_Regular).copyWith(
             fontSize: 11,
-            color: Color(0xFF6B7280),
+            color: const Color(0xFF6B7280),
             fontWeight: FontWeight.w500,
             letterSpacing: 0.3,
           ),
@@ -205,7 +231,7 @@ class BillOfLoadingScreen extends StatelessWidget {
               Expanded(
                 child: Text(
                   value,
-                  style: TextStyle(
+                  style: (customValueStyle ?? AppTextStyle.SFProDisplay_Regular).copyWith(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
                     color: valueColor ?? const Color(0xFF1E3A5F),
@@ -227,6 +253,10 @@ class BillOfLoadingScreen extends StatelessWidget {
     required String value2,
     IconData? icon1,
     IconData? icon2,
+    Color? valueColor1,
+    Color? valueColor2,
+    TextStyle? labelStyle,
+    TextStyle? valueStyle,
   }) {
     return Container(
       width: double.infinity,
@@ -241,39 +271,32 @@ class BillOfLoadingScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildInfoField(label: label1, value: value1, icon: icon1),
+          _buildInfoField(
+            label: label1,
+            value: value1,
+            icon: icon1,
+            valueColor: valueColor1,
+            customLabelStyle: labelStyle,
+            customValueStyle: valueStyle,
+          ),
           const SizedBox(height: 16),
-          _buildInfoField(label: label2, value: value2, icon: icon2),
+          _buildInfoField(
+            label: label2,
+            value: value2,
+            icon: icon2,
+            valueColor: valueColor2,
+            customLabelStyle: labelStyle,
+            customValueStyle: valueStyle,
+          ),
         ],
       ),
     );
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Location Card — Stack approach:
-  //
-  // Layout structure:
-  //   Row
-  //   ├── LEFT: SizedBox(width: iconSize)
-  //   │         Stack (fills the SizedBox height via IntrinsicHeight on the Row)
-  //   │         ├── Positioned line  →  top = iconSize/2, bottom = iconSize/2
-  //   │         │                       left = iconSize/2 - 1  (centered)
-  //   │         └── Column
-  //   │             ├── pickup SVG icon
-  //   │             └── delivery SVG icon  (no extra SizedBox; right column drives gap)
-  //   └── RIGHT: Expanded Column
-  //             ├── pickup field
-  //             ├── SizedBox(height: gap)   ← this gap stretches the line naturally
-  //             └── delivery field
-  //
-  // IntrinsicHeight makes the left Stack the same height as the right Column,
-  // so Positioned(bottom: iconSize/2) always lands exactly at the delivery icon centre.
-  // ─────────────────────────────────────────────────────────────────────────
+  /// Location Card with connecting line
   Widget _buildLocationCard() {
-    const double iconSize = 32.0; // explicit size for both SVG icons
+    const double iconSize = 32.0;
     const double lineWidth = 2.0;
-    // Gap between the bottom of the pickup info box and the top of the delivery label.
-    // Tweak this value if you want more/less breathing room.
     const double midGap = 20.0;
 
     Widget locationField({required String label, required String value}) {
@@ -282,9 +305,9 @@ class BillOfLoadingScreen extends StatelessWidget {
         children: [
           Text(
             label,
-            style: const TextStyle(
+            style: AppTextStyle.SFProDisplay_Regular.copyWith(
               fontSize: 11,
-              color: Color(0xFF6B7280),
+              color: const Color(0xFF6B7280),
               fontWeight: FontWeight.w500,
               letterSpacing: 0.3,
             ),
@@ -299,10 +322,10 @@ class BillOfLoadingScreen extends StatelessWidget {
             ),
             child: Text(
               value,
-              style: const TextStyle(
+              style: AppTextStyle.SFProDisplay_Regular.copyWith(
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF1E3A5F),
+                color: const Color(0xFF1E3A5F),
               ),
             ),
           ),
@@ -320,21 +343,16 @@ class BillOfLoadingScreen extends StatelessWidget {
           BoxShadow(color: Colors.grey.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, 2)),
         ],
       ),
-      // IntrinsicHeight lets the left Stack know the total height of the right Column,
-      // so the Positioned line can anchor to bottom correctly.
       child: IntrinsicHeight(
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── LEFT: icon column with Stack-based connector line ──────────
+            // LEFT: icon column with Stack-based connector line
             SizedBox(
               width: iconSize,
               child: Stack(
                 children: [
-                  // ① The connecting line — drawn BEHIND the icons.
-                  //    top    = centre of pickup icon  (iconSize / 2)
-                  //    bottom = centre of delivery icon (iconSize / 2 from bottom)
-                  //    left   = centre of column minus half line width
+                  // Connecting line drawn BEHIND the icons
                   Positioned(
                     top: iconSize / 2,
                     bottom: iconSize / 2,
@@ -347,20 +365,15 @@ class BillOfLoadingScreen extends StatelessWidget {
                       ),
                     ),
                   ),
-
-                  // ② The two icons — drawn ON TOP of the line.
-                  //    They are placed in a Column that matches the right column's
-                  //    height thanks to IntrinsicHeight + crossAxisAlignment.stretch.
+                  // Icons drawn ON TOP of the line
                   Column(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      // Pickup icon at the very top
                       SvgPicture.asset(
                         'assets/icons/pickup_location.svg',
                         width: iconSize,
                         height: iconSize,
                       ),
-                      // Delivery icon at the very bottom
                       SvgPicture.asset(
                         'assets/icons/delivery_location.svg',
                         width: iconSize,
@@ -371,10 +384,8 @@ class BillOfLoadingScreen extends StatelessWidget {
                 ],
               ),
             ),
-
             const SizedBox(width: 12),
-
-            // ── RIGHT: pickup field + gap + delivery field ──────────────────
+            // RIGHT: pickup field + gap + delivery field
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -383,7 +394,7 @@ class BillOfLoadingScreen extends StatelessWidget {
                     label: 'PICKUP LOCATION',
                     value: '1422 Industrial Way, Chicago, IL',
                   ),
-                  const SizedBox(height: midGap), // drives the line length
+                  const SizedBox(height: midGap),
                   locationField(
                     label: 'DELIVERY LOCATION',
                     value: '9900 Logistics Blvd, Dallas, TX',
@@ -442,10 +453,14 @@ class BillOfLoadingScreen extends StatelessWidget {
                         children: [
                           Icon(Icons.check_circle, color: AppColors.primaryColor, size: 20),
                           const SizedBox(width: 8),
-                          const Expanded(
+                          Expanded(
                             child: Text(
                               'OCR Extraction Complete. Please verify details.',
-                              style: TextStyle(fontSize: 14, color: Color(0xFF1E3A5F), fontWeight: FontWeight.w500),
+                              style: AppTextStyle.SFProDisplay_Regular.copyWith(
+                                fontSize: 14,
+                                color: const Color(0xFF1E3A5F),
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
                           ),
                         ],
@@ -522,7 +537,12 @@ class BillOfLoadingScreen extends StatelessWidget {
                                       const SizedBox(width: 8),
                                       Text(
                                         'View Original',
-                                        style: TextStyle(fontSize: 13, color: Colors.grey[800], fontWeight: FontWeight.w600, letterSpacing: 0.2),
+                                        style: AppTextStyle.SFProDisplay_Regular.copyWith(
+                                          fontSize: 13,
+                                          color: Colors.grey[800],
+                                          fontWeight: FontWeight.w600,
+                                          letterSpacing: 0.2,
+                                        ),
                                       ),
                                       const SizedBox(width: 4),
                                       Icon(Icons.arrow_forward_rounded, size: 14, color: Colors.grey[600]),
@@ -550,9 +570,13 @@ class BillOfLoadingScreen extends StatelessWidget {
                     const SizedBox(height: 24),
 
                     // Billing Details Header
-                    const Text(
+                    Text(
                       'Billing Details',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1E3A5F)),
+                      style: AppTextStyle.SFProDisplay_Regular.copyWith(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.blackColor,
+                      ),
                     ),
 
                     const SizedBox(height: 16),
@@ -584,12 +608,13 @@ class BillOfLoadingScreen extends StatelessWidget {
 
                     const SizedBox(height: 24),
 
-                    // Save Load & Continue
+                    // Save Load & Continue Button
                     CustomElevatedButton(
                       onPressed: () => Navigator.pop(context),
                       buttonText: 'Save Load & Continue',
-                      backgroundColor: const Color(0xFF1E3A5F),
-                      foregroundColor: Colors.white,
+                      textStyle: AppTextStyle.SFProDisplay_Regular,
+                      backgroundColor: AppColors.primaryColor,
+                      foregroundColor: AppColors.whiteColor,
                       height: 56,
                       isFullWidth: true,
                       hasShadow: false,
@@ -601,11 +626,12 @@ class BillOfLoadingScreen extends StatelessWidget {
 
                     const SizedBox(height: 12),
 
-                    // Retake Scan
+                    // Retake Scan Button
                     CustomElevatedButton(
                       onPressed: () => Navigator.pushReplacementNamed(context, AppRoutes.camScan),
                       hasShadow: false,
                       buttonText: 'Retake Scan',
+                      textStyle: AppTextStyle.SFProDisplay_Regular,
                       backgroundColor: AppColors.lightBlueColor,
                       foregroundColor: AppColors.primaryColor,
                       height: 56,
