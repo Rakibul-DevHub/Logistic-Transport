@@ -9,6 +9,7 @@
         android:maxSdkVersion="32"/>
 
 
+
     <application
         android:label="tag"
         android:name="${applicationName}"

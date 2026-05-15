@@ -6,6 +6,7 @@ class AppColors {
   AppColors._();
 
   static const Color primaryColor = Color(0XFF1F3555);
+  static const Color backgroundColor = Color(0XFFF3F3F3);
   static const Color primaryTextColor = Color(0XFF0F172A);
   static const Color secondaryTextColor = Color(0XFF64748B);
   static const Color border = Color(0XFF64748B);
@@ -14,6 +15,7 @@ class AppColors {
   static const Color expenseColor = Color(0XFFF59E0B);
   static const Color tabBarColor = Color(0XFFE2E8F0);
   static const Color textGreyColor = Color(0XFF64748B);
+  static const Color lightBlueColor = Color(0XFFE2E8F0);
 
 
   /// Loader gradient colors (added from the animation)

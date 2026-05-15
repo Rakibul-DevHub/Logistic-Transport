@@ -12,27 +12,19 @@ class CameraScanScreen extends StatefulWidget {
 
 class _CameraScanScreenState extends State<CameraScanScreen> {
   final ImagePicker _picker = ImagePicker();
-  bool _isProcessing = false;
+  bool _isLaunching = true;
 
   @override
   void initState() {
     super.initState();
     developer.log('📷 CameraScanScreen: initState called');
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _captureImage();
-    });
+    // Navigate to camera immediately
+    _captureImage();
   }
 
   Future<void> _captureImage() async {
-    if (_isProcessing) {
-      developer.log('⚠️ Already processing, skipping');
-      return;
-    }
-
-    developer.log('📷 Starting image capture...');
-    setState(() => _isProcessing = true);
-
     try {
+      developer.log('📷 Starting image capture...');
       final XFile? photo = await _picker.pickImage(
         source: ImageSource.camera,
         preferredCameraDevice: CameraDevice.rear,
@@ -41,29 +33,17 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
 
       developer.log('📷 Capture result: photo = ${photo?.path ?? "null"}');
 
-      if (photo != null) {
+      if (photo != null && mounted) {
         developer.log('✅ Photo captured: ${photo.path}');
-
-        // Simulate OCR processing
-        await Future.delayed(const Duration(milliseconds: 800));
-
-        if (mounted) {
-          developer.log('🔄 Navigating to BOL with path: ${photo.path}');
-
-          // ✅ CRITICAL: Use pushReplacementNamed with context
-          Navigator.pushReplacementNamed(
-            context,  // 👈 Make sure context is passed!
-            AppRoutes.bol,
-            arguments: photo.path,
-          );
-        } else {
-          developer.log('❌ Widget not mounted, cannot navigate');
-        }
-      } else {
-        developer.log('⚠️ User cancelled camera or no photo returned');
-        if (mounted) {
-          Navigator.pop(context);
-        }
+        // Navigate immediately - no delay
+        Navigator.pushReplacementNamed(
+          context,
+          AppRoutes.bol,
+          arguments: photo.path,
+        );
+      } else if (mounted) {
+        developer.log('⚠️ User cancelled camera');
+        Navigator.pop(context);
       }
     } catch (e, stack) {
       developer.log('❌ Error capturing image: $e', error: e, stackTrace: stack);
@@ -72,14 +52,10 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
           SnackBar(
             content: Text('Error: $e'),
             backgroundColor: Colors.red,
-            duration: const Duration(seconds: 3),
+            duration: const Duration(seconds: 2),
           ),
         );
         Navigator.pop(context);
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isProcessing = false);
       }
     }
   }
@@ -87,31 +63,11 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
   @override
   Widget build(BuildContext context) {
     developer.log('🎨 CameraScanScreen: build() called');
+    // Just show a black screen while launching - super fast
     return Scaffold(
       backgroundColor: Colors.black,
-      body: SafeArea(
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (_isProcessing) ...[
-                const CircularProgressIndicator(color: Colors.white),
-                const SizedBox(height: 16),
-                const Text(
-                  'Launching Camera...',
-                  style: TextStyle(color: Colors.white70, fontSize: 14),
-                ),
-              ] else ...[
-                const Icon(Icons.camera_alt, size: 60, color: Colors.white54),
-                const SizedBox(height: 16),
-                const Text(
-                  'Preparing to scan...',
-                  style: TextStyle(color: Colors.white70, fontSize: 14),
-                ),
-              ],
-            ],
-          ),
-        ),
+      body: const Center(
+        child: CircularProgressIndicator(color: Colors.white),
       ),
     );
   }

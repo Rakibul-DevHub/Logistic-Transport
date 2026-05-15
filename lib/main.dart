@@ -1,5 +1,6 @@
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:tag/core/constants/app_routes.dart';
 import 'feature/auth/cubit/auth_resigstration_cubit.dart';
@@ -14,6 +15,7 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     return MultiBlocProvider(
       providers: [
         // ✅ Provide AuthRegistrationCubit at app level

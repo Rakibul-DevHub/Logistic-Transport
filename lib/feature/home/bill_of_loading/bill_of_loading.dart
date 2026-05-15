@@ -1,390 +1,17 @@
-/**
-import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
-import 'package:tag/core/theme/app_text_style.dart';
-
-import '../../../core/theme/app_colors.dart';
-
-class BillOfLoadingScreen extends StatelessWidget {
-  final String imagePath;
-
-  const BillOfLoadingScreen({
-    super.key,
-    required this.imagePath,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FC),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Header
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black12,
-                    blurRadius: 4,
-                    offset: Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.arrow_back),
-                  ),
-                  const Text(
-                    'Scan bill of lading',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF1E3A5F),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // OCR Success Message
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFEFF6FF),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: const Color(0xFFDBEAFE),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                           Icon(
-                            Icons.check_circle,
-                            color: AppColors.primaryColor,
-                            size: 20,
-                          ),
-                          const SizedBox(width: 8),
-                           Expanded(
-                            child: Text(
-                              'OCR Extraction Complete. Please verify details.',
-                              style: AppTextStyle.SFProDisplay_Regular
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Document Preview
-                    Container(
-                      width: double.infinity,
-                      height: 200,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[200],
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.grey[300]!),
-                      ),
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.picture_as_pdf,
-                                  size: 60,
-                                  color: Colors.grey[400],
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  'Scanned Document',
-                                  style: TextStyle(
-                                    color: Colors.grey[600],
-                                    fontSize: 14,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Positioned(
-                            bottom: 12,
-                            right: 12,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(20),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.1),
-                                    blurRadius: 4,
-                                  ),
-                                ],
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.visibility,
-                                    size: 16,
-                                    color: Colors.grey[700],
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    'View Original',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey[700],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // Billing Details Section
-                    const Text(
-                      'Billing Details',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF1E3A5F),
-                      ),
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Load ID
-                    _buildDetailCard(
-                      label: 'LOAD ID',
-                      value: 'LD-882941-X',
-                      icon: Icons.confirmation_number,
-                    ),
-
-                    const SizedBox(height: 12),
-
-                    // Company/Broker
-                    _buildDetailCard(
-                      label: 'COMPANY/BROKER',
-                      value: 'SwiftLogix Global',
-                      icon: Icons.business,
-                    ),
-
-                    const SizedBox(height: 12),
-
-                    // Pickup Location
-                    _buildDetailCard(
-                      label: 'PICKUP LOCATION',
-                      value: '1422 Industrial Way, Chicago, IL',
-                      icon: Icons.location_on,
-                      iconColor: const Color(0xFF12B76A),
-                    ),
-
-                    const SizedBox(height: 12),
-
-                    // Delivery Location
-                    _buildDetailCard(
-                      label: 'DELIVERY LOCATION',
-                      value: '9900 Logistics Blvd, Dallas, TX',
-                      icon: Icons.location_on,
-                      iconColor: const Color(0xFFEF5350),
-                    ),
-
-                    const SizedBox(height: 12),
-
-                    // Shipment Date
-                    _buildDetailCard(
-                      label: 'SHIPMENT DATE',
-                      value: '05/24/2024',
-                      icon: Icons.calendar_today,
-                    ),
-
-                    const SizedBox(height: 12),
-
-                    // Rate
-                    _buildDetailCard(
-                      label: 'RATE (\$)',
-                      value: '\$ 2,450.00',
-                      icon: Icons.attach_money,
-                      valueColor: const Color(0xFF12B76A),
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // Save Load & Continue Button
-                    SizedBox(
-                      width: double.infinity,
-                      height: 56,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          // Navigate to next screen or save load
-                          Navigator.pop(context);
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF1E3A5F),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: const Text(
-                          'Save Load & Continue',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 12),
-
-                    // Retake Scan Button
-                    SizedBox(
-                      width: double.infinity,
-                      height: 56,
-                      child: OutlinedButton.icon(
-                        onPressed: () {
-                          Navigator.pop(context);
-                        },
-                        icon: const Icon(Icons.refresh),
-                        label: const Text(
-                          'Retake Scan',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF1E3A5F),
-                          ),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(
-                            color: Color(0xFF1E3A5F),
-                            width: 1.5,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 20),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDetailCard({
-    required String label,
-    required String value,
-    required IconData icon,
-    Color? iconColor,
-    Color? valueColor,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                icon,
-                size: 16,
-                color: iconColor ?? const Color(0xFF1E3A5F),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: valueColor ?? const Color(0xFF1E3A5F),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}*/
-
-
-
-
-
-
-
-
-
-
-
-
-
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:tag/core/theme/app_text_style.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:tag/core/theme/app_colors.dart';
-
+import 'package:tag/core/theme/app_text_style.dart';
 import '../../../core/constants/app_routes.dart';
+import '../../../shared/components/Custom_Elevated_Button.dart';
 
 class BillOfLoadingScreen extends StatelessWidget {
   final String imagePath;
 
-  const BillOfLoadingScreen({
-    super.key,
-    required this.imagePath,
-  });
+  const BillOfLoadingScreen({super.key, required this.imagePath});
 
-  /// ✅ Show captured image in full-screen dialog
+  /// Show captured image in full-screen dialog
   void _viewOriginalImage(BuildContext context) {
     if (imagePath.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -404,7 +31,6 @@ class BillOfLoadingScreen extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            // Full-screen zoomable image
             InteractiveViewer(
               panEnabled: true,
               boundaryMargin: const EdgeInsets.all(20),
@@ -418,11 +44,7 @@ class BillOfLoadingScreen extends StatelessWidget {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(
-                          Icons.broken_image_rounded,
-                          size: 80,
-                          color: Colors.grey[600],
-                        ),
+                        Icon(Icons.broken_image_rounded, size: 80, color: Colors.grey[600]),
                         const SizedBox(height: 16),
                         Text(
                           'Failed to load image',
@@ -444,7 +66,6 @@ class BillOfLoadingScreen extends StatelessWidget {
                 },
               ),
             ),
-            // Top bar with close button & title
             Positioned(
               top: 0,
               left: 0,
@@ -481,7 +102,6 @@ class BillOfLoadingScreen extends StatelessWidget {
                 ),
               ),
             ),
-            // Bottom hint: zoom instructions
             Positioned(
               bottom: 24,
               left: 0,
@@ -494,11 +114,11 @@ class BillOfLoadingScreen extends StatelessWidget {
                     borderRadius: BorderRadius.circular(24),
                     border: Border.all(color: Colors.white.withOpacity(0.2)),
                   ),
-                  child: Row(
+                  child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(Icons.pinch_rounded, size: 16, color: Colors.white70),
-                      const SizedBox(width: 8),
+                      SizedBox(width: 8),
                       Text(
                         'Pinch to zoom • Drag to pan',
                         style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w500),
@@ -514,7 +134,7 @@ class BillOfLoadingScreen extends StatelessWidget {
     );
   }
 
-  /// ✅ Build a beautiful placeholder when no image is available
+  /// Build placeholder when no image is available
   Widget _buildImagePlaceholder() {
     return Container(
       decoration: BoxDecoration(
@@ -549,42 +169,230 @@ class BillOfLoadingScreen extends StatelessWidget {
     );
   }
 
-  /// ✅ Detail Card Widget
-  Widget _buildDetailCard({
+  /// Single Info Field Widget
+  Widget _buildInfoField({
     required String label,
     required String value,
-    required IconData icon,
-    Color? iconColor,
+    IconData? icon,
     Color? valueColor,
   }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 11,
+            color: Color(0xFF6B7280),
+            fontWeight: FontWeight.w500,
+            letterSpacing: 0.3,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF3F4F6),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            children: [
+              if (icon != null) ...[
+                Icon(icon, size: 16, color: valueColor ?? const Color(0xFF1E3A5F)),
+                const SizedBox(width: 6),
+              ],
+              Expanded(
+                child: Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: valueColor ?? const Color(0xFF1E3A5F),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Card with two info fields
+  Widget _buildDoubleInfoCard({
+    required String label1,
+    required String value1,
+    required String label2,
+    required String value2,
+    IconData? icon1,
+    IconData? icon2,
+  }) {
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
-          BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 8, offset: const Offset(0, 2)),
+          BoxShadow(color: Colors.grey.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, 2)),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(icon, size: 16, color: iconColor ?? const Color(0xFF1E3A5F)),
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: const TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.w500),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
+          _buildInfoField(label: label1, value: value1, icon: icon1),
+          const SizedBox(height: 16),
+          _buildInfoField(label: label2, value: value2, icon: icon2),
+        ],
+      ),
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Location Card — Stack approach:
+  //
+  // Layout structure:
+  //   Row
+  //   ├── LEFT: SizedBox(width: iconSize)
+  //   │         Stack (fills the SizedBox height via IntrinsicHeight on the Row)
+  //   │         ├── Positioned line  →  top = iconSize/2, bottom = iconSize/2
+  //   │         │                       left = iconSize/2 - 1  (centered)
+  //   │         └── Column
+  //   │             ├── pickup SVG icon
+  //   │             └── delivery SVG icon  (no extra SizedBox; right column drives gap)
+  //   └── RIGHT: Expanded Column
+  //             ├── pickup field
+  //             ├── SizedBox(height: gap)   ← this gap stretches the line naturally
+  //             └── delivery field
+  //
+  // IntrinsicHeight makes the left Stack the same height as the right Column,
+  // so Positioned(bottom: iconSize/2) always lands exactly at the delivery icon centre.
+  // ─────────────────────────────────────────────────────────────────────────
+  Widget _buildLocationCard() {
+    const double iconSize = 32.0; // explicit size for both SVG icons
+    const double lineWidth = 2.0;
+    // Gap between the bottom of the pickup info box and the top of the delivery label.
+    // Tweak this value if you want more/less breathing room.
+    const double midGap = 20.0;
+
+    Widget locationField({required String label, required String value}) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
           Text(
-            value,
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: valueColor ?? const Color(0xFF1E3A5F)),
+            label,
+            style: const TextStyle(
+              fontSize: 11,
+              color: Color(0xFF6B7280),
+              fontWeight: FontWeight.w500,
+              letterSpacing: 0.3,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF3F4F6),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF1E3A5F),
+              ),
+            ),
           ),
         ],
+      );
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(color: Colors.grey.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, 2)),
+        ],
+      ),
+      // IntrinsicHeight lets the left Stack know the total height of the right Column,
+      // so the Positioned line can anchor to bottom correctly.
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── LEFT: icon column with Stack-based connector line ──────────
+            SizedBox(
+              width: iconSize,
+              child: Stack(
+                children: [
+                  // ① The connecting line — drawn BEHIND the icons.
+                  //    top    = centre of pickup icon  (iconSize / 2)
+                  //    bottom = centre of delivery icon (iconSize / 2 from bottom)
+                  //    left   = centre of column minus half line width
+                  Positioned(
+                    top: iconSize / 2,
+                    bottom: iconSize / 2,
+                    left: (iconSize / 2) - (lineWidth / 2),
+                    width: lineWidth,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: AppColors.lightBlueColor,
+                        borderRadius: BorderRadius.circular(lineWidth / 2),
+                      ),
+                    ),
+                  ),
+
+                  // ② The two icons — drawn ON TOP of the line.
+                  //    They are placed in a Column that matches the right column's
+                  //    height thanks to IntrinsicHeight + crossAxisAlignment.stretch.
+                  Column(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      // Pickup icon at the very top
+                      SvgPicture.asset(
+                        'assets/icons/pickup_location.svg',
+                        width: iconSize,
+                        height: iconSize,
+                      ),
+                      // Delivery icon at the very bottom
+                      SvgPicture.asset(
+                        'assets/icons/delivery_location.svg',
+                        width: iconSize,
+                        height: iconSize,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(width: 12),
+
+            // ── RIGHT: pickup field + gap + delivery field ──────────────────
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  locationField(
+                    label: 'PICKUP LOCATION',
+                    value: '1422 Industrial Way, Chicago, IL',
+                  ),
+                  const SizedBox(height: midGap), // drives the line length
+                  locationField(
+                    label: 'DELIVERY LOCATION',
+                    value: '9900 Logistics Blvd, Dallas, TX',
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -592,40 +400,36 @@ class BillOfLoadingScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FC),
+      appBar: AppBar(
+        backgroundColor: AppColors.backgroundColor,
+        surfaceTintColor: AppColors.backgroundColor,
+        centerTitle: true,
+        title: Text(
+          'Scan bill of lading',
+          style: AppTextStyle.SFProDisplay_Regular.copyWith(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        leading: InkWell(
+          onTap: () => Navigator.pop(context),
+          child: Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: SvgPicture.asset('assets/icons/back_button_with_circle.svg'),
+          ),
+        ),
+      ),
+      backgroundColor: AppColors.backgroundColor,
       body: SafeArea(
         child: Column(
           children: [
-            // Header
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2)),
-                ],
-              ),
-              child: Row(
-                children: [
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.arrow_back),
-                  ),
-                  const Text(
-                    'Scan bill of lading',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Color(0xFF1E3A5F)),
-                  ),
-                ],
-              ),
-            ),
-
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // OCR Success Message
+                    // OCR Success Banner
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(12),
@@ -638,10 +442,10 @@ class BillOfLoadingScreen extends StatelessWidget {
                         children: [
                           Icon(Icons.check_circle, color: AppColors.primaryColor, size: 20),
                           const SizedBox(width: 8),
-                          Expanded(
+                          const Expanded(
                             child: Text(
                               'OCR Extraction Complete. Please verify details.',
-                              style: AppTextStyle.SFProDisplay_Regular,
+                              style: TextStyle(fontSize: 14, color: Color(0xFF1E3A5F), fontWeight: FontWeight.w500),
                             ),
                           ),
                         ],
@@ -650,7 +454,7 @@ class BillOfLoadingScreen extends StatelessWidget {
 
                     const SizedBox(height: 16),
 
-                    // ✅ Document Preview - IMPROVED DESIGN
+                    // Document Preview
                     GestureDetector(
                       onTap: () => _viewOriginalImage(context),
                       child: Container(
@@ -672,7 +476,6 @@ class BillOfLoadingScreen extends StatelessWidget {
                           child: Stack(
                             fit: StackFit.expand,
                             children: [
-                              // Background: Show actual image or placeholder
                               if (imagePath.isNotEmpty && File(imagePath).existsSync())
                                 Image.file(
                                   File(imagePath),
@@ -681,8 +484,6 @@ class BillOfLoadingScreen extends StatelessWidget {
                                 )
                               else
                                 _buildImagePlaceholder(),
-
-                              // Overlay: Subtle gradient for better badge visibility
                               Positioned.fill(
                                 child: Container(
                                   decoration: BoxDecoration(
@@ -695,8 +496,6 @@ class BillOfLoadingScreen extends StatelessWidget {
                                   ),
                                 ),
                               ),
-
-                              // ✅ "View Original" Badge
                               Positioned(
                                 bottom: 14,
                                 right: 14,
@@ -723,12 +522,7 @@ class BillOfLoadingScreen extends StatelessWidget {
                                       const SizedBox(width: 8),
                                       Text(
                                         'View Original',
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          color: Colors.grey[800],
-                                          fontWeight: FontWeight.w600,
-                                          letterSpacing: 0.2,
-                                        ),
+                                        style: TextStyle(fontSize: 13, color: Colors.grey[800], fontWeight: FontWeight.w600, letterSpacing: 0.2),
                                       ),
                                       const SizedBox(width: 4),
                                       Icon(Icons.arrow_forward_rounded, size: 14, color: Colors.grey[600]),
@@ -736,8 +530,6 @@ class BillOfLoadingScreen extends StatelessWidget {
                                   ),
                                 ),
                               ),
-
-                              // Tap Indicator: Subtle ripple effect
                               Positioned.fill(
                                 child: Material(
                                   color: Colors.transparent,
@@ -757,7 +549,7 @@ class BillOfLoadingScreen extends StatelessWidget {
 
                     const SizedBox(height: 24),
 
-                    // Billing Details Section
+                    // Billing Details Header
                     const Text(
                       'Billing Details',
                       style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1E3A5F)),
@@ -765,81 +557,65 @@ class BillOfLoadingScreen extends StatelessWidget {
 
                     const SizedBox(height: 16),
 
-                    // Load ID
-                    _buildDetailCard(label: 'LOAD ID', value: 'LD-882941-X', icon: Icons.confirmation_number),
-                    const SizedBox(height: 12),
-
-                    // Company/Broker
-                    _buildDetailCard(label: 'COMPANY/BROKER', value: 'SwiftLogix Global', icon: Icons.business),
-                    const SizedBox(height: 12),
-
-                    // Pickup Location
-                    _buildDetailCard(
-                      label: 'PICKUP LOCATION',
-                      value: '1422 Industrial Way, Chicago, IL',
-                      icon: Icons.location_on,
-                      iconColor: const Color(0xFF12B76A),
+                    // CARD 1: LOAD ID + COMPANY/BROKER
+                    _buildDoubleInfoCard(
+                      label1: 'LOAD ID',
+                      value1: 'LD-882941-X',
+                      label2: 'COMPANY/BROKER',
+                      value2: 'SwiftLogix Global',
                     ),
+
                     const SizedBox(height: 12),
 
-                    // Delivery Location
-                    _buildDetailCard(
-                      label: 'DELIVERY LOCATION',
-                      value: '9900 Logistics Blvd, Dallas, TX',
-                      icon: Icons.location_on,
-                      iconColor: const Color(0xFFEF5350),
-                    ),
+                    // CARD 2: PICKUP + DELIVERY (Stack-connected line)
+                    _buildLocationCard(),
+
                     const SizedBox(height: 12),
 
-                    // Shipment Date
-                    _buildDetailCard(label: 'SHIPMENT DATE', value: '05/24/2024', icon: Icons.calendar_today),
-                    const SizedBox(height: 12),
-
-                    // Rate
-                    _buildDetailCard(
-                      label: 'RATE (\$)',
-                      value: '\$ 2,450.00',
-                      icon: Icons.attach_money,
-                      valueColor: const Color(0xFF12B76A),
+                    // CARD 3: SHIPMENT DATE + RATE
+                    _buildDoubleInfoCard(
+                      label1: 'SHIPMENT DATE',
+                      value1: '05/24/2024',
+                      icon1: Icons.calendar_today_outlined,
+                      label2: 'RATE (\$)',
+                      value2: '2,450.00',
+                      icon2: Icons.attach_money,
                     ),
 
                     const SizedBox(height: 24),
 
-                    // Save Load & Continue Button
-                    SizedBox(
-                      width: double.infinity,
+                    // Save Load & Continue
+                    CustomElevatedButton(
+                      onPressed: () => Navigator.pop(context),
+                      buttonText: 'Save Load & Continue',
+                      backgroundColor: const Color(0xFF1E3A5F),
+                      foregroundColor: Colors.white,
                       height: 56,
-                      child: ElevatedButton(
-                        onPressed: () => Navigator.pop(context),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF1E3A5F),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                        child: const Text(
-                          'Save Load & Continue',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white),
-                        ),
-                      ),
+                      isFullWidth: true,
+                      hasShadow: false,
+                      elevation: 2,
+                      borderRadius: BorderRadius.circular(30),
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
                     ),
 
                     const SizedBox(height: 12),
 
-                    // Retake Scan Button
-                    SizedBox(
-                      width: double.infinity,
+                    // Retake Scan
+                    CustomElevatedButton(
+                      onPressed: () => Navigator.pushReplacementNamed(context, AppRoutes.camScan),
+                      hasShadow: false,
+                      buttonText: 'Retake Scan',
+                      backgroundColor: AppColors.lightBlueColor,
+                      foregroundColor: AppColors.primaryColor,
                       height: 56,
-                      child: OutlinedButton.icon(
-                        onPressed: () => Navigator.pushReplacementNamed(context, AppRoutes.camScan),
-                        icon: const Icon(Icons.refresh),
-                        label: const Text(
-                          'Retake Scan',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF1E3A5F)),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: Color(0xFF1E3A5F), width: 1.5),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                      ),
+                      isFullWidth: true,
+                      isOutlined: false,
+                      borderRadius: BorderRadius.circular(30),
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      icon: const Icon(Icons.refresh),
+                      gap: 8,
                     ),
 
                     const SizedBox(height: 20),
