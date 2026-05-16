@@ -38,7 +38,7 @@ class MyApp extends StatelessWidget {
         ),
 
         // initialRoute: AppRoutes.splash,
-        initialRoute: AppRoutes.bottomNav,
+        initialRoute: AppRoutes.loadDetails,
         routes: AppRoutes.routes,
 
         // ✅ Optional: Handle unknown routes gracefully
