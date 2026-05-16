@@ -44,7 +44,7 @@ class _LoadDetailsScreenState extends State<LoadDetailsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F6FA),
+      backgroundColor: AppColors.backgroundColor,
       appBar: _buildAppBar(),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -101,7 +101,7 @@ class _LoadDetailsScreenState extends State<LoadDetailsScreen> {
             const SizedBox(height: 8),
             CustomElevatedButton(
               onPressed: () {},
-              buttonText: 'Upload POD',
+              buttonText: 'Upload POD/Signed BOL',
               backgroundColor: AppColors.primaryColor,
               foregroundColor: AppColors.whiteColor,
               height: 48,
@@ -110,7 +110,10 @@ class _LoadDetailsScreenState extends State<LoadDetailsScreen> {
               hasShadow: false,
               icon: SvgPicture.asset(
                 'assets/icons/upload.svg',
-                color: AppColors.whiteColor,
+                colorFilter: const ColorFilter.mode(
+                  AppColors.whiteColor,
+                  BlendMode.srcIn,
+                ),
               ),
               gap: 8,
               fontSize: 14,
@@ -125,10 +128,15 @@ class _LoadDetailsScreenState extends State<LoadDetailsScreen> {
 
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
-      backgroundColor: Colors.white,
-      elevation: 0.5,
-      shadowColor: Colors.black12,
-      leading: const BackButton(color: Color(0xFF1A3C6E)),
+      backgroundColor: AppColors.backgroundColor,
+      surfaceTintColor: AppColors.backgroundColor,
+      leading: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: Container(
+          decoration: BoxDecoration(borderRadius: BorderRadius.circular(30),color: AppColors.whiteColor,),
+          child: const BackButton(color: AppColors.primaryColor),
+        ),
+      ),
       title: const Text(
         'Load details',
         style: TextStyle(
@@ -314,7 +322,7 @@ class _LoadDetailsScreenState extends State<LoadDetailsScreen> {
                     SvgPicture.asset('assets/icons/money.svg',),
                     SizedBox(width: 4),
                     Text(
-                      'INCOME (RATE)',
+                      'INCOME',
                       style: TextStyle(
                         fontSize: 9.5,
                         color: Color(0xFF888888),
