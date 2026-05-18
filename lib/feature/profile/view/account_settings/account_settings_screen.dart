@@ -437,7 +437,6 @@ class _AccountSettingScreenState extends State<AccountSettingScreen> {
               color: Color(0xFF1A1A2E),
             ),
             decoration: InputDecoration(
-              hintText: '**********',
               hintStyle: const TextStyle(
                 fontSize: 14,
                 color: Color(0xFFB0B0B0),

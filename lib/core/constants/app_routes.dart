@@ -12,6 +12,7 @@ import 'package:tag/feature/load/view/load_screen.dart';
 import 'package:tag/feature/load/view/pod_screen.dart';
 import 'package:tag/feature/notification/view/notification_screen.dart';
 import 'package:tag/feature/profile/view/account_settings/account_settings_screen.dart';
+import 'package:tag/feature/profile/view/manage_drivers/drivers_screen.dart';
 import 'package:tag/feature/profile/view/profile_screen.dart';
 import 'package:tag/feature/report/view/report_screen.dart';
 import 'package:tag/feature/welcome/view/welcome_screen.dart';
@@ -48,6 +49,7 @@ class AppRoutes {
   static const String report = '/report';
   static const String profile = '/profile';
   static const String accoutnSettings = '/accoutnSettings';
+  static const String drivers = '/drivers';
 
   ///
   /// ==============Route map
@@ -79,6 +81,7 @@ class AppRoutes {
     report: (context) => const ReportScreen(),
     profile: (context) => const ProfileScreen(),
     accoutnSettings: (context) => const AccountSettingScreen(),
+    drivers: (context) => const DriversScreen(),
 
   };
 }

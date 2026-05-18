@@ -96,7 +96,9 @@ class ProfileScreen extends StatelessWidget {
               iconPath: 'assets/icons/manage_drivers.svg',
               title: 'Manage Drivers',
               subtitle: 'Add, remove Drivers',
-              onTap: () {},
+              onTap: () {
+                Navigator.pushNamed(context, AppRoutes.drivers);
+              },
             ),
             _buildMenuItem(
               iconPath: 'assets/icons/accountant.svg',
