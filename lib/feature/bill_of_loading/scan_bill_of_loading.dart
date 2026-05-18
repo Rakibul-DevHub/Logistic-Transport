@@ -732,9 +732,9 @@ class _ScanBillOfLoadingScreenState extends State<ScanBillOfLoadingScreen> {
 
                     // Retake Scan Button
                     CustomElevatedButton(
-                      onPressed: () => Navigator.pushReplacementNamed(context, AppRoutes.camScan),
+                      onPressed: () {},
                       hasShadow: false,
-                      buttonText: 'Retake Scan',
+                      buttonText: 'Save & assign load to a driver',
                       textStyle: AppTextStyle.SFProDisplay_Regular,
                       backgroundColor: AppColors.lightBlueColor,
                       foregroundColor: AppColors.primaryColor,
@@ -744,7 +744,6 @@ class _ScanBillOfLoadingScreenState extends State<ScanBillOfLoadingScreen> {
                       borderRadius: BorderRadius.circular(30),
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
-                      icon: const Icon(Icons.document_scanner_outlined),
                       gap: 8,
                     ),
 
