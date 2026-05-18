@@ -104,7 +104,9 @@ class ProfileScreen extends StatelessWidget {
               iconPath: 'assets/icons/accountant.svg',
               title: 'Accountant',
               subtitle: 'Contact Accountant',
-              onTap: () {},
+              onTap: () {
+                Navigator.pushNamed(context, AppRoutes.sendToAccountantScreen);
+              },
             ),
             _buildMenuItem(
               iconPath: 'assets/icons/subscription.svg',

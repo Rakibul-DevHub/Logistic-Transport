@@ -12,6 +12,7 @@ import 'package:tag/feature/load/view/load_screen.dart';
 import 'package:tag/feature/load/view/pod_screen.dart';
 import 'package:tag/feature/notification/view/notification_screen.dart';
 import 'package:tag/feature/profile/view/account_settings/account_settings_screen.dart';
+import 'package:tag/feature/profile/view/accountant/accountant_screen.dart';
 import 'package:tag/feature/profile/view/manage_drivers/drivers_screen.dart';
 import 'package:tag/feature/profile/view/profile_screen.dart';
 import 'package:tag/feature/report/view/report_screen.dart';
@@ -49,6 +50,7 @@ class AppRoutes {
   static const String report = '/report';
   static const String profile = '/profile';
   static const String accoutnSettings = '/accoutnSettings';
+  static const String sendToAccountantScreen = '/sendToAccountantScreen';
   static const String drivers = '/drivers';
 
   ///
@@ -81,6 +83,7 @@ class AppRoutes {
     report: (context) => const ReportScreen(),
     profile: (context) => const ProfileScreen(),
     accoutnSettings: (context) => const AccountSettingScreen(),
+    sendToAccountantScreen: (context) => const SendToAccountantScreen(),
     drivers: (context) => const DriversScreen(),
 
   };
