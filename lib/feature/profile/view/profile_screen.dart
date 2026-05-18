@@ -112,7 +112,10 @@ class ProfileScreen extends StatelessWidget {
               iconPath: 'assets/icons/subscription.svg',
               title: 'Subscription',
               subtitle: 'Current Plan: FREE',
-              onTap: () {},
+              onTap: () {
+                Navigator.pushNamed(context, AppRoutes.subscriptionScreen);
+
+              },
             ),
             _buildMenuItem(
               iconPath: 'assets/icons/app_preferences.svg',

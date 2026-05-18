@@ -15,6 +15,7 @@ import 'package:tag/feature/profile/view/account_settings/account_settings_scree
 import 'package:tag/feature/profile/view/accountant/accountant_screen.dart';
 import 'package:tag/feature/profile/view/manage_drivers/drivers_screen.dart';
 import 'package:tag/feature/profile/view/profile_screen.dart';
+import 'package:tag/feature/profile/view/subscription/subscription_screen.dart';
 import 'package:tag/feature/report/view/report_screen.dart';
 import 'package:tag/feature/welcome/view/welcome_screen.dart';
 import 'package:tag/shared/widget/bottom_nav.dart';
@@ -50,6 +51,8 @@ class AppRoutes {
   static const String report = '/report';
   static const String profile = '/profile';
   static const String accoutnSettings = '/accoutnSettings';
+  static const String subscriptionScreen = '/subscriptionScreen';
+  static const String subscriptionScreen = '/subscriptionScreen';
   static const String sendToAccountantScreen = '/sendToAccountantScreen';
   static const String drivers = '/drivers';
 
@@ -83,6 +86,8 @@ class AppRoutes {
     report: (context) => const ReportScreen(),
     profile: (context) => const ProfileScreen(),
     accoutnSettings: (context) => const AccountSettingScreen(),
+    subscriptionScreen: (context) => const SubscriptionScreen(),
+    subscriptionScreen: (context) => const SubscriptionScreen(),
     sendToAccountantScreen: (context) => const SendToAccountantScreen(),
     drivers: (context) => const DriversScreen(),
 
