@@ -37,8 +37,8 @@ class MyApp extends StatelessWidget {
           // Optional: Add your custom text themes, input decorations, etc.
         ),
 
-        // initialRoute: AppRoutes.splash,
-        initialRoute: AppRoutes.bottomNav,
+        initialRoute: AppRoutes.splash,
+        // initialRoute: AppRoutes.bottomNav,
         routes: AppRoutes.routes,
 
         // ✅ Optional: Handle unknown routes gracefully

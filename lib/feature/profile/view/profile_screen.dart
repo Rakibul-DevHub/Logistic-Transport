@@ -130,7 +130,10 @@ class ProfileScreen extends StatelessWidget {
               iconPath: 'assets/icons/help_support.svg',
               title: 'Help & Support',
               subtitle: 'FAQs and Customer Center',
-              onTap: () {},
+              onTap: () {
+                Navigator.pushNamed(context, AppRoutes.helpSupportScreen);
+
+              },
             ),
             const SizedBox(height: 16),
 
