@@ -5,16 +5,13 @@ import 'package:tag/core/constants/app_routes.dart';
 import 'feature/auth/cubit/auth_registration_cubit.dart';
 
 void main() {
-  // Essential initialization only
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Set system UI (no await needed)
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
 
-  // Optional: Lock orientation if your app doesn't need rotation
+  // Lock orientation for consistent UI
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
-    // DeviceOrientation.portraitDown,
+    DeviceOrientation.portraitDown,
   ]);
 
   runApp(const MyApp());
@@ -29,7 +26,6 @@ class MyApp extends StatelessWidget {
       providers: [
         BlocProvider(
           create: (context) => AuthRegistrationCubit(),
-          // lazy: true is default, no need to specify
         ),
       ],
       child: MaterialApp(
@@ -40,4 +36,5 @@ class MyApp extends StatelessWidget {
       ),
     );
   }
+
 }
