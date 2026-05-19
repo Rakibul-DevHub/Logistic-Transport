@@ -10,46 +10,50 @@ class BottomNav extends StatefulWidget {
 }
 
 class _BottomNavState extends State<BottomNav> {
-  int _selectedIndex = 0; // Default to Load screen
+  int _selectedIndex = 0;
 
-
-
-  late final List<Widget> _screens = [
-    AppRoutes.routes[AppRoutes.home]!(context),      // HomeScreen
-    AppRoutes.routes[AppRoutes.load]!(context),      // LoadScreen
-    AppRoutes.routes[AppRoutes.report]!(context),    // ReportScreen
-    AppRoutes.routes[AppRoutes.profile]!(context),   // ProfileScreen
-  ];
-
-
-  // Navigation items configuration
   final List<NavItem> _navItems = [
-    NavItem(
+    const NavItem(
       label: 'Home',
       iconOutline: 'assets/icons/home.svg',
       iconFilled: 'assets/icons/home_select.svg',
     ),
-    NavItem(
+    const NavItem(
       label: 'Load',
       iconOutline: 'assets/icons/load.svg',
       iconFilled: 'assets/icons/load_select.svg',
     ),
-    NavItem(
+    const NavItem(
       label: 'Report',
       iconOutline: 'assets/icons/report.svg',
       iconFilled: 'assets/icons/report_select.svg',
     ),
-    NavItem(
+    const NavItem(
       label: 'Profile',
       iconOutline: 'assets/icons/profile.svg',
       iconFilled: 'assets/icons/profile_select.svg',
     ),
   ];
 
+  // ✅ Method to get screens dynamically (lazy initialization)
+  List<Widget> _getScreens() {
+    return [
+      AppRoutes.routes[AppRoutes.home]!(context),
+      AppRoutes.routes[AppRoutes.load]!(context),
+      AppRoutes.routes[AppRoutes.report]!(context),
+      AppRoutes.routes[AppRoutes.profile]!(context),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
+    final screens = _getScreens(); // Get fresh screens each time (optional)
+
     return Scaffold(
-      body: _screens[_selectedIndex],
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: screens,
+      ),
       bottomNavigationBar: _buildBottomNav(),
     );
   }
@@ -95,7 +99,6 @@ class _BottomNavState extends State<BottomNav> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // SVG Icon with color change based on selection
             SvgPicture.asset(
               isSelected ? item.iconFilled : item.iconOutline,
               width: 24,
@@ -117,13 +120,13 @@ class _BottomNavState extends State<BottomNav> {
   }
 }
 
-// Navigation item model
+// ✅ Added const constructor
 class NavItem {
   final String label;
   final String iconOutline;
   final String iconFilled;
 
-  NavItem({
+  const NavItem({
     required this.label,
     required this.iconOutline,
     required this.iconFilled,
