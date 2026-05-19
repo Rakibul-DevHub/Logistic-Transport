@@ -7,7 +7,7 @@ import 'package:pinput/pinput.dart';
 import 'package:tag/core/theme/app_colors.dart';
 import 'package:tag/core/theme/app_text_style.dart';
 import '../../../core/constants/app_routes.dart';
-import '../cubit/auth_resigstration_cubit.dart';
+import '../cubit/auth_registration_cubit.dart';
 import '../../../shared/components/custom_background.dart';
 import '../../../shared/components/Custom_Elevated_Button.dart';
 

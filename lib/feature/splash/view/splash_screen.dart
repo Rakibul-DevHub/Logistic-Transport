@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -23,7 +22,6 @@ class _SplashView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Listen for navigation trigger
     return BlocListener<SplashCubit, SplashState>(
       listener: (context, state) {
         if (state is SplashNavigate) {
@@ -33,17 +31,14 @@ class _SplashView extends StatelessWidget {
       child: Scaffold(
         backgroundColor: const Color(0xFFF5F7FA),
         body: SafeArea(
-          child: Column(
+          child: const Column(
             children: [
-              // Center: Your Image (No Text)
-              const Expanded(
+              Expanded(
                 child: Center(
-                  child: _CenterImage(),
+                  child: _SplashImage(),
                 ),
               ),
-
-              // Bottom: Custom Loader
-              const _LoaderSection(),
+              _LoaderWidget(),
             ],
           ),
         ),
@@ -52,51 +47,80 @@ class _SplashView extends StatelessWidget {
   }
 
   void _navigateToNext(BuildContext context) {
-    Navigator.pushNamed(context, AppRoutes.onboard);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (context.mounted) {
+        Navigator.pushReplacementNamed(context, AppRoutes.onboard);
+      }
+    });
   }
 }
 
-// ============ UI Widgets (Keep them private & focused) ============
+// Optimized image widget with caching
+class _SplashImage extends StatefulWidget {
+  const _SplashImage();
 
-class _CenterImage extends StatelessWidget {
-  const _CenterImage();
+  @override
+  State<_SplashImage> createState() => _SplashImageState();
+}
+
+class _SplashImageState extends State<_SplashImage> {
+  static Widget? _cachedImage; // Static cache shared across instances
+
+  @override
+  void initState() {
+    super.initState();
+    // Create cached image only once for the entire app lifecycle
+    _cachedImage ??= SvgPicture.asset(
+      'assets/images/splash_image.svg',
+      fit: BoxFit.contain,
+      width: 250,
+      height: 250,
+      placeholderBuilder: (context) => const SizedBox.shrink(),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(maxWidth: 280, maxHeight: 280),
-      padding: const EdgeInsets.all(0),
-      child: SvgPicture.asset(
-        'assets/images/splash_image.svg',
-        width: MediaQuery.of(context).size.width,
-        height: 250,
-        fit: BoxFit.contain,
-      ),
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: 280, maxHeight: 280),
+      child: _ResponsiveImage(),
     );
   }
 }
 
-class _LoaderSection extends StatelessWidget {
-  const _LoaderSection();
+// Separate widget for responsive sizing
+class _ResponsiveImage extends StatelessWidget {
+  const _ResponsiveImage();
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 48),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Your custom GradientArcLoader
-          GradientArcLoader(
-            size: 72,
-            duration: const Duration(milliseconds: 1400),
-          ),
-        ],
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SizedBox(
+          width: constraints.maxWidth,
+          height: constraints.maxHeight,
+          child: _SplashImageState._cachedImage ?? const SizedBox.shrink(),
+        );
+      },
     );
   }
 }
 
+// Optimized loader widget
+class _LoaderWidget extends StatelessWidget {
+  const _LoaderWidget();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.only(bottom: 48),
+      child: GradientArcLoader(
+        size: 72,
+        duration: Duration(milliseconds: 1400),
+      ),
+    );
+  }
+}
 
 
 

@@ -5,7 +5,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:tag/core/constants/app_routes.dart';
 import 'package:tag/core/theme/app_colors.dart';
 import 'package:tag/core/theme/app_text_style.dart';
-import '../cubit/auth_resigstration_cubit.dart';
+import '../cubit/auth_registration_cubit.dart';
 import '../../../shared/components/Custom_Elevated_Button.dart';
 import '../../../shared/components/custom_background.dart';
 

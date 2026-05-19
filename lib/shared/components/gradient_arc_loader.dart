@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
 /// A reusable rotating arc loader that fades from dark navy → steel blue → transparent
@@ -13,7 +14,7 @@ import 'package:flutter/material.dart';
 class GradientArcLoader extends StatefulWidget {
   final double size;
   final Duration duration;
-  final Color? backgroundColor; // Optional background color override
+  final Color? backgroundColor;
 
   const GradientArcLoader({
     super.key,
@@ -52,8 +53,9 @@ class _GradientArcLoaderState extends State<GradientArcLoader>
       builder: (context, child) {
         return CustomPaint(
           size: Size(widget.size, widget.size),
-          painter: _GradientArcPainter(
+          painter: _OptimizedGradientArcPainter(
             progress: _controller.value,
+            size: widget.size,
           ),
         );
       },
@@ -61,31 +63,47 @@ class _GradientArcLoaderState extends State<GradientArcLoader>
   }
 }
 
-class _GradientArcPainter extends CustomPainter {
+class _OptimizedGradientArcPainter extends CustomPainter {
   final double progress;
+  final double size;
 
-  _GradientArcPainter({required this.progress});
+  // Pre-calculated constants
+  static const double _sweepAngle = 5.7; // ~326 degrees in radians
+  static const int _segments = 40; // Reduced from 120 to 40 segments (66% reduction)
+
+  // Pre-cached colors for better performance
+  static final List<Color> _gradientColors = _buildGradientColors();
+
+  _OptimizedGradientArcPainter({
+    required this.progress,
+    required this.size,
+  });
+
+  static List<Color> _buildGradientColors() {
+    return [
+      const Color(0x00C8D3E0), // transparent
+      const Color(0xFFBDCAD8), // light silvery blue
+      const Color(0xFF7A90A8), // medium steel blue
+      const Color(0xFF2B3F5E), // dark navy
+    ];
+  }
 
   @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final strokeWidth = size.width * 0.155;
-    final radius = (size.width - strokeWidth) / 2;
+  void paint(Canvas canvas, Size canvasSize) {
+    final center = Offset(size / 2, size / 2);
+    final strokeWidth = size * 0.155;
+    final radius = (size - strokeWidth) / 2;
 
     // Rotation angle based on animation progress
     final rotation = 2 * math.pi * progress;
 
-    // Arc sweep: ~300 degrees (the arc doesn't fully close)
-    const sweepAngle = 5.7; // ~326 degrees in radians
-
-    // The arc starts at the "transparent" end and ends at the "dark" end.
-    _drawGradientArc(
+    // Draw the gradient arc using optimized segment approach
+    _drawOptimizedGradientArc(
       canvas: canvas,
       center: center,
       radius: radius,
       strokeWidth: strokeWidth,
       startAngle: rotation,
-      sweepAngle: sweepAngle,
     );
 
     // Draw rounded cap at the dark (tail) end
@@ -93,29 +111,23 @@ class _GradientArcPainter extends CustomPainter {
       canvas: canvas,
       center: center,
       radius: radius,
-      angle: rotation + sweepAngle,
+      angle: rotation + _sweepAngle,
       strokeWidth: strokeWidth,
     );
   }
 
-  void _drawGradientArc({
+  void _drawOptimizedGradientArc({
     required Canvas canvas,
     required Offset center,
     required double radius,
     required double strokeWidth,
     required double startAngle,
-    required double sweepAngle,
   }) {
-    // Approximate the gradient arc by drawing many small segments
-    const segments = 120;
-    final anglePerSegment = sweepAngle / segments;
+    final anglePerSegment = _sweepAngle / _segments;
 
-    for (final i in List.generate(segments, (i) => i)) {
-      final t = i / segments; // 0 = transparent end, 1 = dark end
-      final color = _lerpColor(t);
-
-      final segmentStart = startAngle + i * anglePerSegment;
-      final segmentSweep = anglePerSegment + 0.002; // tiny overlap to avoid gaps
+    for (int i = 0; i < _segments; i++) {
+      final t = i / _segments;
+      final color = _getColorAtPoint(t);
 
       final paint = Paint()
         ..color = color
@@ -123,41 +135,41 @@ class _GradientArcPainter extends CustomPainter {
         ..strokeWidth = strokeWidth
         ..strokeCap = StrokeCap.butt;
 
+      final segmentStart = startAngle + i * anglePerSegment;
       final rect = Rect.fromCircle(center: center, radius: radius);
-      canvas.drawArc(rect, segmentStart, segmentSweep, false, paint);
+
+      // Draw slightly larger segments to avoid gaps
+      canvas.drawArc(rect, segmentStart, anglePerSegment + 0.002, false, paint);
     }
   }
 
-  Color _lerpColor(double t) {
+  Color _getColorAtPoint(double t) {
+    // Optimized color interpolation without function calls
     if (t < 0.35) {
-      // transparent → light silvery blue
       final localT = t / 0.35;
+      final easedT = localT * localT; // _easeIn inline
       return Color.lerp(
-        const Color(0x00C8D3E0), // fully transparent
-        const Color(0xFFBDCAD8), // light silvery blue
-        _easeIn(localT),
+        _gradientColors[0],
+        _gradientColors[1],
+        easedT,
       )!;
     } else if (t < 0.65) {
-      // light silver → medium steel blue
       final localT = (t - 0.35) / 0.30;
       return Color.lerp(
-        const Color(0xFFBDCAD8), // light silver
-        const Color(0xFF7A90A8), // medium steel blue
+        _gradientColors[1],
+        _gradientColors[2],
         localT,
       )!;
     } else {
-      // medium steel → dark navy
       final localT = (t - 0.65) / 0.35;
+      final easedT = 1 - (1 - localT) * (1 - localT); // _easeOut inline
       return Color.lerp(
-        const Color(0xFF7A90A8), // medium steel blue
-        const Color(0xFF2B3F5E), // dark navy
-        _easeOut(localT),
+        _gradientColors[2],
+        _gradientColors[3],
+        easedT,
       )!;
     }
   }
-
-  double _easeIn(double t) => t * t;
-  double _easeOut(double t) => 1 - (1 - t) * (1 - t);
 
   void _drawRoundedCap({
     required Canvas canvas,
@@ -172,14 +184,14 @@ class _GradientArcPainter extends CustomPainter {
     );
 
     final capPaint = Paint()
-      ..color = const Color(0xFF2B3F5E)
+      ..color = _gradientColors[3] // Dark navy
       ..style = PaintingStyle.fill;
 
     canvas.drawCircle(capCenter, strokeWidth / 2, capPaint);
   }
 
   @override
-  bool shouldRepaint(_GradientArcPainter oldDelegate) {
-    return oldDelegate.progress != progress;
+  bool shouldRepaint(_OptimizedGradientArcPainter oldDelegate) {
+    return oldDelegate.progress != progress || oldDelegate.size != size;
   }
 }
