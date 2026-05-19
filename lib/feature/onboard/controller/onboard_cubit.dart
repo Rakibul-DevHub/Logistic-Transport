@@ -1,80 +1,51 @@
-// import 'package:flutter_bloc/flutter_bloc.dart';
-//
-// class OnboardingCubit extends Cubit<int> {
-//   final int totalPages;
-//
-//   OnboardingCubit(this.totalPages) : super(0);
-//
-//   void setPage(int index) {
-//     if (index >= 0 && index < totalPages) {
-//       emit(index);
-//     }
-//   }
-//
-//   void nextPage() {
-//     if (state < totalPages - 1) {
-//       emit(state + 1);
-//     }
-//   }
-//
-//   bool get isLastPage => state == totalPages - 1;
-// }
-
-
-
-
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:equatable/equatable.dart';
 
-// States
-abstract class OnboardingState {
+// ============ States ============
+abstract class OnboardingState extends Equatable {
   final int currentIndex;
   const OnboardingState(this.currentIndex);
+
+  @override
+  List<Object?> get props => [currentIndex];
 }
 
 class OnboardingInitial extends OnboardingState {
-  const OnboardingInitial(int currentIndex) : super(currentIndex);
+  const OnboardingInitial(super.currentIndex);
 }
 
 class OnboardingPageChanged extends OnboardingState {
-  const OnboardingPageChanged(int currentIndex) : super(currentIndex);
+  const OnboardingPageChanged(super.currentIndex);
 }
 
-// Events
-abstract class OnboardingEvent {}
-
-class OnboardingPageUpdated extends OnboardingEvent {
-  final int index;
-  OnboardingPageUpdated(this.index);
-}
-
-class OnboardingNextPageRequested extends OnboardingEvent {}
-
-class OnboardingSkipToEndRequested extends OnboardingEvent {}
-
-// Cubit
+// ============ Cubit ============
 class OnboardingCubit extends Cubit<OnboardingState> {
   final int totalPages;
 
-  OnboardingCubit(this.totalPages) : super(OnboardingInitial(0));
+  OnboardingCubit(this.totalPages) : super(const OnboardingInitial(0));
 
+  /// Called by PageView.onPageChanged — only emits when the index actually
+  /// changes, preventing redundant rebuilds on the same page.
   void updatePage(int index) {
+    if (index == state.currentIndex) return;
     if (index >= 0 && index < totalPages) {
       emit(OnboardingPageChanged(index));
     }
   }
 
   void nextPage() {
-    final currentIndex = state.currentIndex;
-    if (currentIndex < totalPages - 1) {
-      emit(OnboardingPageChanged(currentIndex + 1));
+    final next = state.currentIndex + 1;
+    if (next < totalPages) {
+      emit(OnboardingPageChanged(next));
     }
   }
 
   void skipToEnd() {
-    emit(OnboardingPageChanged(totalPages - 1));
+    final last = totalPages - 1;
+    if (state.currentIndex != last) {
+      emit(OnboardingPageChanged(last));
+    }
   }
 
-  bool isLastPage(OnboardingState state) {
-    return state.currentIndex == totalPages - 1;
-  }
+  bool isLastPage(OnboardingState state) => state.currentIndex == totalPages - 1;
 }

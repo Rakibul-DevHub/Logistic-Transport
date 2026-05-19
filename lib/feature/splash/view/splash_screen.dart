@@ -3,7 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../../core/constants/app_routes.dart';
 import '../../../shared/components/gradient_arc_loader.dart';
-import 'splash_cubit.dart';
+import '../controller/splash_cubit.dart';
 
 class SplashScreen extends StatelessWidget {
   const SplashScreen({super.key});
