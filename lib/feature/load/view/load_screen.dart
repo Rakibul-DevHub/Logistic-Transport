@@ -94,10 +94,15 @@ class LoadScreen extends StatefulWidget {
 
 class _LoadScreenState extends State<LoadScreen> {
   String _selectedFilter = 'All';
-  late List<LoadModel> _allLoads;
+  late final List<LoadModel> _allLoads;
   late List<LoadModel> _filteredLoads;
 
-  final List<String> _filters = ['All', 'In Progress', 'Completed', 'Missing POD'];
+  final List<String> _filters = [
+    'All',
+    'In Progress',
+    'Completed',
+    'Missing POD'
+  ];
 
   @override
   void initState() {
@@ -106,28 +111,29 @@ class _LoadScreenState extends State<LoadScreen> {
     _filteredLoads = _allLoads;
   }
 
+  List<LoadModel> _filterLoads(String filter) {
+    switch (filter) {
+      case 'In Progress':
+        return _allLoads
+            .where((load) => load.status == LoadStatus.inProgress)
+            .toList();
+      case 'Completed':
+        return _allLoads
+            .where((load) => load.status == LoadStatus.completed)
+            .toList();
+      case 'Missing POD':
+        return _allLoads
+            .where((load) => load.status == LoadStatus.missingPOD)
+            .toList();
+      default:
+        return _allLoads;
+    }
+  }
+
   void _applyFilter(String filter) {
     setState(() {
       _selectedFilter = filter;
-      switch (filter) {
-        case 'In Progress':
-          _filteredLoads = _allLoads
-              .where((load) => load.status == LoadStatus.inProgress)
-              .toList();
-          break;
-        case 'Completed':
-          _filteredLoads = _allLoads
-              .where((load) => load.status == LoadStatus.completed)
-              .toList();
-          break;
-        case 'Missing POD':
-          _filteredLoads = _allLoads
-              .where((load) => load.status == LoadStatus.missingPOD)
-              .toList();
-          break;
-        default:
-          _filteredLoads = _allLoads;
-      }
+      _filteredLoads = _filterLoads(filter);
     });
   }
 
@@ -136,53 +142,66 @@ class _LoadScreenState extends State<LoadScreen> {
     return Scaffold(
       backgroundColor: AppColors.backgroundColor,
       body: Padding(
-        padding: const EdgeInsets.only(top: 60.0,bottom: 20),
+        padding: const EdgeInsets.only(top: 60.0, bottom: 20),
         child: Column(
           children: [
-            // Filter Tabs - Matching the exact design
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: const Color(0xFFE8ECF1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: _filters.map((filter) {
-                  final isSelected = _selectedFilter == filter;
-                  return Expanded(
-                    child: GestureDetector(
-                      onTap: () => _applyFilter(filter),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        decoration: BoxDecoration(
-                          color: isSelected ? Colors.white : Colors.transparent,
-                          borderRadius: BorderRadius.circular(10),
-                          boxShadow: isSelected
-                              ? [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.05),
-                              blurRadius: 4,
-                              offset: const Offset(0, 2),
-                            ),
-                          ]
-                              : null,
-                        ),
-                        child: Text(
-                          filter,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
+            // Filter Tabs
+            RepaintBoundary(
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE8ECF1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: _filters.map((filter) {
+                    final isSelected = _selectedFilter == filter;
+
+                    return Expanded(
+                      child: GestureDetector(
+                        onTap: () => _applyFilter(filter),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 10,
+                            horizontal: 4,
+                          ),
+                          decoration: BoxDecoration(
                             color: isSelected
-                                ? const Color(0xFF1E3A5F)
-                                : const Color(0xFF6B7280),
-                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                            fontSize: 14,
+                                ? Colors.white
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(10),
+                            boxShadow: isSelected
+                                ? [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.05),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ]
+                                : null,
+                          ),
+                          child: Text(
+                            filter,
+                            maxLines: 1,
+                            softWrap: false,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: isSelected
+                                  ? const Color(0xFF1E3A5F)
+                                  : const Color(0xFF6B7280),
+                              fontWeight: isSelected
+                                  ? FontWeight.w600
+                                  : FontWeight.w500,
+                              fontSize: 12,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  );
-                }).toList(),
+                    );
+                  }).toList(),
+                ),
               ),
             ),
 
@@ -193,9 +212,12 @@ class _LoadScreenState extends State<LoadScreen> {
               child: ListView.separated(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 itemCount: _filteredLoads.length,
-                separatorBuilder: (context, index) => const SizedBox(height: 16),
+                separatorBuilder: (_, __) =>
+                const SizedBox(height: 16),
                 itemBuilder: (context, index) {
-                  return LoadCard(load: _filteredLoads[index]);
+                  return RepaintBoundary(
+                    child: LoadCard(load: _filteredLoads[index]),
+                  );
                 },
               ),
             ),
@@ -264,7 +286,6 @@ class LoadCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header: Load ID and Status
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -299,7 +320,6 @@ class LoadCard extends StatelessWidget {
 
           const SizedBox(height: 12),
 
-          // Company Name
           Text(
             load.companyName,
             style: const TextStyle(
@@ -311,14 +331,11 @@ class LoadCard extends StatelessWidget {
 
           const SizedBox(height: 24),
 
-          // Pickup and Delivery with Timeline
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Timeline indicators
               Column(
                 children: [
-                  // Pickup dot (solid)
                   Container(
                     width: 12,
                     height: 12,
@@ -327,7 +344,6 @@ class LoadCard extends StatelessWidget {
                       shape: BoxShape.circle,
                     ),
                   ),
-                  // Dotted line
                   Container(
                     width: 2,
                     height: 40,
@@ -339,7 +355,6 @@ class LoadCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  // Delivery dot (outlined)
                   Container(
                     width: 12,
                     height: 12,
@@ -357,12 +372,10 @@ class LoadCard extends StatelessWidget {
 
               const SizedBox(width: 16),
 
-              // Locations and Times
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Pickup
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -385,7 +398,6 @@ class LoadCard extends StatelessWidget {
 
                     const SizedBox(height: 24),
 
-                    // Delivery
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -413,15 +425,10 @@ class LoadCard extends StatelessWidget {
 
           const SizedBox(height: 24),
 
-          // Divider
-          Container(
-            height: 1,
-            color: const Color(0xFFF3F4F6),
-          ),
+          Container(height: 1, color: const Color(0xFFF3F4F6)),
 
           const SizedBox(height: 20),
 
-          // Rate and Details Button
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -455,9 +462,7 @@ class LoadCard extends StatelessWidget {
                 child: Material(
                   color: Colors.transparent,
                   child: InkWell(
-                    onTap: () {
-                      // Navigate to details
-                    },
+                    onTap: () {},
                     borderRadius: BorderRadius.circular(12),
                     child: const Padding(
                       padding: EdgeInsets.symmetric(
@@ -508,8 +513,8 @@ class DottedLinePainter extends CustomPainter {
       ..strokeWidth = strokeWidth
       ..style = PaintingStyle.stroke;
 
-    final dashWidth = 3.0;
-    final dashSpace = 3.0;
+    const dashWidth = 3.0;
+    const dashSpace = 3.0;
     double startY = 0;
 
     while (startY < size.height) {
@@ -525,4 +530,3 @@ class DottedLinePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
-

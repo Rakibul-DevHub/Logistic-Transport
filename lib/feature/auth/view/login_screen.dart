@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:tag/core/theme/app_colors.dart';
 import 'package:tag/core/theme/app_text_style.dart';
-
 import '../../../core/constants/app_routes.dart';
 import '../../../shared/components/Custom_Elevated_Button.dart';
 import '../../../shared/components/custom_background.dart';
@@ -280,11 +278,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         },
                         child: Text(
                           'Sign Up',
-                          style: const TextStyle(
-                            color: Color(0xFF1E3A5F),
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
+                          style: AppTextStyle.SFProDisplay_Regular.copyWith(
+                            fontSize: 14
+                          )
                         ),
                       ),
                     ],

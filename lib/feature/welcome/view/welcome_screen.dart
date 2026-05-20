@@ -23,22 +23,23 @@ class WelcomeScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 60),
-
               // Welcome Title - aligned with image padding
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 40),
+                padding: const EdgeInsets.only(
+                  left: 40,
+                  right: 40,
+                  top: 60,
+                  bottom: 24,
+                ),
                 child: Text(
                   'Welcome',
                   style: AppTextStyle.BricolageGrotesque_24pt_Regular.copyWith(
                     fontWeight: FontWeight.bold,
                     fontSize: 60,
-                    color: AppColors.primaryColor
+                    color: AppColors.primaryColor,
                   ),
                 ),
               ),
-
-              const SizedBox(height: 24),
 
               // SVG Image
               SizedBox(
@@ -64,7 +65,7 @@ class WelcomeScreen extends StatelessWidget {
                   children: [
                     CustomElevatedButton(
                       onPressed: () {
-                        Navigator.pushNamed(context, AppRoutes.login);
+                        Navigator.pushReplacementNamed(context, AppRoutes.login);
                       },
                       buttonText: 'Log in',
                       backgroundColor: const Color(0xFF1E3A5F),
@@ -77,10 +78,10 @@ class WelcomeScreen extends StatelessWidget {
                       margin: const EdgeInsets.only(bottom: 16),
                     ),
 
-              /// Create Account Button
+                    /// Create Account Button
                     CustomElevatedButton(
                       onPressed: () {
-                        Navigator.pushNamed(context, AppRoutes.createAccount);
+                        Navigator.pushReplacementNamed(context, AppRoutes.createAccount);
                       },
                       buttonText: 'Create Account',
                       backgroundColor: Colors.white,
@@ -105,3 +106,4 @@ class WelcomeScreen extends StatelessWidget {
     );
   }
 }
+
