@@ -5,7 +5,6 @@ import '../../../../shared/components/Custom_Elevated_Button.dart';
 
 import 'package:flutter/material.dart';
 
-
 class AccountSettingScreen extends StatefulWidget {
   const AccountSettingScreen({super.key});
 
@@ -19,7 +18,8 @@ class _AccountSettingScreenState extends State<AccountSettingScreen> {
   final TextEditingController _phoneNumberController = TextEditingController();
   final TextEditingController _oldPasswordController = TextEditingController();
   final TextEditingController _newPasswordController = TextEditingController();
-  final TextEditingController _confirmPasswordController = TextEditingController();
+  final TextEditingController _confirmPasswordController =
+      TextEditingController();
 
   // Password visibility states
   bool _obscureOldPassword = true;
@@ -149,6 +149,53 @@ class _AccountSettingScreenState extends State<AccountSettingScreen> {
         ),
       ),
       centerTitle: true,
+      actions: [
+        Padding(
+          padding: const EdgeInsets.only(right: 14.0),
+          child: PopupMenuButton<String>(
+            color: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            onSelected: (value) {
+              if (value == 'delete') {
+                _showDeleteAccountDialog();
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem<String>(
+                value: 'delete',
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.delete_outline,
+                      color: Colors.red,
+                      size: 20,
+                    ),
+                    SizedBox(width: 8),
+                    Text(
+                      'Delete Account',
+                      style: TextStyle(
+                        color: Colors.red,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            child: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: AppColors.whiteColor,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.more_vert),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -195,10 +242,7 @@ class _AccountSettingScreenState extends State<AccountSettingScreen> {
           const SizedBox(height: 4),
           Text(
             'john.doe@logistics.com',
-            style: TextStyle(
-              fontSize: 14,
-              color: const Color(0xFF888888),
-            ),
+            style: TextStyle(fontSize: 14, color: const Color(0xFF888888)),
           ),
         ],
       ),
@@ -381,10 +425,7 @@ class _AccountSettingScreenState extends State<AccountSettingScreen> {
           child: TextField(
             controller: controller,
             keyboardType: keyboardType,
-            style: const TextStyle(
-              fontSize: 14,
-              color: Color(0xFF1A1A2E),
-            ),
+            style: const TextStyle(fontSize: 14, color: Color(0xFF1A1A2E)),
             decoration: InputDecoration(
               hintText: hint,
               hintStyle: const TextStyle(
@@ -432,16 +473,17 @@ class _AccountSettingScreenState extends State<AccountSettingScreen> {
           child: TextField(
             controller: controller,
             obscureText: obscureText,
-            style: const TextStyle(
-              fontSize: 14,
-              color: Color(0xFF1A1A2E),
-            ),
+            style: const TextStyle(fontSize: 14, color: Color(0xFF1A1A2E)),
             decoration: InputDecoration(
               hintStyle: const TextStyle(
                 fontSize: 14,
                 color: Color(0xFFB0B0B0),
               ),
-              prefixIcon: const Icon(Icons.lock_outline, size: 20, color: Color(0xFF888888)),
+              prefixIcon: const Icon(
+                Icons.lock_outline,
+                size: 20,
+                color: Color(0xFF888888),
+              ),
               suffixIcon: IconButton(
                 icon: Icon(
                   obscureText ? Icons.visibility_off : Icons.visibility,
@@ -459,6 +501,45 @@ class _AccountSettingScreenState extends State<AccountSettingScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  void _showDeleteAccountDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Account'),
+        content: const Text(
+          'Are you sure you want to delete your account? This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+            ),
+            onPressed: () {
+              Navigator.pop(context);
+
+              // TODO: Call delete account API here
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Account deleted'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            },
+            child: const Text(
+              'Delete',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
