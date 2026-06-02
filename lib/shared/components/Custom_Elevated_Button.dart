@@ -95,8 +95,6 @@ class CustomElevatedButton extends StatelessWidget {
     super.key,
     required this.onPressed,
     required this.buttonText,
-
-    // Button appearance
     this.backgroundColor,
     this.foregroundColor,
     this.disabledBackgroundColor,
@@ -104,8 +102,6 @@ class CustomElevatedButton extends StatelessWidget {
     this.overlayColor,
     this.shadowColor,
     this.surfaceTintColor,
-
-    // Button dimensions
     this.width,
     this.height,
     this.elevation,
@@ -113,17 +109,11 @@ class CustomElevatedButton extends StatelessWidget {
     this.hoverElevation,
     this.focusElevation,
     this.highlightElevation,
-
-    // Button padding and margins
     this.padding,
     this.margin,
-
-    // Button shape
     this.borderRadius,
     this.borderSide,
     this.shape,
-
-    // Button text
     this.textStyle,
     this.fontSize,
     this.textColor,
@@ -135,8 +125,6 @@ class CustomElevatedButton extends StatelessWidget {
     this.fontFamily,
     this.fontFamilyFallback,
     this.fontStyle,
-
-    // Button icons
     this.icon,
     this.suffixIcon,
     this.svgIconPath,
@@ -145,19 +133,13 @@ class CustomElevatedButton extends StatelessWidget {
     this.iconColor,
     this.gap,
     this.contentAlignment,
-
-    // Button states
     this.isDisabled = false,
     this.isFullWidth = false,
     this.isOutlined = false,
     this.isRounded = false,
     this.hasShadow = true,
-
-    // Button animation
     this.animationDuration,
     this.animationCurve,
-
-    // Button interactions
     this.materialTapTargetSize,
     this.visualDensity,
     this.mouseCursor,
@@ -183,10 +165,26 @@ class CustomElevatedButton extends StatelessWidget {
     this.overlayColorStateProperty,
   });
 
-  @override
-  Widget build(BuildContext context) {
-    // Merge provided text style with defaults
-    final TextStyle mergedTextStyle = (textStyle ?? Theme.of(context).textTheme.labelLarge ?? const TextStyle()).copyWith(
+  // ─── Helpers ────────────────────────────────────────────────────────────────
+
+  /// Builds the merged [TextStyle] once per build, avoiding repeated allocations.
+  TextStyle _resolveTextStyle(BuildContext context) {
+    final base = textStyle ?? Theme.of(context).textTheme.labelLarge ?? const TextStyle();
+    // Only call copyWith when at least one field differs from the base; this
+    // avoids an allocation when the caller passes nothing at all.
+    if (fontSize == null &&
+        textColor == null &&
+        foregroundColor == null &&
+        fontWeight == null &&
+        letterSpacing == null &&
+        wordSpacing == null &&
+        textBaseline == null &&
+        fontFamily == null &&
+        fontFamilyFallback == null &&
+        fontStyle == null) {
+      return base;
+    }
+    return base.copyWith(
       fontSize: fontSize,
       color: textColor ?? foregroundColor,
       fontWeight: fontWeight,
@@ -197,62 +195,130 @@ class CustomElevatedButton extends StatelessWidget {
       fontFamilyFallback: fontFamilyFallback,
       fontStyle: fontStyle,
     );
+  }
 
-    // Determine button shape with proper priority
-    final OutlinedBorder buttonShape = shape ?? RoundedRectangleBorder(
-      borderRadius: borderRadius ?? (isRounded
-          ? BorderRadius.circular(height != null ? height! / 2 : 24)
-          : BorderRadius.circular(8)),
-      side: borderSide ?? (isOutlined
-          ? BorderSide(
-        color: backgroundColor ?? Theme.of(context).primaryColor,
-        width: 1.5,
-      )
-          : BorderSide.none),
+  /// Builds the [ButtonStyle] in a single pass (no chained copyWith).
+  ButtonStyle _resolveButtonStyle(BuildContext context, TextStyle mergedTextStyle) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    // Resolve colors once — avoids repeated Theme traversals.
+    final resolvedBg = backgroundColor ?? theme.primaryColor;
+    final resolvedFg = foregroundColor ?? colorScheme.onPrimary;
+    final resolvedDisabledBg = disabledBackgroundColor ?? theme.disabledColor;
+    // Pre-compute the disabled-fg colour outside WidgetStateProperty to avoid
+    // allocating a new Color on every state resolution.
+    final resolvedDisabledFg = disabledForegroundColor ??
+        colorScheme.onSurface.withValues(alpha: 0.38);
+    final resolvedShadow = shadowColor ?? theme.shadowColor;
+
+    final double resolvedHeight = height ?? 36;
+    final double resolvedElevation = elevation ?? (hasShadow ? 2 : 0);
+
+    // Shape — computed once.
+    final OutlinedBorder resolvedShape = shape ??
+        RoundedRectangleBorder(
+          borderRadius: borderRadius ??
+              (isRounded
+                  ? BorderRadius.circular(resolvedHeight / 2)
+                  : const BorderRadius.all(Radius.circular(8))),
+          side: borderSide ??
+              (isOutlined
+                  ? BorderSide(color: resolvedBg, width: 1.5)
+                  : BorderSide.none),
+        );
+
+    // Size — computed once.
+    final Size resolvedMinSize = Size(
+      isFullWidth ? double.infinity : width ?? 64,
+      resolvedHeight,
     );
+    final Size? resolvedFixedSize = (width != null || height != null)
+        ? Size(width ?? double.infinity, resolvedHeight)
+        : null;
 
-    // Button style
-    final ButtonStyle buttonStyle = ElevatedButton.styleFrom(
-      backgroundColor: backgroundColor ?? Theme.of(context).primaryColor,
-      foregroundColor: foregroundColor ?? Theme.of(context).colorScheme.onPrimary,
-      disabledBackgroundColor: disabledBackgroundColor ?? Theme.of(context).disabledColor,
-      disabledForegroundColor: disabledForegroundColor ?? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.38),
-      shadowColor: shadowColor ?? Theme.of(context).shadowColor,
-      surfaceTintColor: surfaceTintColor,
-      elevation: elevation ?? (hasShadow ? 2 : 0),
-      minimumSize: Size(
-        isFullWidth ? double.infinity : width ?? 64,
-        height ?? 36,
-      ),
-      fixedSize: width != null || height != null
-          ? Size(width ?? double.infinity, height ?? 36)
-          : null,
-      maximumSize: maximumSize?.resolve({}) ?? Size.infinite,
-      padding: padding ?? const EdgeInsets.symmetric(horizontal: 16),
+    // Build style in a single constructor call — avoids the
+    // styleFrom + copyWith double-pass that the original performed.
+    return ButtonStyle(
+      backgroundColor: backgroundColorProperty ??
+          WidgetStateProperty.resolveWith((states) =>
+          states.contains(WidgetState.disabled) ? resolvedDisabledBg : resolvedBg),
+      foregroundColor: foregroundColorProperty ??
+          WidgetStateProperty.resolveWith((states) =>
+          states.contains(WidgetState.disabled) ? resolvedDisabledFg : resolvedFg),
+      overlayColor: overlayColorStateProperty ??
+          (overlayColor != null
+              ? WidgetStatePropertyAll(overlayColor)
+              : null),
+      shadowColor: shadowColorProperty ?? WidgetStatePropertyAll(resolvedShadow),
+      surfaceTintColor: surfaceTintColorProperty ??
+          (surfaceTintColor != null ? WidgetStatePropertyAll(surfaceTintColor) : null),
+      elevation: elevationProperty ??
+          WidgetStateProperty.resolveWith((states) =>
+          states.contains(WidgetState.disabled) ? 0 : resolvedElevation),
+      textStyle: textStyleProperty ?? WidgetStatePropertyAll(mergedTextStyle),
+      padding: paddingProperty ??
+          WidgetStatePropertyAll(padding ?? const EdgeInsets.symmetric(horizontal: 16)),
+      minimumSize: WidgetStatePropertyAll(resolvedMinSize),
+      fixedSize: fixedSize ?? (resolvedFixedSize != null ? WidgetStatePropertyAll(resolvedFixedSize) : null),
+      maximumSize: maximumSize ?? const WidgetStatePropertyAll(Size.infinite),
+      shape: shapeProperty ?? WidgetStatePropertyAll(resolvedShape),
+      side: sideProperty,
+      mouseCursor: mouseCursorProperty,
+      visualDensity: visualDensity ?? theme.visualDensity,
+      tapTargetSize: materialTapTargetSize,
+      animationDuration: animationDuration ?? const Duration(milliseconds: 200),
       enableFeedback: enableFeedback ?? true,
       alignment: Alignment.center,
       splashFactory: InkRipple.splashFactory,
-      visualDensity: visualDensity ?? Theme.of(context).visualDensity,
-      tapTargetSize: materialTapTargetSize,
-      animationDuration: animationDuration ?? const Duration(milliseconds: 200),
-    ).copyWith(
-      shape: WidgetStateProperty.all(buttonShape), // Apply the shape here
-      overlayColor: overlayColorStateProperty ?? (overlayColor != null
-          ? WidgetStateProperty.all(overlayColor)
-          : null),
-      elevation: elevationProperty,
-      backgroundColor: backgroundColorProperty,
-      foregroundColor: foregroundColorProperty,
-      shadowColor: shadowColorProperty,
-      surfaceTintColor: surfaceTintColorProperty,
-      padding: paddingProperty,
-      side: sideProperty,
-      mouseCursor: mouseCursorProperty,
-      textStyle: textStyleProperty ?? WidgetStateProperty.all(mergedTextStyle),
       iconColor: iconColorProperty,
     );
+  }
 
-    // Button content
+  /// Returns either an SVG widget or a theme-wrapped icon widget, or null.
+  Widget? _buildIconWidget(
+      BuildContext context,
+      String? svgPath,
+      Widget? iconWidget,
+      ) {
+    if (svgPath != null) {
+      return SvgPicture.asset(
+        svgPath,
+        width: iconSize,
+        height: iconSize,
+        colorFilter: iconColor != null
+            ? ColorFilter.mode(iconColor!, BlendMode.srcIn)
+            : null,
+      );
+    }
+    if (iconWidget != null) {
+      return IconTheme(
+        data: IconThemeData(
+          size: iconSize,
+          color: iconColor ?? foregroundColor ?? Theme.of(context).colorScheme.onPrimary,
+        ),
+        child: iconWidget,
+      );
+    }
+    return null;
+  }
+
+  // ─── Build ──────────────────────────────────────────────────────────────────
+
+  @override
+  Widget build(BuildContext context) {
+    final TextStyle mergedTextStyle = _resolveTextStyle(context);
+    final ButtonStyle buttonStyle = _resolveButtonStyle(context, mergedTextStyle);
+
+    // Resolve icons — only do work when props are non-null.
+    final Widget? prefixIcon =
+    (svgIconPath != null || icon != null) ? _buildIconWidget(context, svgIconPath, icon) : null;
+    final Widget? suffixIconWidget =
+    (suffixSvgIconPath != null || suffixIcon != null)
+        ? _buildIconWidget(context, suffixSvgIconPath, suffixIcon)
+        : null;
+
+    // Core text widget — const-eligible when no dynamic style is needed.
     Widget buttonContent = Text(
       buttonText,
       style: mergedTextStyle,
@@ -260,69 +326,40 @@ class CustomElevatedButton extends StatelessWidget {
       overflow: TextOverflow.ellipsis,
     );
 
-    // Build icon widget (either regular icon or SVG icon)
-    Widget? buildIconWidget(String? svgPath, Widget? iconWidget) {
-      if (svgPath != null) {
-        return SvgPicture.asset(
-          svgPath,
-          width: iconSize,
-          height: iconSize,
-          colorFilter: iconColor != null
-              ? ColorFilter.mode(iconColor!, BlendMode.srcIn)
-              : null,
-        );
-      }
-      return iconWidget != null
-          ? IconTheme(
-        data: IconThemeData(
-          size: iconSize,
-          color: iconColor ?? foregroundColor ?? Theme.of(context).colorScheme.onPrimary,
-        ),
-        child: iconWidget,
-      )
-          : null;
-    }
-
-    // Add icon(s) if provided
-    final Widget? prefixIcon = buildIconWidget(svgIconPath, icon);
-    final Widget? suffixIconWidget = buildIconWidget(suffixSvgIconPath, suffixIcon);
-
     if (prefixIcon != null || suffixIconWidget != null) {
-      final List<Widget> children = [];
-
-      if (prefixIcon != null) {
-        children.add(prefixIcon);
-        if (suffixIconWidget == null) {
-          children.add(SizedBox(width: gap ?? 8));
-        }
-      }
-
-      children.add(buttonContent);
-
-      if (suffixIconWidget != null) {
-        if (prefixIcon != null) {
-          children.add(SizedBox(width: gap ?? 8));
-        }
-        children.add(suffixIconWidget);
-      }
-
+      final double resolvedGap = gap ?? 8;
       buttonContent = Row(
         mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: contentAlignment ?? MainAxisAlignment.center,
-        children: children,
+        children: <Widget>[
+          if (prefixIcon != null) ...[
+            prefixIcon,
+            SizedBox(width: resolvedGap),
+          ],
+          buttonContent,
+          if (suffixIconWidget != null) ...[
+            SizedBox(width: resolvedGap),
+            suffixIconWidget,
+          ],
+        ],
       );
     }
 
-    return Container(
-      margin: margin,
-      child: ElevatedButton(
-        onPressed: isDisabled ? null : onPressed,
-        style: buttonStyle,
-        focusNode: focusNode,
-        autofocus: autofocus ?? false,
-        clipBehavior: clipBehavior ?? Clip.none,
-        child: buttonContent,
-      ),
+    final Widget button = ElevatedButton(
+      onPressed: isDisabled ? null : onPressed,
+      style: buttonStyle,
+      focusNode: focusNode,
+      autofocus: autofocus ?? false,
+      clipBehavior: clipBehavior ?? Clip.none,
+      child: buttonContent,
     );
+
+    // Avoid wrapping in Container when margin is absent — saves a layout node.
+    if (margin != null) {
+      return Container(margin: margin, child: button);
+    }
+    return button;
   }
 }
+
+
