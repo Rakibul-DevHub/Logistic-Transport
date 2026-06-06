@@ -5,7 +5,7 @@ import 'package:tag/core/theme/app_colors.dart';
 // Data Model for Load
 class LoadModel {
   final String id;
-  final String companyName;
+  final String driverName;
   final LoadStatus status;
   final String pickupLocation;
   final DateTime pickupDateTime;
@@ -15,7 +15,7 @@ class LoadModel {
 
   LoadModel({
     required this.id,
-    required this.companyName,
+    required this.driverName,
     required this.status,
     required this.pickupLocation,
     required this.pickupDateTime,
@@ -33,7 +33,7 @@ class LoadData {
     return [
       LoadModel(
         id: '#LD-8821',
-        companyName: 'Swift Logistical Corp',
+        driverName: 'John',
         status: LoadStatus.inProgress,
         pickupLocation: 'Chicago, IL',
         pickupDateTime: DateTime(2024, 10, 24, 8, 0),
@@ -43,7 +43,7 @@ class LoadData {
       ),
       LoadModel(
         id: '#LD-8822',
-        companyName: 'Swift Logistical Corp',
+        driverName: 'Hanna',
         status: LoadStatus.inProgress,
         pickupLocation: 'Chicago, IL',
         pickupDateTime: DateTime(2024, 10, 24, 8, 0),
@@ -53,7 +53,7 @@ class LoadData {
       ),
       LoadModel(
         id: '#LD-8823',
-        companyName: 'Swift Logistical Corp',
+        driverName: 'Dhon',
         status: LoadStatus.completed,
         pickupLocation: 'Chicago, IL',
         pickupDateTime: DateTime(2024, 10, 24, 8, 0),
@@ -63,7 +63,7 @@ class LoadData {
       ),
       LoadModel(
         id: '#LD-8824',
-        companyName: 'Fast Freight Inc',
+        driverName: 'John',
         status: LoadStatus.missingPOD,
         pickupLocation: 'Los Angeles, CA',
         pickupDateTime: DateTime(2024, 10, 25, 9, 0),
@@ -73,7 +73,7 @@ class LoadData {
       ),
       LoadModel(
         id: '#LD-8825',
-        companyName: 'Express Transport LLC',
+        driverName: 'Keli',
         status: LoadStatus.completed,
         pickupLocation: 'Miami, FL',
         pickupDateTime: DateTime(2024, 10, 23, 7, 30),
@@ -94,6 +94,7 @@ class LoadScreen extends StatefulWidget {
 
 class _LoadScreenState extends State<LoadScreen> {
   String _selectedFilter = 'All';
+  String _selectedDriver = 'All Drivers';
   late final List<LoadModel> _allLoads;
   late List<LoadModel> _filteredLoads;
 
@@ -104,36 +105,58 @@ class _LoadScreenState extends State<LoadScreen> {
     'Missing POD'
   ];
 
+  // List of unique driver names
+  late List<String> _driverList;
+
   @override
   void initState() {
     super.initState();
     _allLoads = LoadData.getLoads();
     _filteredLoads = _allLoads;
+
+    // Extract unique driver names
+    final drivers = _allLoads.map((load) => load.driverName).toSet().toList();
+    drivers.sort(); // Sort alphabetically
+    _driverList = ['All Drivers', ...drivers];
   }
 
-  List<LoadModel> _filterLoads(String filter) {
+  List<LoadModel> _filterLoads(String filter, String driver) {
+    List<LoadModel> result = _allLoads;
+
+    // Apply status filter
     switch (filter) {
       case 'In Progress':
-        return _allLoads
-            .where((load) => load.status == LoadStatus.inProgress)
-            .toList();
+        result = result.where((load) => load.status == LoadStatus.inProgress).toList();
+        break;
       case 'Completed':
-        return _allLoads
-            .where((load) => load.status == LoadStatus.completed)
-            .toList();
+        result = result.where((load) => load.status == LoadStatus.completed).toList();
+        break;
       case 'Missing POD':
-        return _allLoads
-            .where((load) => load.status == LoadStatus.missingPOD)
-            .toList();
+        result = result.where((load) => load.status == LoadStatus.missingPOD).toList();
+        break;
       default:
-        return _allLoads;
+        break;
     }
+
+    // Apply driver filter
+    if (driver != 'All Drivers') {
+      result = result.where((load) => load.driverName == driver).toList();
+    }
+
+    return result;
   }
 
   void _applyFilter(String filter) {
     setState(() {
       _selectedFilter = filter;
-      _filteredLoads = _filterLoads(filter);
+      _filteredLoads = _filterLoads(filter, _selectedDriver);
+    });
+  }
+
+  void _applyDriverFilter(String driver) {
+    setState(() {
+      _selectedDriver = driver;
+      _filteredLoads = _filterLoads(_selectedFilter, driver);
     });
   }
 
@@ -145,7 +168,15 @@ class _LoadScreenState extends State<LoadScreen> {
         padding: const EdgeInsets.only(top: 60.0, bottom: 20),
         child: Column(
           children: [
-            // Filter Tabs
+            // Driver Filter Dropdown
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              child: _buildDriverFilter(),
+            ),
+
+            const SizedBox(height: 16),
+
+            // Status Filter Tabs
             RepaintBoundary(
               child: Container(
                 margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -209,7 +240,37 @@ class _LoadScreenState extends State<LoadScreen> {
 
             // Load List
             Expanded(
-              child: ListView.separated(
+              child: _filteredLoads.isEmpty
+                  ? Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.local_shipping_outlined,
+                      size: 80,
+                      color: Colors.grey[400],
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'No loads found',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Try changing your filters',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[500],
+                      ),
+                    ),
+                  ],
+                ),
+              )
+                  : ListView.separated(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 itemCount: _filteredLoads.length,
                 separatorBuilder: (_, __) =>
@@ -222,6 +283,56 @@ class _LoadScreenState extends State<LoadScreen> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDriverFilter() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE8ECF1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: _selectedDriver,
+          isExpanded: true,
+          icon: const Icon(Icons.arrow_drop_down, color: Color(0xFF6B7280)),
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: Color(0xFF1E3A5F),
+          ),
+          dropdownColor: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          items: _driverList.map((driver) {
+            return DropdownMenuItem<String>(
+              value: driver,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.person_outline,
+                      size: 18,
+                      color: driver == 'All Drivers'
+                          ? const Color(0xFF6B7280)
+                          : const Color(0xFF3B82F6),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(driver),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+          onChanged: (value) {
+            if (value != null) {
+              _applyDriverFilter(value);
+            }
+          },
         ),
       ),
     );
@@ -320,13 +431,23 @@ class LoadCard extends StatelessWidget {
 
           const SizedBox(height: 12),
 
-          Text(
-            load.companyName,
-            style: const TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF111827),
-            ),
+          Row(
+            children: [
+              const Icon(
+                Icons.person,
+                size: 20,
+                color: Color(0xFF6B7280),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                load.driverName,
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF111827),
+                ),
+              ),
+            ],
           ),
 
           const SizedBox(height: 24),
@@ -379,13 +500,18 @@ class LoadCard extends StatelessWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          load.pickupLocation,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            color: Color(0xFF6B7280),
+                        Expanded(
+                          child: Text(
+                            load.pickupLocation,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              color: Color(0xFF6B7280),
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
+                        const SizedBox(width: 8),
                         Text(
                           dateFormat.format(load.pickupDateTime),
                           style: const TextStyle(
@@ -401,13 +527,18 @@ class LoadCard extends StatelessWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          load.deliveryLocation,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            color: Color(0xFF6B7280),
+                        Expanded(
+                          child: Text(
+                            load.deliveryLocation,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              color: Color(0xFF6B7280),
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
+                        const SizedBox(width: 8),
                         Text(
                           dateFormat.format(load.deliveryDateTime),
                           style: const TextStyle(
@@ -462,7 +593,9 @@ class LoadCard extends StatelessWidget {
                 child: Material(
                   color: Colors.transparent,
                   child: InkWell(
-                    onTap: () {},
+                    onTap: () {
+                      // Navigate to load details
+                    },
                     borderRadius: BorderRadius.circular(12),
                     child: const Padding(
                       padding: EdgeInsets.symmetric(
