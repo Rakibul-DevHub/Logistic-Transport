@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:tag/core/constants/app_routes.dart';
+import 'package:tag/core/theme/app_colors.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -8,7 +9,7 @@ class ProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: AppColors.backgroundColor,
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -18,7 +19,7 @@ class ProfileScreen extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.whiteColor,
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
@@ -67,7 +68,7 @@ class ProfileScreen extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
-                      color: Colors.black87,
+                      color: AppColors.blackColor,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -75,7 +76,7 @@ class ProfileScreen extends StatelessWidget {
                     'john.doe@logistics.com',
                     style: TextStyle(
                       fontSize: 14,
-                      color: Colors.grey[600],
+                      color: AppColors.textGreyColor,
                     ),
                   ),
                 ],
@@ -135,6 +136,24 @@ class ProfileScreen extends StatelessWidget {
 
               },
             ),
+            _buildMenuItem(
+              iconPath: 'assets/icons/help_support.svg',
+              title: 'Terms & Condition',
+              subtitle: 'App use terms and condition',
+              onTap: () {
+                Navigator.pushNamed(context, AppRoutes.helpSupportScreen);
+
+              },
+            ),
+            _buildMenuItem(
+              iconPath: 'assets/icons/help_support.svg',
+              title: 'Privacy Policy',
+              subtitle: 'Data privacy policy',
+              onTap: () {
+                Navigator.pushNamed(context, AppRoutes.helpSupportScreen);
+
+              },
+            ),
             const SizedBox(height: 16),
 
             // Logout Button
@@ -149,23 +168,23 @@ class ProfileScreen extends StatelessWidget {
                   'assets/icons/logout.svg',
                   width: 20,
                   height: 20,
-                  color: Colors.red,
+                  color: AppColors.redColor,
                 ),
                 label: const Text(
                   'Logout',
                   style: TextStyle(
-                    color: Colors.red,
+                    color: AppColors.redColor,
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
+                  backgroundColor: AppColors.whiteColor,
                   elevation: 0,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(color: Colors.grey[300]!),
+                    side: BorderSide(color: AppColors.redColor.withValues(alpha: 0.3)),
                   ),
                 ),
               ),
@@ -187,7 +206,7 @@ class ProfileScreen extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.whiteColor,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
@@ -205,7 +224,7 @@ class ProfileScreen extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: const Color(0xFFF0F7FF),
+                color: AppColors.backgroundColor,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: SvgPicture.asset(

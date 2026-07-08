@@ -1,4 +1,3 @@
-
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:tag/feature/auth/view/create_account_screen.dart';
 import 'package:tag/feature/auth/view/login_screen.dart';
@@ -97,3 +96,12 @@ class AppRoutes {
 
   };
 }
+
+
+
+
+
+
+
+
+
