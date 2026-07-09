@@ -6,7 +6,7 @@ import 'package:tag/core/network/network_caller_dio.dart';
 import 'package:tag/core/network/network_response_dio.dart';
 import '../../../core/network/secure_storage_service.dart';
 import '../../../core/utils/app_url.dart';
-import '../model/create_account_data.dart';
+import '../model_data/create_account_data.dart';
 
 // ==================== EVENTS ====================
 abstract class AuthRegistrationEvent extends Equatable {
@@ -566,7 +566,7 @@ import 'package:tag/core/network/network_caller_dio.dart';
 import 'package:tag/core/network/network_response_dio.dart';
 import '../../../core/network/secure_storage_service.dart';
 import '../../../core/utils/app_url.dart';
-import '../model/create_account_data.dart';
+import '../model_data/create_account_data.dart';
 
 // ==================== EVENTS ====================
 abstract class AuthRegistrationEvent extends Equatable {

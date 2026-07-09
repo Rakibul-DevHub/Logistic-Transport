@@ -1,4 +1,4 @@
-// lib/feature/auth/model/login_data.dart
+// lib/feature/auth/model_data/login_data.dart
 
 class LoginRequest {
   final String email;

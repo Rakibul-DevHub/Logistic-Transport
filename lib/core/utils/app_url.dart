@@ -6,6 +6,8 @@ class AppUrl {
 
   static const String createAccount = "$baseUrl/auth/register";
   static const String logIn = "$baseUrl/auth/login";
+  static const String forgotPassword = "$baseUrl/auth/forgot-password";
+  static const String resetPassword = "$baseUrl/auth/reset-password";
   static const String verifyOtp = "$baseUrl/auth/verify-email";
 
   static const String updatePersonalInformationProfileImage = "uploads";
