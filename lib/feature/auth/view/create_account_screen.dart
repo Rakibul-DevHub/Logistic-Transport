@@ -21,7 +21,6 @@ class CreateAccountScreen extends StatefulWidget {
 }
 
 class _CreateAccountScreenState extends State<CreateAccountScreen> {
-  final _formKey = GlobalKey<FormState>();
   final _fullNameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -68,6 +67,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
         const SnackBar(
           content: Text('Please accept the Terms of Use and Privacy Policy'),
           backgroundColor: Colors.red,
+          duration: Duration(milliseconds: 800),
         ),
       );
       return;
@@ -117,29 +117,25 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
           child: BlocConsumer<AuthRegistrationCubit, AuthRegistrationState>(
             listener: (context, state) {
               // Handle API response
-              if (state.isSuccess) {
+              if (state.isSuccess && state.verificationToken != null) {
                 // Registration successful - navigate to OTP verification
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Account created successfully! Please verify your email.'),
-                    backgroundColor: Colors.green,
+                  SnackBar(
+                    content: Text('Please verify your email.'),
+                    backgroundColor: AppColors.lightBlueColor,
+                    duration: const Duration(milliseconds: 600),
                   ),
                 );
 
-                // Store verification token if needed
-                if (state.verificationToken != null) {
-                  // You can store the token if needed
-                  print('Verification Token: ${state.verificationToken}');
-                }
-
-                // Navigate to OTP verification screen
+                // Navigate immediately
                 Navigator.pushNamed(context, AppRoutes.otpVerify);
               } else if (state.errorMessage != null) {
-                // Show error message
+                // Show error message briefly
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(state.errorMessage!),
                     backgroundColor: Colors.red,
+                    duration: const Duration(milliseconds: 800),
                   ),
                 );
               }
@@ -245,7 +241,6 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                       onChanged: (value) {
                         setState(() {
                           _passwordError = _validatePassword(value);
-                          // Also re-validate confirm password if it has content
                           if (_confirmPasswordController.text.isNotEmpty) {
                             _confirmPasswordError = _validateConfirmPassword(
                                 _confirmPasswordController.text);
@@ -292,7 +287,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                     /// Next Button
                     CustomElevatedButton(
                       onPressed: state.isLoading ? null : _handleNext,
-                      buttonText: state.isLoading ? 'Creating Account...' : 'Next',
+                      buttonText: state.isLoading ? 'Processing...' : 'Next',
                       backgroundColor: AppColors.primaryColor,
                       foregroundColor: Colors.white,
                       height: 56,
@@ -528,13 +523,6 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
 
 
 
-
-
-
-
-
-
-// lib/feature/auth/screens/create_account_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -556,7 +544,6 @@ class CreateAccountScreen extends StatefulWidget {
 }
 
 class _CreateAccountScreenState extends State<CreateAccountScreen> {
-  final _formKey = GlobalKey<FormState>();
   final _fullNameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -593,6 +580,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     // Check if any error exists
     if (_fullNameError != null ||
         _emailError != null ||
+        _emailError != null ||
         _passwordError != null ||
         _confirmPasswordError != null) {
       return;
@@ -603,6 +591,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
         const SnackBar(
           content: Text('Please accept the Terms of Use and Privacy Policy'),
           backgroundColor: Colors.red,
+          duration: Duration(milliseconds: 800),
         ),
       );
       return;
@@ -655,28 +644,30 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
               if (state.isSuccess && state.verificationToken != null) {
                 // Registration successful - navigate to OTP verification
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Account created successfully! Please verify your email.'),
-                    backgroundColor: Colors.green,
+                  SnackBar(
+                    content: Text('Please verify your email.'),
+                    backgroundColor: AppColors.lightBlueColor,
+                    duration: const Duration(milliseconds: 600),
                   ),
                 );
 
-                debugPrint('✅ Verification Token received: ${state.verificationToken}');
-
-                // Navigate to OTP verification screen
-                // The token is already stored in the Cubit state
+                // Navigate immediately
                 Navigator.pushNamed(context, AppRoutes.otpVerify);
               } else if (state.errorMessage != null) {
-                // Show error message
+                // Show error message briefly
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(state.errorMessage!),
                     backgroundColor: Colors.red,
+                    duration: const Duration(seconds: 2),
                   ),
                 );
               }
             },
             builder: (context, state) {
+              // ✅ Check if loading
+              final bool isLoading = state.isLoading;
+
               return SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Column(
@@ -735,6 +726,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                         });
                       },
                       hasError: _fullNameError != null,
+                      enabled: !isLoading, // ✅ Disable when loading
                     ),
                     if (_fullNameError != null) ...[
                       const SizedBox(height: 4),
@@ -755,6 +747,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                         });
                       },
                       hasError: _emailError != null,
+                      enabled: !isLoading, // ✅ Disable when loading
                     ),
                     if (_emailError != null) ...[
                       const SizedBox(height: 4),
@@ -777,7 +770,6 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                       onChanged: (value) {
                         setState(() {
                           _passwordError = _validatePassword(value);
-                          // Also re-validate confirm password if it has content
                           if (_confirmPasswordController.text.isNotEmpty) {
                             _confirmPasswordError = _validateConfirmPassword(
                                 _confirmPasswordController.text);
@@ -785,6 +777,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                         });
                       },
                       hasError: _passwordError != null,
+                      enabled: !isLoading, // ✅ Disable when loading
                     ),
                     if (_passwordError != null) ...[
                       const SizedBox(height: 4),
@@ -807,6 +800,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                         });
                       },
                       hasError: _confirmPasswordError != null,
+                      enabled: !isLoading, // ✅ Disable when loading
                     ),
                     if (_confirmPasswordError != null) ...[
                       const SizedBox(height: 4),
@@ -823,8 +817,8 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
 
                     /// Next Button
                     CustomElevatedButton(
-                      onPressed: state.isLoading ? null : _handleNext,
-                      buttonText: state.isLoading ? 'Creating Account...' : 'Next',
+                      onPressed: isLoading ? null : _handleNext,
+                      buttonText: isLoading ? 'Processing...' : 'Next',
                       backgroundColor: AppColors.primaryColor,
                       foregroundColor: Colors.white,
                       height: 56,
@@ -878,6 +872,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     TextInputType? keyboardType,
     required Function(String) onChanged,
     required bool hasError,
+    bool enabled = true, // ✅ Added enabled parameter
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -899,6 +894,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
         controller: controller,
         keyboardType: keyboardType,
         onChanged: onChanged,
+        enabled: enabled, // ✅ Use enabled parameter
         decoration: InputDecoration(
           hintText: hintText,
           hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
@@ -915,7 +911,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
             borderSide: BorderSide.none,
           ),
           filled: true,
-          fillColor: Colors.white,
+          fillColor: enabled ? Colors.white : Colors.grey[100], // ✅ Different color when disabled
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           errorStyle: const TextStyle(height: 0, fontSize: 0),
         ),
@@ -931,6 +927,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     required VoidCallback onToggle,
     required Function(String) onChanged,
     required bool hasError,
+    bool enabled = true, // ✅ Added enabled parameter
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -952,6 +949,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
         controller: controller,
         obscureText: obscureText,
         onChanged: onChanged,
+        enabled: enabled, // ✅ Use enabled parameter
         decoration: InputDecoration(
           hintText: hintText,
           hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
@@ -968,14 +966,14 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
             borderSide: BorderSide.none,
           ),
           filled: true,
-          fillColor: Colors.white,
+          fillColor: enabled ? Colors.white : Colors.grey[100], // ✅ Different color when disabled
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           suffixIcon: IconButton(
             icon: Icon(
               obscureText ? Icons.visibility_off_outlined : Icons.visibility_outlined,
               color: Colors.grey[600],
             ),
-            onPressed: onToggle,
+            onPressed: enabled ? onToggle : null, // ✅ Disable toggle when loading
           ),
           errorStyle: const TextStyle(height: 0, fontSize: 0),
         ),
