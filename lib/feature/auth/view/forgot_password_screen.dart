@@ -182,7 +182,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                             ],
                           ),
                           child: TextFormField(
-                            controller: _emailController,
+                            cubit: _emailController,
                             keyboardType: TextInputType.emailAddress,
                             enabled: !isLoading,
                             onChanged: (value) {

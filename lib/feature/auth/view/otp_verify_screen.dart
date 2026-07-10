@@ -192,7 +192,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                     // OTP Input Field
                     Center(
                       child: Pinput(
-                        controller: _otpController,
+                        cubit: _otpController,
                         length: 6,
                         keyboardType: TextInputType.number,
                         inputFormatters: [

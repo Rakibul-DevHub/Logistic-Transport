@@ -261,7 +261,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                             ],
                           ),
                           child: TextFormField(
-                            controller: _passwordController,
+                            cubit: _passwordController,
                             obscureText: _obscurePassword,
                             enabled: !isLoading,
                             onChanged: (value) {
@@ -368,7 +368,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                             ],
                           ),
                           child: TextFormField(
-                            controller: _confirmPasswordController,
+                            cubit: _confirmPasswordController,
                             obscureText: _obscureConfirmPassword,
                             enabled: !isLoading,
                             onChanged: (value) {

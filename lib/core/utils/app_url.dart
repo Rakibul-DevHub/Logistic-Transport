@@ -5,6 +5,7 @@ class AppUrl {
   static const String imageBaseUrl = "https://pjxppsdl-8083.inc1.devtunnels.ms/uploads";
 
   static const String createAccount = "$baseUrl/auth/register";
+  static const String userProfile = "$baseUrl/user/me";
   static const String logIn = "$baseUrl/auth/login";
   static const String logOut = "$baseUrl/auth/logout";
   static const String forgotPassword = "$baseUrl/auth/forgot-password";

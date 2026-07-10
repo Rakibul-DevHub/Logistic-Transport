@@ -194,7 +194,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                     _buildLabel('Full Name'),
                     const SizedBox(height: 8),
                     _buildTextField(
-                      controller: _fullNameController,
+                      cubit: _fullNameController,
                       hintText: 'Enter your full name',
                       onChanged: (value) {
                         setState(() {
@@ -214,7 +214,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                     _buildLabel('Email'),
                     const SizedBox(height: 8),
                     _buildTextField(
-                      controller: _emailController,
+                      cubit: _emailController,
                       hintText: 'Enter your email',
                       keyboardType: TextInputType.emailAddress,
                       onChanged: (value) {
@@ -239,7 +239,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
 
                     // Password Field
                     _buildPasswordField(
-                      controller: _passwordController,
+                      cubit: _passwordController,
                       obscureText: _obscurePassword,
                       hintText: 'Create a password',
                       onToggle: () => setState(() => _obscurePassword = !_obscurePassword),
@@ -265,7 +265,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                     _buildLabel('Confirm Password'),
                     const SizedBox(height: 8),
                     _buildPasswordField(
-                      controller: _confirmPasswordController,
+                      cubit: _confirmPasswordController,
                       obscureText: _obscureConfirmPassword,
                       hintText: 'Confirm your password',
                       onToggle: () =>
@@ -343,7 +343,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   }
 
   Widget _buildTextField({
-    required TextEditingController controller,
+    required TextEditingController cubit,
     required String hintText,
     TextInputType? keyboardType,
     required Function(String) onChanged,
@@ -367,7 +367,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
         ],
       ),
       child: TextFormField(
-        controller: controller,
+        cubit: cubit,
         keyboardType: keyboardType,
         onChanged: onChanged,
         enabled: enabled, // ✅ Use enabled parameter
@@ -397,7 +397,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   }
 
   Widget _buildPasswordField({
-    required TextEditingController controller,
+    required TextEditingController cubit,
     required bool obscureText,
     required String hintText,
     required VoidCallback onToggle,
@@ -422,7 +422,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
         ],
       ),
       child: TextFormField(
-        controller: controller,
+        cubit: cubit,
         obscureText: obscureText,
         onChanged: onChanged,
         enabled: enabled, // ✅ Use enabled parameter
