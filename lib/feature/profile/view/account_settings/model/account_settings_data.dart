@@ -1,5 +1,3 @@
-// lib/feature/profile/model/account_settings_data.dart
-
 class AccountSettingResponse {
   final int code;
   final UserData? data;

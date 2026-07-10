@@ -8,6 +8,7 @@ class AppUrl {
   static const String userProfile = "$baseUrl/user/me";
   static const String logIn = "$baseUrl/auth/login";
   static const String logOut = "$baseUrl/auth/logout";
+  static const String changePassword = "$baseUrl/auth/change-password";
   static const String forgotPassword = "$baseUrl/auth/forgot-password";
   static const String resetPassword = "$baseUrl/auth/reset-password";
   static const String verifyOtp = "$baseUrl/auth/verify-email";

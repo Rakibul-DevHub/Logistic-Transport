@@ -6,7 +6,6 @@ import '../../../../shared/components/Custom_Elevated_Button.dart';
 import 'cubit/account_settings_cubit.dart';
 import 'model/account_settings_data.dart';
 
-
 class AccountSettingScreen extends StatefulWidget {
   const AccountSettingScreen({super.key});
 
@@ -28,8 +27,24 @@ class _AccountSettingScreenState extends State<AccountSettingScreen> {
   bool _obscureNewPassword = true;
   bool _obscureConfirmPassword = true;
 
-  // User data from profile
+  // User data
   UserData? _userData;
+
+  // Tracks whether the next AccountSettingsSuccess is from an actual save
+  // action (password change / profile update) rather than the initial
+  // profile fetch. Only real saves should pop the screen — the initial
+  // fetch also emits AccountSettingsSuccess, and without this flag the
+  // listener treated that as "save completed" and auto-navigated back.
+  bool _isSavingAction = false;
+
+  // NOTE: getUserProfile() is no longer called from initState().
+  // context.read<AccountSettingsCubit>() would fail here because this
+  // widget's own context sits ABOVE the BlocProvider created in build() —
+  // the provider is a descendant of this context, not an ancestor, so the
+  // lookup throws ProviderNotFoundException silently inside the
+  // postFrameCallback and the fetch never actually runs. Instead, the cubit
+  // triggers its own fetch immediately via the `..getUserProfile()` cascade
+  // inside `create:` below, where the context is correct.
 
   @override
   void dispose() {
@@ -42,94 +57,223 @@ class _AccountSettingScreenState extends State<AccountSettingScreen> {
   }
 
   void _updateUserData(UserData userData) {
-    // ✅ Update without setState - just assign the value
-    _userData = userData;
-    _fullNameController.text = userData.name;
+    setState(() {
+      _userData = userData;
+      _fullNameController.text = userData.name;
+      _phoneNumberController.text = '+1 (555) 000-0000';
+    });
   }
 
-  void _saveChanges() {
-    // Validate passwords if they are being changed
-    if (_newPasswordController.text.isNotEmpty ||
-        _confirmPasswordController.text.isNotEmpty) {
-      if (_newPasswordController.text != _confirmPasswordController.text) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('New passwords do not match'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return;
-      }
+  void _saveChanges(BuildContext context) {
+    // Check if password fields are being changed
+    final bool isChangingPassword = _oldPasswordController.text.isNotEmpty ||
+        _newPasswordController.text.isNotEmpty ||
+        _confirmPasswordController.text.isNotEmpty;
 
-      if (_newPasswordController.text.length < 6) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Password must be at least 6 characters'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return;
-      }
+    if (isChangingPassword) {
+      _handleChangePassword(context);
+      return;
     }
 
-    // Show loading
+    // If no password changes, just show success
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Saving changes...'),
-        backgroundColor: Colors.blue,
+        content: Text('Changes saved successfully!'),
+        backgroundColor: Colors.green,
       ),
     );
 
-    // TODO: Call API to update profile
-    // For now, just show success and navigate back
     Future.delayed(const Duration(seconds: 1), () {
+      if (mounted) Navigator.pop(context);
+    });
+  }
+
+  void _handleChangePassword(BuildContext context) {
+    final oldPassword = _oldPasswordController.text.trim();
+    final newPassword = _newPasswordController.text.trim();
+    final confirmPassword = _confirmPasswordController.text.trim();
+
+    // Validate old password
+    if (oldPassword.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Changes saved successfully!'),
-          backgroundColor: Colors.green,
+          content: Text('Please enter your current password'),
+          backgroundColor: Colors.red,
         ),
       );
-      Navigator.pop(context);
-    });
+      return;
+    }
+
+    // Validate new password (6-8 characters)
+    if (newPassword.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter a new password'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Password must be at least 6 characters'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (newPassword.length > 8) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Password must be less than 8 characters'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (!RegExp(r'[A-Z]').hasMatch(newPassword)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Password must contain at least one uppercase letter'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (!RegExp(r'[0-9]').hasMatch(newPassword)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Password must contain at least one number'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (!RegExp(r'[!@#$%^&*(),.?":{}|<>_\-+=~`\[\]\\/;]').hasMatch(newPassword)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Password must contain at least one special character'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // Validate confirm password
+    if (confirmPassword.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please confirm your new password'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (newPassword != confirmPassword) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('New passwords do not match'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // Call API to change password
+    _isSavingAction = true; // this success should navigate back
+    final cubit = context.read<AccountSettingsCubit>();
+    cubit.changePassword(
+      currentPassword: oldPassword,
+      newPassword: newPassword,
+      confirmPassword: confirmPassword,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
+      // ✅ FIX: fetch profile the moment the cubit is created, using the
+      // cascade operator. This runs with the correct context — no
+      // context.read() lookup needed, so it can't fail to find the provider.
       create: (context) => AccountSettingsCubit()..getUserProfile(),
-      child: Scaffold(
-        backgroundColor: AppColors.backgroundColor,
-        appBar: _buildAppBar(),
-        body: BlocConsumer<AccountSettingsCubit, AccountSettingsState>(
-          listener: (context, state) {
-            if (state is AccountSettingsSuccess) {
-              // ✅ Update data in listener (outside build phase)
-              _updateUserData(state.userData);
-            } else if (state is AccountSettingsFailure) {
+      child: BlocConsumer<AccountSettingsCubit, AccountSettingsState>(
+        listener: (context, state) {
+          if (state is AccountSettingsSuccess) {
+            // ✅ Update user data with real API data
+            _updateUserData(state.userData);
+
+            // The initial profile fetch (triggered in `create:`) also emits
+            // AccountSettingsSuccess. Only treat this as a completed "save"
+            // — and only then show a snackbar / navigate back — if the user
+            // actually triggered a save action.
+            if (!_isSavingAction) {
+              return;
+            }
+            _isSavingAction = false; // reset for next time
+
+            // Check if it's a password change success
+            if (_oldPasswordController.text.isEmpty &&
+                _newPasswordController.text.isEmpty &&
+                _confirmPasswordController.text.isEmpty) {
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(state.errorMessage),
-                  backgroundColor: Colors.red,
+                const SnackBar(
+                  content: Text('Profile updated successfully!'),
+                  backgroundColor: Colors.green,
                 ),
               );
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Password changed successfully!'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+              // Clear password fields
+              _oldPasswordController.clear();
+              _newPasswordController.clear();
+              _confirmPasswordController.clear();
             }
-          },
-          builder: (context, state) {
-            if (state is AccountSettingsLoading) {
-              return const Center(
+
+            // Navigate back after delay
+            Future.delayed(const Duration(seconds: 1), () {
+              if (mounted) Navigator.pop(context);
+            });
+          } else if (state is AccountSettingsFailure) {
+            // Show error message
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(state.errorMessage),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        },
+        builder: (context, state) {
+          final isLoading = state is AccountSettingsLoading;
+
+          // Show loading indicator while fetching data
+          if (state is AccountSettingsLoading && _userData == null) {
+            return const Scaffold(
+              backgroundColor: AppColors.backgroundColor,
+              body: Center(
                 child: CircularProgressIndicator(
                   color: AppColors.primaryColor,
                 ),
-              );
-            }
+              ),
+            );
+          }
 
-            // ✅ Get user data from state directly, don't use setState
-            if (state is AccountSettingsSuccess) {
-              _userData = state.userData;
-              _fullNameController.text = state.userData.name;
-            }
-
-            return SingleChildScrollView(
+          return Scaffold(
+            backgroundColor: AppColors.backgroundColor,
+            appBar: _buildAppBar(),
+            body: SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -146,15 +290,24 @@ class _AccountSettingScreenState extends State<AccountSettingScreen> {
                         _buildSecuritySection(),
                         const SizedBox(height: 32),
                         CustomElevatedButton(
-                          onPressed: _saveChanges,
-                          buttonText: 'Save changes',
+                          onPressed: isLoading ? null : () => _saveChanges(context),
+                          buttonText: isLoading ? 'Saving...' : 'Save changes',
                           backgroundColor: AppColors.primaryColor,
                           foregroundColor: AppColors.whiteColor,
                           height: 48,
                           borderRadius: BorderRadius.circular(30),
                           isFullWidth: true,
                           hasShadow: false,
-                          icon: const Icon(Icons.save, size: 20),
+                          icon: isLoading
+                              ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                              : const Icon(Icons.save, size: 20),
                           gap: 8,
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -165,9 +318,9 @@ class _AccountSettingScreenState extends State<AccountSettingScreen> {
                   ),
                 ],
               ),
-            );
-          },
-        ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -258,70 +411,79 @@ class _AccountSettingScreenState extends State<AccountSettingScreen> {
           ),
         ],
       ),
-      child: Row(
+      child: Column(
         children: [
-          // Avatar
-          Container(
-            width: 70,
-            height: 70,
-            decoration: BoxDecoration(
-              color: AppColors.primaryColor.withOpacity(0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Center(
-              child: Text(
-                _userData?.initials ?? 'JD',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.primaryColor,
+          // Avatar with Edit Icon
+          Stack(
+            children: [
+              Container(
+                width: 120,
+                height: 120,
+                decoration: BoxDecoration(
+                  color: AppColors.primaryColor.withOpacity(0.1),
+                  shape: BoxShape.circle,
                 ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _userData?.name ?? 'John Doe',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF1A1A2E),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  _userData?.email ?? 'john.doe@logistics.com',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Color(0xFF888888),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
+                child: Center(
                   child: Text(
-                    _userData?.role.toUpperCase() ?? 'DRIVER',
+                    // If _userData is null, show empty string (replaced once API loads)
+                    _userData?.initials ?? '',
                     style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 48,
+                      fontWeight: FontWeight.bold,
                       color: AppColors.primaryColor,
                     ),
                   ),
                 ),
-              ],
+              ),
+              Positioned(
+                right: 0,
+                bottom: 0,
+                child: SvgPicture.asset(
+                  'assets/icons/edit_profile_image.svg',
+                  width: 30,
+                  height: 30,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            // Real name from API, fallback while loading
+            _userData?.name ?? 'Loading...',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFF1A1A2E),
             ),
           ),
+          const SizedBox(height: 4),
+          Text(
+            // Real email from API, fallback while loading
+            _userData?.email ?? 'Loading...',
+            style: TextStyle(fontSize: 14, color: const Color(0xFF888888)),
+          ),
+          const SizedBox(height: 8),
+          // Role Badge
+          if (_userData != null) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 4,
+              ),
+              decoration: BoxDecoration(
+                color: AppColors.primaryColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                _userData?.role.toUpperCase() ?? '',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primaryColor,
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -370,7 +532,7 @@ class _AccountSettingScreenState extends State<AccountSettingScreen> {
             ],
           ),
           const SizedBox(height: 20),
-          // Full Name Field
+          // Full Name Field - shows real name from API
           _buildTextField(
             label: 'FULL NAME',
             controller: _fullNameController,
@@ -433,7 +595,39 @@ class _AccountSettingScreenState extends State<AccountSettingScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 8),
+          // Password Requirements Info
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: AppColors.primaryColor.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: AppColors.primaryColor.withOpacity(0.1),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.info_outline_rounded,
+                  size: 16,
+                  color: AppColors.primaryColor,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Password must be 6-8 characters, with at least 1 '
+                        'uppercase letter, 1 number, and 1 special character',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.primaryColor,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
           // Old Password Field
           _buildPasswordField(
             label: 'OLD PASSWORD',
@@ -486,9 +680,9 @@ class _AccountSettingScreenState extends State<AccountSettingScreen> {
       children: [
         Text(
           label,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 11,
-            color: Color(0xFF888888),
+            color: const Color(0xFF888888),
             letterSpacing: 0.8,
             fontWeight: FontWeight.w600,
           ),
@@ -534,9 +728,9 @@ class _AccountSettingScreenState extends State<AccountSettingScreen> {
       children: [
         Text(
           label,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 11,
-            color: Color(0xFF888888),
+            color: const Color(0xFF888888),
             letterSpacing: 0.8,
             fontWeight: FontWeight.w600,
           ),
@@ -629,7 +823,6 @@ class _AccountSettingScreenState extends State<AccountSettingScreen> {
             ),
             onPressed: () {
               Navigator.pop(context);
-              // TODO: Call delete account API here
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text('Account deleted successfully'),
