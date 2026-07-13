@@ -1,7 +1,11 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:image_picker/image_picker.dart';
+import '../../../../core/constants/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/app_url.dart';
 import '../../../../shared/components/Custom_Elevated_Button.dart';
 import 'cubit/account_settings_cubit.dart';
 import 'model/account_settings_data.dart';
@@ -30,21 +34,16 @@ class _AccountSettingScreenState extends State<AccountSettingScreen> {
   // User data
   UserData? _userData;
 
+  // Store selected image file locally (not uploaded yet)
+  File? _selectedImageFile;
+  String? _selectedImagePath;
+
   // Tracks whether the next AccountSettingsSuccess is from an actual save
-  // action (password change / profile update) rather than the initial
-  // profile fetch. Only real saves should pop the screen — the initial
-  // fetch also emits AccountSettingsSuccess, and without this flag the
-  // listener treated that as "save completed" and auto-navigated back.
   bool _isSavingAction = false;
 
-  // NOTE: getUserProfile() is no longer called from initState().
-  // context.read<AccountSettingsCubit>() would fail here because this
-  // widget's own context sits ABOVE the BlocProvider created in build() —
-  // the provider is a descendant of this context, not an ancestor, so the
-  // lookup throws ProviderNotFoundException silently inside the
-  // postFrameCallback and the fetch never actually runs. Instead, the cubit
-  // triggers its own fetch immediately via the `..getUserProfile()` cascade
-  // inside `create:` below, where the context is correct.
+  // Delete account confirmation text controller
+  final TextEditingController _deleteConfirmationController =
+  TextEditingController();
 
   @override
   void dispose() {
@@ -53,6 +52,7 @@ class _AccountSettingScreenState extends State<AccountSettingScreen> {
     _oldPasswordController.dispose();
     _newPasswordController.dispose();
     _confirmPasswordController.dispose();
+    _deleteConfirmationController.dispose();
     super.dispose();
   }
 
@@ -60,10 +60,41 @@ class _AccountSettingScreenState extends State<AccountSettingScreen> {
     setState(() {
       _userData = userData;
       _fullNameController.text = userData.name;
-      _phoneNumberController.text = '+1 (555) 000-0000';
+      _phoneNumberController.text = userData.phone ?? '+1 (555) 000-0000';
+      _selectedImageFile = null;
+      _selectedImagePath = null;
     });
   }
 
+  // Just pick the image, don't upload yet
+  Future<void> _pickImage(BuildContext context) async {
+    try {
+      final picker = ImagePicker();
+      final pickedFile = await picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 800,
+        maxHeight: 800,
+        imageQuality: 80,
+      );
+
+      if (pickedFile != null) {
+        setState(() {
+          _selectedImageFile = File(pickedFile.path);
+          _selectedImagePath = pickedFile.path;
+        });
+
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error picking image: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  // Save changes - handles both profile update and image upload
   void _saveChanges(BuildContext context) {
     // Check if password fields are being changed
     final bool isChangingPassword = _oldPasswordController.text.isNotEmpty ||
@@ -75,17 +106,49 @@ class _AccountSettingScreenState extends State<AccountSettingScreen> {
       return;
     }
 
-    // If no password changes, just show success
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Changes saved successfully!'),
-        backgroundColor: Colors.green,
-      ),
-    );
+    _performSave(context);
+  }
 
-    Future.delayed(const Duration(seconds: 1), () {
-      if (mounted) Navigator.pop(context);
-    });
+  // Perform the actual save (profile update with or without image)
+  void _performSave(BuildContext context) async {
+    _isSavingAction = true;
+    final cubit = context.read<AccountSettingsCubit>();
+
+    // If there's a selected image, upload it first
+    if (_selectedImageFile != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Uploading image...'),
+          backgroundColor: Colors.blue,
+        ),
+      );
+
+      final filename = await cubit.uploadImage(_selectedImageFile!);
+
+      if (filename != null) {
+        cubit.updateUserProfile(
+          name: _fullNameController.text.trim(),
+          phone: _phoneNumberController.text.trim(),
+          address: _userData?.address ?? '',
+          profileImage: filename,
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to upload image. Please try again.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        _isSavingAction = false;
+      }
+    } else {
+      cubit.updateUserProfile(
+        name: _fullNameController.text.trim(),
+        phone: _phoneNumberController.text.trim(),
+        address: _userData?.address ?? '',
+        profileImage: _userData?.profileImage ?? '',
+      );
+    }
   }
 
   void _handleChangePassword(BuildContext context) {
@@ -187,7 +250,7 @@ class _AccountSettingScreenState extends State<AccountSettingScreen> {
     }
 
     // Call API to change password
-    _isSavingAction = true; // this success should navigate back
+    _isSavingAction = true;
     final cubit = context.read<AccountSettingsCubit>();
     cubit.changePassword(
       currentPassword: oldPassword,
@@ -196,57 +259,272 @@ class _AccountSettingScreenState extends State<AccountSettingScreen> {
     );
   }
 
+  // ✅ Delete Account with confirmation - Fixed context issue
+  void _showDeleteAccountDialog(BuildContext context) {
+    // ✅ Capture the correct context that has access to the cubit
+    final scaffoldContext = context;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        bool isDeleteEnabled = false;
+
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              backgroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: Row(
+                children: [
+                  const Icon(
+                    Icons.warning_amber_rounded,
+                    color: Colors.red,
+                    size: 28,
+                  ),
+                  const SizedBox(width: 12),
+                  const Text(
+                    'Delete Account',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.red,
+                    ),
+                  ),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Are you sure you want to delete your account?',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF1A1A2E),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'This action cannot be undone. All your data will be permanently removed.',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Color(0xFF666666),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: Colors.red.withOpacity(0.2),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Type "DELETE ACCOUNT" to confirm:',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.red,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: _deleteConfirmationController,
+                          autofocus: true,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.red,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: 'DELETE ACCOUNT',
+                            hintStyle: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey[400],
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(
+                                color: Colors.red.withOpacity(0.3),
+                              ),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(
+                                color: Colors.red.withOpacity(0.3),
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(
+                                color: Colors.red,
+                                width: 2,
+                              ),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
+                          ),
+                          onChanged: (value) {
+                            final trimmedValue = value.trim();
+                            // ✅ Case sensitive - must be exactly "DELETE ACCOUNT"
+                            final isMatch = trimmedValue == 'DELETE ACCOUNT';
+                            setState(() {
+                              isDeleteEnabled = isMatch && trimmedValue.isNotEmpty;
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    _deleteConfirmationController.clear();
+                    Navigator.pop(dialogContext);
+                  },
+                  child: const Text(
+                    'Cancel',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Color(0xFF666666),
+                    ),
+                  ),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: isDeleteEnabled ? Colors.red : Colors.grey,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
+                    elevation: 0,
+                  ),
+                  onPressed: isDeleteEnabled
+                      ? () {
+                    // Close dialog
+                    Navigator.pop(dialogContext);
+                    // ✅ Use the captured scaffoldContext to call delete
+                    _deleteAccount(scaffoldContext);
+                  }
+                      : null,
+                  child: const Text(
+                    'Delete Account',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // Delete Account API call
+  void _deleteAccount(BuildContext context) async {
+    try {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Deleting account...'),
+          backgroundColor: Colors.blue,
+        ),
+      );
+
+      final cubit = context.read<AccountSettingsCubit>();
+      final success = await cubit.deleteAccount();
+
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Account deleted successfully'),
+            backgroundColor: Colors.red,
+          ),
+        );
+
+        Future.delayed(const Duration(milliseconds: 500), () {
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            AppRoutes.login,
+                (route) => false,
+          );
+        });
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to delete account. Please try again.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      // ✅ FIX: fetch profile the moment the cubit is created, using the
-      // cascade operator. This runs with the correct context — no
-      // context.read() lookup needed, so it can't fail to find the provider.
       create: (context) => AccountSettingsCubit()..getUserProfile(),
       child: BlocConsumer<AccountSettingsCubit, AccountSettingsState>(
         listener: (context, state) {
           if (state is AccountSettingsSuccess) {
-            // ✅ Update user data with real API data
             _updateUserData(state.userData);
 
-            // The initial profile fetch (triggered in `create:`) also emits
-            // AccountSettingsSuccess. Only treat this as a completed "save"
-            // — and only then show a snackbar / navigate back — if the user
-            // actually triggered a save action.
             if (!_isSavingAction) {
               return;
             }
-            _isSavingAction = false; // reset for next time
+            _isSavingAction = false;
 
-            // Check if it's a password change success
-            if (_oldPasswordController.text.isEmpty &&
-                _newPasswordController.text.isEmpty &&
-                _confirmPasswordController.text.isEmpty) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Profile updated successfully!'),
-                  backgroundColor: Colors.green,
-                ),
-              );
-            } else {
+            // Show appropriate success message
+            if (_oldPasswordController.text.isNotEmpty ||
+                _newPasswordController.text.isNotEmpty ||
+                _confirmPasswordController.text.isNotEmpty) {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text('Password changed successfully!'),
                   backgroundColor: Colors.green,
                 ),
               );
-              // Clear password fields
               _oldPasswordController.clear();
               _newPasswordController.clear();
               _confirmPasswordController.clear();
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Profile updated successfully!'),
+                  backgroundColor: Colors.green,
+                ),
+              );
             }
 
-            // Navigate back after delay
             Future.delayed(const Duration(seconds: 1), () {
               if (mounted) Navigator.pop(context);
             });
           } else if (state is AccountSettingsFailure) {
-            // Show error message
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(state.errorMessage),
@@ -258,7 +536,6 @@ class _AccountSettingScreenState extends State<AccountSettingScreen> {
         builder: (context, state) {
           final isLoading = state is AccountSettingsLoading;
 
-          // Show loading indicator while fetching data
           if (state is AccountSettingsLoading && _userData == null) {
             return const Scaffold(
               backgroundColor: AppColors.backgroundColor,
@@ -272,7 +549,7 @@ class _AccountSettingScreenState extends State<AccountSettingScreen> {
 
           return Scaffold(
             backgroundColor: AppColors.backgroundColor,
-            appBar: _buildAppBar(),
+            appBar: _buildAppBar(context),
             body: SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -283,7 +560,7 @@ class _AccountSettingScreenState extends State<AccountSettingScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildProfileHeader(),
+                        _buildProfileHeader(context),
                         const SizedBox(height: 24),
                         _buildEditProfileSection(),
                         const SizedBox(height: 24),
@@ -325,7 +602,7 @@ class _AccountSettingScreenState extends State<AccountSettingScreen> {
     );
   }
 
-  PreferredSizeWidget _buildAppBar() {
+  PreferredSizeWidget _buildAppBar(BuildContext context) {
     return AppBar(
       backgroundColor: AppColors.backgroundColor,
       surfaceTintColor: AppColors.backgroundColor,
@@ -356,7 +633,7 @@ class _AccountSettingScreenState extends State<AccountSettingScreen> {
             ),
             onSelected: (value) {
               if (value == 'delete') {
-                _showDeleteAccountDialog();
+                _showDeleteAccountDialog(context);
               }
             },
             itemBuilder: (context) => [
@@ -396,7 +673,7 @@ class _AccountSettingScreenState extends State<AccountSettingScreen> {
     );
   }
 
-  Widget _buildProfileHeader() {
+  Widget _buildProfileHeader(BuildContext context) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
@@ -413,57 +690,98 @@ class _AccountSettingScreenState extends State<AccountSettingScreen> {
       ),
       child: Column(
         children: [
-          // Avatar with Edit Icon
-          Stack(
-            children: [
-              Container(
-                width: 120,
-                height: 120,
-                decoration: BoxDecoration(
-                  color: AppColors.primaryColor.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Center(
-                  child: Text(
-                    // If _userData is null, show empty string (replaced once API loads)
-                    _userData?.initials ?? '',
-                    style: TextStyle(
-                      fontSize: 48,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.primaryColor,
+          GestureDetector(
+            onTap: () => _pickImage(context),
+            child: Stack(
+              children: [
+                Container(
+                  width: 120,
+                  height: 120,
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryColor.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: ClipOval(
+                    child: _selectedImageFile != null
+                        ? Image.file(
+                      _selectedImageFile!,
+                      fit: BoxFit.cover,
+                    )
+                        : _userData?.profileImage != null &&
+                        _userData!.profileImage.isNotEmpty &&
+                        _userData!.profileImage != 'users/user.png'
+                        ? Image.network(
+                      '${AppUrl.imageBaseUrl}/${_userData!.profileImage}',
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Center(
+                          child: Text(
+                            _userData?.initials ?? '',
+                            style: TextStyle(
+                              fontSize: 48,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.primaryColor,
+                            ),
+                          ),
+                        );
+                      },
+                    )
+                        : Center(
+                      child: Text(
+                        _userData?.initials ?? '',
+                        style: TextStyle(
+                          fontSize: 48,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primaryColor,
+                        ),
+                      ),
                     ),
                   ),
                 ),
-              ),
-              Positioned(
-                right: 0,
-                bottom: 0,
-                child: SvgPicture.asset(
-                  'assets/icons/edit_profile_image.svg',
-                  width: 30,
-                  height: 30,
+                Positioned(
+                  right: 0,
+                  bottom: 0,
+                  child: SvgPicture.asset(
+                    'assets/icons/edit_profile_image.svg',
+                    width: 30,
+                    height: 30,
+                  ),
                 ),
-              ),
-            ],
+                if (_selectedImageFile != null)
+                  Positioned(
+                    top: 0,
+                    right: 0,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: Colors.blue,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.upload_file,
+                        size: 16,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
           const SizedBox(height: 16),
           Text(
-            // Real name from API, fallback while loading
             _userData?.name ?? 'Loading...',
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.w700,
-              color: const Color(0xFF1A1A2E),
+              color: Color(0xFF1A1A2E),
             ),
           ),
           const SizedBox(height: 4),
           Text(
-            // Real email from API, fallback while loading
             _userData?.email ?? 'Loading...',
-            style: TextStyle(fontSize: 14, color: const Color(0xFF888888)),
+            style: const TextStyle(fontSize: 14, color: Color(0xFF888888)),
           ),
           const SizedBox(height: 8),
-          // Role Badge
           if (_userData != null) ...[
             Container(
               padding: const EdgeInsets.symmetric(
@@ -532,7 +850,7 @@ class _AccountSettingScreenState extends State<AccountSettingScreen> {
             ],
           ),
           const SizedBox(height: 20),
-          // Full Name Field - shows real name from API
+          // Full Name Field
           _buildTextField(
             label: 'FULL NAME',
             controller: _fullNameController,
@@ -608,7 +926,7 @@ class _AccountSettingScreenState extends State<AccountSettingScreen> {
             ),
             child: Row(
               children: [
-                Icon(
+                const Icon(
                   Icons.info_outline_rounded,
                   size: 16,
                   color: AppColors.primaryColor,
@@ -617,7 +935,7 @@ class _AccountSettingScreenState extends State<AccountSettingScreen> {
                 Expanded(
                   child: Text(
                     'Password must be 6-8 characters, with at least 1 '
-                        'uppercase letter, 1 number, and 1 special character',
+                        'uppercase letter, 1 number, and 1 special character (e.g. Pass@123)',
                     style: TextStyle(
                       fontSize: 12,
                       color: AppColors.primaryColor,
@@ -680,9 +998,9 @@ class _AccountSettingScreenState extends State<AccountSettingScreen> {
       children: [
         Text(
           label,
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: 11,
-            color: const Color(0xFF888888),
+            color: Color(0xFF888888),
             letterSpacing: 0.8,
             fontWeight: FontWeight.w600,
           ),
@@ -728,9 +1046,9 @@ class _AccountSettingScreenState extends State<AccountSettingScreen> {
       children: [
         Text(
           label,
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: 11,
-            color: const Color(0xFF888888),
+            color: Color(0xFF888888),
             letterSpacing: 0.8,
             fontWeight: FontWeight.w600,
           ),
@@ -773,73 +1091,6 @@ class _AccountSettingScreenState extends State<AccountSettingScreen> {
           ),
         ),
       ],
-    );
-  }
-
-  void _showDeleteAccountDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        title: const Text(
-          'Delete Account',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Colors.red,
-          ),
-        ),
-        content: const Text(
-          'Are you sure you want to delete your account? This action cannot be undone.',
-          style: TextStyle(
-            fontSize: 16,
-            color: Color(0xFF666666),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text(
-              'Cancel',
-              style: TextStyle(
-                fontSize: 16,
-                color: Color(0xFF666666),
-              ),
-            ),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-              padding: const EdgeInsets.symmetric(
-                horizontal: 24,
-                vertical: 12,
-              ),
-            ),
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Account deleted successfully'),
-                  backgroundColor: Colors.red,
-                ),
-              );
-            },
-            child: const Text(
-              'Delete',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

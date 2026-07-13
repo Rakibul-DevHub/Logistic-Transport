@@ -1074,7 +1074,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                               Expanded(
                                 child: Text(
                                   'Password must be 6-8 characters, with at least '
-                                      '1 uppercase letter, 1 number, and 1 special character',
+                                      '1 uppercase letter, 1 number, and 1 special character (e.g. Pass@123)',
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: AppColors.primaryColor,

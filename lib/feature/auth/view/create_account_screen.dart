@@ -35,13 +35,52 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   String? _passwordError;
   String? _confirmPasswordError;
 
+  /// Track if all fields are valid
+  bool _isFormValid = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Add listeners to validate form on change
+    _fullNameController.addListener(_validateForm);
+    _emailController.addListener(_validateForm);
+    _passwordController.addListener(_validateForm);
+    _confirmPasswordController.addListener(_validateForm);
+  }
+
   @override
   void dispose() {
+    _fullNameController.removeListener(_validateForm);
+    _emailController.removeListener(_validateForm);
+    _passwordController.removeListener(_validateForm);
+    _confirmPasswordController.removeListener(_validateForm);
     _fullNameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
+  }
+
+  /// Validate entire form
+  void _validateForm() {
+    setState(() {
+      _fullNameError = _validateFullName(_fullNameController.text);
+      _emailError = _validateEmail(_emailController.text);
+      _passwordError = _validatePassword(_passwordController.text);
+      _confirmPasswordError = _validateConfirmPassword(_confirmPasswordController.text);
+
+      // Check if all fields are valid
+      _isFormValid =
+          _fullNameError == null &&
+              _emailError == null &&
+              _passwordError == null &&
+              _confirmPasswordError == null &&
+              _fullNameController.text.isNotEmpty &&
+              _emailController.text.isNotEmpty &&
+              _passwordController.text.isNotEmpty &&
+              _confirmPasswordController.text.isNotEmpty &&
+              _isTermsAccepted;
+    });
   }
 
   void _handleNext() {
@@ -57,7 +96,6 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
 
     // Check if any error exists
     if (_fullNameError != null ||
-        _emailError != null ||
         _emailError != null ||
         _passwordError != null ||
         _confirmPasswordError != null) {
@@ -98,11 +136,11 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     return null;
   }
 
-  // ✅ Updated password rules: minimum 6 characters, at least one uppercase
-  // letter, one number, and one special character.
+  /// Fixed: Password must be 6-8 characters with proper validation
   String? _validatePassword(String value) {
     if (value.isEmpty) return 'Please create a password';
     if (value.length < 6) return 'Password must be at least 6 characters';
+    if (value.length > 8) return 'Password must be less than 8 characters';
     if (!RegExp(r'[A-Z]').hasMatch(value)) {
       return 'Password must contain at least one uppercase letter';
     }
@@ -118,6 +156,9 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   String? _validateConfirmPassword(String value) {
     if (value.isEmpty) return 'Please confirm your password';
     if (value != _passwordController.text) return 'Passwords do not match';
+    /// Also check if the password length is valid when confirming
+    if (value.length < 6) return 'Password must be at least 6 characters';
+    if (value.length > 8) return 'Password must be less than 8 characters';
     return null;
   }
 
@@ -147,14 +188,14 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(state.errorMessage!),
-                    backgroundColor: Colors.red,
+                    backgroundColor: AppColors.redColor,
                     duration: const Duration(seconds: 2),
                   ),
                 );
               }
             },
             builder: (context, state) {
-              // ✅ Check if loading
+              /// Check if loading
               final bool isLoading = state.isLoading;
 
               return SingleChildScrollView(
@@ -212,6 +253,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                       onChanged: (value) {
                         setState(() {
                           _fullNameError = _validateFullName(value);
+                          _validateForm();
                         });
                       },
                       hasError: _fullNameError != null,
@@ -233,6 +275,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                       onChanged: (value) {
                         setState(() {
                           _emailError = _validateEmail(value);
+                          _validateForm();
                         });
                       },
                       hasError: _emailError != null,
@@ -264,6 +307,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                               _confirmPasswordController.text,
                             );
                           }
+                          _validateForm();
                         });
                       },
                       hasError: _passwordError != null,
@@ -284,14 +328,15 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                       obscureText: _obscureConfirmPassword,
                       hintText: 'Confirm your password',
                       onToggle: () => setState(
-                        () =>
-                            _obscureConfirmPassword = !_obscureConfirmPassword,
+                            () =>
+                        _obscureConfirmPassword = !_obscureConfirmPassword,
                       ),
                       onChanged: (value) {
                         setState(() {
                           _confirmPasswordError = _validateConfirmPassword(
                             value,
                           );
+                          _validateForm();
                         });
                       },
                       hasError: _confirmPasswordError != null,
@@ -303,20 +348,22 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                       _buildErrorText(_confirmPasswordError!),
                     ],
                     const SizedBox(height: 16),
-                    // ✅ Password requirements hint
+                    /// Password requirements hint - updated to show 6-8 characters
                     _buildPasswordHint(),
                     const SizedBox(height: 24),
 
-                    // ✅ Updated: Terms and Conditions with clickable links
+                    /// Updated: Terms and Conditions with clickable links
                     _buildTermsCheckbox(),
 
                     const SizedBox(height: 32),
 
-                    /// Next Button
+                    //// Next Button - Disabled until all rules match
                     CustomElevatedButton(
-                      onPressed: isLoading ? null : _handleNext,
+                      onPressed: (isLoading || !_isFormValid) ? null : _handleNext,
                       buttonText: isLoading ? 'Processing...' : 'Next',
-                      backgroundColor: AppColors.primaryColor,
+                      backgroundColor: _isFormValid
+                          ? AppColors.primaryColor
+                          : Colors.grey[400]!,
                       foregroundColor: Colors.white,
                       height: 56,
                       isFullWidth: true,
@@ -363,7 +410,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     );
   }
 
-  // ✅ New: password requirements hint shown above the password field
+  /// Updated: password requirements hint - 6-8 characters
   Widget _buildPasswordHint() {
     return Container(
       width: double.infinity,
@@ -384,8 +431,8 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              'Minimum 6 characters, with at least 1 uppercase letter, '
-              '1 number, and 1 special character (e.g. Pass@123)',
+              'Password must be 6-8 characters, with at least 1 uppercase letter, '
+                  '1 number, and 1 special character (e.g. Pass@123)',
               style: TextStyle(fontSize: 12, color: AppColors.primaryColor),
             ),
           ),
@@ -518,7 +565,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     );
   }
 
-  // ✅ Updated: Terms and Conditions with clickable links
+  /// Updated: Terms and Conditions with clickable links
   Widget _buildTermsCheckbox() {
     return Row(
       children: [
@@ -527,8 +574,12 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
           height: 24,
           child: Checkbox(
             value: _isTermsAccepted,
-            onChanged: (value) =>
-                setState(() => _isTermsAccepted = value ?? false),
+            onChanged: (value) {
+              setState(() {
+                _isTermsAccepted = value ?? false;
+                _validateForm();
+              });
+            },
             activeColor: AppColors.primaryColor,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(4),
@@ -545,7 +596,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                 WidgetSpan(
                   child: GestureDetector(
                     onTap: () {
-                      // ✅ Navigate to Terms & Conditions
+                      /// Navigate to Terms & Conditions
                       Navigator.push(
                         context,
                         MaterialPageRoute(
@@ -569,7 +620,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                 WidgetSpan(
                   child: GestureDetector(
                     onTap: () {
-                      // ✅ Navigate to Privacy Policy
+                      /// Navigate to Privacy Policy
                       Navigator.push(
                         context,
                         MaterialPageRoute(
