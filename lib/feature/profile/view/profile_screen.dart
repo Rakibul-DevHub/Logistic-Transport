@@ -108,6 +108,8 @@ class _ProfileContentState extends State<_ProfileContent>
           isProfileLoading = true;
         } else if (profileState is UserProfileSuccess) {
           userData = profileState.userData;
+          print("Profile Image: ${userData.profileImage}");
+          print("Full Image URL: ${AppUrl.imageBaseUrl}/${userData.profileImage}");
         } else if (profileState is UserProfileFailure) {
           // Show error and retry option
           return Center(
