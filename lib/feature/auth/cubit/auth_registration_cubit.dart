@@ -407,7 +407,7 @@ class AuthRegistrationCubit extends Cubit<AuthRegistrationState> {
     emit(state.copyWith(errorMessage: message, isLoading: false));
   }
 
-  // ==================== GETTERS ====================
+  /// ==================== GETTERS ====================
   String get email => state.email;
   String get fullName => state.fullName;
   String get password => state.password;

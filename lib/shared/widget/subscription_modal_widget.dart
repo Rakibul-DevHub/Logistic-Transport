@@ -1,20 +1,7 @@
 import 'package:flutter/material.dart';
-
-class SubscriptionPlan {
-  final String name;
-  final String description;
-  final double price;
-  final List<String> features;
-  final bool isRecommended;
-
-  SubscriptionPlan({
-    required this.name,
-    required this.description,
-    required this.price,
-    required this.features,
-    this.isRecommended = false,
-  });
-}
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../feature/profile/view/subscription/cubit/subscription_cubit.dart';
+import '../../feature/profile/view/subscription/model/subscription_data.dart';
 
 class SubscriptionWidget extends StatefulWidget {
   const SubscriptionWidget({super.key});
@@ -25,180 +12,212 @@ class SubscriptionWidget extends StatefulWidget {
 
 class _SubscriptionWidgetState extends State<SubscriptionWidget> {
   int? _selectedPlanIndex;
+  List<SubscriptionPlan>? _allPlans;
 
-  final List<SubscriptionPlan> _plans = [
-    SubscriptionPlan(
-      name: 'Basic Plan',
-      description: 'For individual drivers',
-      price: 29.99,
-      features: [
-        'Load tracking',
-        'Expense tracking',
-        'Reports',
-      ],
-    ),
-    SubscriptionPlan(
-      name: 'Standard Plan',
-      description: 'Owner + 1 Driver',
-      price: 59.99,
-      isRecommended: true,
-      features: [
-        'Everything in Basic',
-        'Driver assignment',
-        'Team access',
-      ],
-    ),
-    SubscriptionPlan(
-      name: 'Premium Plan',
-      description: 'Up to 3 users',
-      price: 99.99,
-      features: [
-        'Multiple drivers',
-        'Full access',
-        'Priority support',
-        'Advanced analytics',
-      ],
-    ),
-  ];
+  // ✅ Helper to get display duration
+  String _getDisplayDuration(SubscriptionPlan plan) {
+    if (plan.durationInMonths >= 12) {
+      final years = plan.durationInMonths ~/ 12;
+      final remainingMonths = plan.durationInMonths % 12;
+      if (remainingMonths == 0) {
+        return '$years year${years > 1 ? 's' : ''}';
+      }
+      return '$years year${years > 1 ? 's' : ''} $remainingMonths month${remainingMonths > 1 ? 's' : ''}';
+    } else {
+      return '${plan.durationInMonths} month${plan.durationInMonths > 1 ? 's' : ''}';
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.85,
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(24),
-          topRight: Radius.circular(24),
-        ),
-      ),
-      child: Column(
-        children: [
-          // Handle bar
-          Container(
-            margin: const EdgeInsets.only(top: 12, bottom: 20),
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: const Color(0xFFE4E7EC),
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
+    return BlocProvider(
+      create: (context) => SubscriptionCubit()..getSubscriptionPlans(),
+      child: BlocConsumer<SubscriptionCubit, SubscriptionState>(
+        listener: (context, state) {
+          if (state is SubscriptionFailure) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(state.errorMessage),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        },
+        builder: (context, state) {
+          if (state is SubscriptionLoading) {
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.5,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(24),
+                  topRight: Radius.circular(24),
+                ),
+              ),
+              child: const Center(
+                child: CircularProgressIndicator(
+                  color: Color(0xFF213A63),
+                ),
+              ),
+            );
+          }
 
-          // Title
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 24),
-            child: Text(
-              'Choose Your Plan',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF161B2F),
+          if (state is SubscriptionSuccess) {
+            _allPlans = state.plans;
+          }
+
+          final plans = _allPlans ?? [];
+
+          return Container(
+            height: MediaQuery.of(context).size.height * 0.85,
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(24),
+                topRight: Radius.circular(24),
               ),
             ),
-          ),
-          const SizedBox(height: 8),
-
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 24),
-            child: Text(
-              'Select the plan that best fits your needs',
-              style: TextStyle(
-                fontSize: 14,
-                color: Color(0xFF73809A),
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // Plans List - Using Expanded with ListView
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: _plans.length,
-              itemBuilder: (context, index) {
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: _buildPlanCard(_plans[index], index),
-                );
-              },
-            ),
-          ),
-
-          // Bottom Section
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
             child: Column(
               children: [
-                // Dynamic Button - Shows different based on selection
-                if (_selectedPlanIndex != null)
-                  SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: ElevatedButton(
-                      onPressed: () => _handleContinue(),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF213A63),
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(32),
-                        ),
-                        elevation: 0,
-                      ),
-                      child: const Text(
-                        'Continue with Selected Plan',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  )
-                else
-                  SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: OutlinedButton(
-                      onPressed: () => _startFreeTrial(),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF213A63),
-                        side: const BorderSide(color: Color(0xFF213A63), width: 1.5),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(32),
-                        ),
-                      ),
-                      child: const Text(
-                        'Start 7 Days Free Trial',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-
-                const SizedBox(height: 12),
-
-                // Footer text
-                const Text(
-                  'No charge during trial. Cancel anytime.',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Color(0xFF73809A),
+                // Handle bar
+                Container(
+                  margin: const EdgeInsets.only(top: 12, bottom: 20),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE4E7EC),
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
 
+                // Title
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 24),
+                  child: Text(
+                    'Choose Your Plan',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF161B2F),
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 8),
+
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 24),
+                  child: Text(
+                    'Select the plan that best fits your needs',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Color(0xFF73809A),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // Plans List
+                Expanded(
+                  child: plans.isEmpty
+                      ? const Center(
+                    child: Text(
+                      'No plans available',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Color(0xFF73809A),
+                      ),
+                    ),
+                  )
+                      : ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: plans.length,
+                    itemBuilder: (context, index) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: _buildPlanCard(plans[index], index),
+                      );
+                    },
+                  ),
+                ),
+
+                // Bottom Section
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                  child: Column(
+                    children: [
+                      // Dynamic Button
+                      if (_selectedPlanIndex != null)
+                        SizedBox(
+                          width: double.infinity,
+                          height: 56,
+                          child: ElevatedButton(
+                            onPressed: () => _handleContinue(),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF213A63),
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(32),
+                              ),
+                              elevation: 0,
+                            ),
+                            child: const Text(
+                              'Continue with Selected Plan',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        )
+                      else
+                        SizedBox(
+                          width: double.infinity,
+                          height: 56,
+                          child: OutlinedButton(
+                            onPressed: () => _startFreeTrial(),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFF213A63),
+                              side: const BorderSide(color: Color(0xFF213A63), width: 1.5),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(32),
+                              ),
+                            ),
+                            child: const Text(
+                              'Start 7 Days Free Trial',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+
+                      const SizedBox(height: 12),
+
+                      const Text(
+                        'No charge during trial. Cancel anytime.',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF73809A),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                  ),
+                ),
               ],
             ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
 
   Widget _buildPlanCard(SubscriptionPlan plan, int index) {
     final isSelected = _selectedPlanIndex == index;
+    final isRecommended = plan.durationInMonths >= 12 && index == 1;
+
+    final displayDuration = _getDisplayDuration(plan);
 
     return GestureDetector(
       onTap: () {
@@ -210,7 +229,7 @@ class _SubscriptionWidgetState extends State<SubscriptionWidget> {
         decoration: BoxDecoration(
           color: isSelected
               ? const Color(0xFFF0F4FF)
-              : plan.isRecommended
+              : isRecommended
               ? const Color(0xFFF8F9FC)
               : Colors.white,
           borderRadius: BorderRadius.circular(16),
@@ -242,7 +261,7 @@ class _SubscriptionWidgetState extends State<SubscriptionWidget> {
                       Row(
                         children: [
                           Text(
-                            plan.name,
+                            plan.title,
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w700,
@@ -251,7 +270,7 @@ class _SubscriptionWidgetState extends State<SubscriptionWidget> {
                                   : const Color(0xFF161B2F),
                             ),
                           ),
-                          if (plan.isRecommended) ...[
+                          if (isRecommended) ...[
                             const SizedBox(width: 8),
                             Container(
                               padding: const EdgeInsets.symmetric(
@@ -276,7 +295,7 @@ class _SubscriptionWidgetState extends State<SubscriptionWidget> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        plan.description,
+                        '${plan.driverLimit} drivers included',
                         style: const TextStyle(
                           fontSize: 13,
                           color: Color(0xFF73809A),
@@ -299,9 +318,9 @@ class _SubscriptionWidgetState extends State<SubscriptionWidget> {
                             : const Color(0xFF161B2F),
                       ),
                     ),
-                    const Text(
-                      '/month',
-                      style: TextStyle(
+                    Text(
+                      '/ $displayDuration',
+                      style: const TextStyle(
                         fontSize: 12,
                         color: Color(0xFF73809A),
                       ),
@@ -314,44 +333,15 @@ class _SubscriptionWidgetState extends State<SubscriptionWidget> {
             const SizedBox(height: 16),
 
             // Features
-            ...plan.features.map(
-                  (feature) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(2),
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? const Color(0xFF213A63)
-                            : const Color(0xFFE8F0FE),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        Icons.check_rounded,
-                        size: 14,
-                        color: isSelected
-                            ? Colors.white
-                            : const Color(0xFF213A63),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Text(
-                      feature,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: isSelected
-                            ? const Color(0xFF161B2F)
-                            : const Color(0xFF5F6980),
-                        fontWeight: isSelected
-                            ? FontWeight.w500
-                            : FontWeight.w400,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+            _featureItem('${plan.driverLimit} Drivers included'),
+            const SizedBox(height: 8),
+            _featureItem('${plan.durationInMonths} months duration'),
+            const SizedBox(height: 8),
+            _featureItem(
+              plan.autoRenewalAvailable ? 'Auto-renewal available' : 'Manual renewal',
             ),
+            const SizedBox(height: 8),
+            _featureItem('Premium support'),
 
             // Selection Indicator
             const SizedBox(height: 8),
@@ -389,8 +379,40 @@ class _SubscriptionWidgetState extends State<SubscriptionWidget> {
     );
   }
 
+  Widget _featureItem(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(2),
+            decoration: const BoxDecoration(
+              color: Color(0xFF213A63),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.check_rounded,
+              size: 14,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              title,
+              style: const TextStyle(
+                fontSize: 14,
+                color: Color(0xFF5F6980),
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _startFreeTrial() {
-    // Show free trial confirmation
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -448,9 +470,8 @@ class _SubscriptionWidgetState extends State<SubscriptionWidget> {
           ),
           ElevatedButton(
             onPressed: () {
-              Navigator.pop(context); // Close dialog
-              Navigator.pop(context); // Close modal
-              // Navigate to onboarding or dashboard
+              Navigator.pop(context);
+              Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text('Free trial started successfully!'),
@@ -473,10 +494,10 @@ class _SubscriptionWidgetState extends State<SubscriptionWidget> {
   }
 
   void _handleContinue() {
-    if (_selectedPlanIndex != null) {
-      final selectedPlan = _plans[_selectedPlanIndex!];
+    if (_selectedPlanIndex != null && _allPlans != null) {
+      final selectedPlan = _allPlans![_selectedPlanIndex!];
+      final displayDuration = _getDisplayDuration(selectedPlan);
 
-      // Show confirmation or proceed
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
@@ -514,7 +535,7 @@ class _SubscriptionWidgetState extends State<SubscriptionWidget> {
               ),
               const SizedBox(height: 8),
               Text(
-                '${selectedPlan.name} - \$${selectedPlan.price}/month',
+                '${selectedPlan.title} - \$${selectedPlan.price.toStringAsFixed(2)} / $displayDuration',
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
@@ -557,12 +578,11 @@ class _SubscriptionWidgetState extends State<SubscriptionWidget> {
             ),
             ElevatedButton(
               onPressed: () {
-                Navigator.pop(context); // Close dialog
-                Navigator.pop(context); // Close modal
-                // Navigate to payment or confirmation screen
+                Navigator.pop(context);
+                Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('Selected ${selectedPlan.name}'),
+                    content: Text('Selected ${selectedPlan.title}'),
                     backgroundColor: Colors.green,
                   ),
                 );
@@ -597,47 +617,4 @@ void showSubscriptionModal(BuildContext context) {
     ),
     builder: (context) => const SubscriptionWidget(),
   );
-}
-
-// Example usage in a button
-class ExampleUsage extends StatelessWidget {
-  const ExampleUsage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F7),
-      appBar: AppBar(
-        title: const Text('Subscription Plans'),
-        backgroundColor: const Color(0xFFF5F5F7),
-        elevation: 0,
-      ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: ElevatedButton(
-            onPressed: () => showSubscriptionModal(context),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF213A63),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(
-                horizontal: 32,
-                vertical: 16,
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(32),
-              ),
-            ),
-            child: const Text(
-              'View Subscription Plans',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }
