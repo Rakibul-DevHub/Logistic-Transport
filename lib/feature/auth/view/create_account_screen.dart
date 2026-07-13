@@ -210,7 +210,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                       child: SizedBox(
                         height: 150,
                         child: SvgPicture.asset(
-                          'assets/images/splash_image.svg',
+                          'assets/images/splash_logo.svg',
                           fit: BoxFit.contain,
                         ),
                       ),

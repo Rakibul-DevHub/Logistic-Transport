@@ -87,7 +87,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               SizedBox(
                                 height: 150,
                                 child: SvgPicture.asset(
-                                  'assets/images/splash_image.svg',
+                                  'assets/images/splash_logo.svg',
                                   fit: BoxFit.contain,
                                 ),
                               ),
