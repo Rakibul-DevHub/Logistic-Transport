@@ -18,6 +18,8 @@ class AppUrl {
   static const String singleImageUpload = "$baseUrl/upload";
 
   static const String activeSubscriptionPlans = "$baseUrl/plan";
+  static const String subscriptionFreeTrial = "$baseUrl/user-plan/start-trial";
+  static const String subscriptionPurchase = "$baseUrl/user-plan/start-trial";
 
   static const String updatePersonalInformationProfileImage = "uploads";
 
