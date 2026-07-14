@@ -117,7 +117,7 @@ class Location {
 
 
 
-// lib/feature/profile/view/account_settings/model/account_settings_data.dart
+
 
 class AccountSettingResponse {
   final int code;
@@ -151,8 +151,8 @@ class UserData {
   final int step;
   final String createdAt;
   final String updatedAt;
-  final String phone; // ✅ Added phone
-  final String? address; // ✅ Added address
+  final String phone; // ✅ Made non-nullable with default empty
+  final String? address;
 
   UserData({
     required this.id,
@@ -169,7 +169,7 @@ class UserData {
     required this.step,
     required this.createdAt,
     required this.updatedAt,
-    required this.phone,
+    this.phone = '', // ✅ Default to empty string
     this.address,
   });
 
@@ -189,8 +189,8 @@ class UserData {
       step: json['step'] ?? 0,
       createdAt: json['createdAt'] ?? '',
       updatedAt: json['updatedAt'] ?? '',
-      phone: json['phone'],
-      address: json['address'],
+      phone: json['phone'] ?? '', // ✅ If null, use empty string
+      address: json['address'] as String?,
     );
   }
 

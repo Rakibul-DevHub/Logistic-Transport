@@ -60,7 +60,7 @@ class _AccountSettingScreenState extends State<AccountSettingScreen> {
     setState(() {
       _userData = userData;
       _fullNameController.text = userData.name;
-      _phoneNumberController.text = userData.phone ?? '+1 (555) 000-0000';
+      _phoneNumberController.text = userData.phone;
       _selectedImageFile = null;
       _selectedImagePath = null;
     });
