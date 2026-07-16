@@ -22,8 +22,8 @@ class CreateAccountScreen extends StatefulWidget {
 class _CreateAccountScreenState extends State<CreateAccountScreen> {
   final _fullNameController = TextEditingController();
   final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
-  final _confirmPasswordController = TextEditingController();
+  final _passwordController = TextEditingController(text: "1Qazxsw@");
+  final _confirmPasswordController = TextEditingController(text: "1Qazxsw@");
 
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;

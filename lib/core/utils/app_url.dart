@@ -20,7 +20,13 @@ class AppUrl {
   static const String activeSubscriptionPlans = "$baseUrl/plan";
   static const String myActivePlan = "$baseUrl/user-plan/me";
   static const String subscriptionFreeTrial = "$baseUrl/user-plan/start-trial";
-  static const String subscriptionPurchase = "$baseUrl/user-plan/start-trial";
+  static const String subscriptionPurchase = "$baseUrl/user-plan/purchase";
+
+  static const String addDriver = "$baseUrl/user/drivers/sub-drivers";
+  static const String getDriverList = "$baseUrl/user/drivers/sub-drivers";
+  static String deleteDriver(String subDriverId) {
+    return "$baseUrl/user/drivers/sub-drivers/$subDriverId";
+  }
 
   static const String updatePersonalInformationProfileImage = "uploads";
 

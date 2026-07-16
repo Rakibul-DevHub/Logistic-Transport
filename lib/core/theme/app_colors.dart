@@ -24,6 +24,8 @@ class AppColors {
   static const Color loaderLightSilver = Color(0xFFBDCAD8); // Light silvery blue
   static const Color loaderMediumSteel = Color(0xFF7A90A8); // Medium steel blue
   static const Color loaderDarkNavy = Color(0xFF2B3F5E); // Dark navy (matches primaryColor)
+  static const Color assigned = Color(0xFF27AE60);
+  static const Color waiting = Color(0xFFF5A623);
 
   ///solid color
   static const Color whiteColor = Colors.white;

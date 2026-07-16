@@ -414,7 +414,6 @@ class SubscriptionCubit extends Cubit<SubscriptionState> {
     }
   }
 
-  // ✅ Start Free Trial
   Future<bool> startFreeTrial(String planId, bool autoRenewal) async {
     try {
       final accessToken = await _storage.getAccessToken();
@@ -428,6 +427,8 @@ class SubscriptionCubit extends Cubit<SubscriptionState> {
         'autoRenewal': autoRenewal,
       };
 
+      debugPrint('📤 Starting trial for plan: $planId');
+
       final response = await _networkCaller.postRequest(
         AppUrl.subscriptionFreeTrial,
         body: requestBody,
@@ -436,12 +437,24 @@ class SubscriptionCubit extends Cubit<SubscriptionState> {
         },
       );
 
-      return response.isSuccess;
+      if (response.isSuccess) {
+        // ✅ Check if the plan matches what was requested
+        final returnedPlanId = response.jsonResponse?['data']?['planId'];
+        if (returnedPlanId != null && returnedPlanId != planId) {
+          debugPrint('⚠️ WARNING: Requested plan $planId but got $returnedPlanId');
+          // Optionally show a warning to the user
+          return false; // Or handle differently
+        }
+        return true;
+      }
+      return false;
     } catch (e) {
       debugPrint('❌ Start trial error: $e');
       return false;
     }
   }
+
+
 
   // ✅ Purchase Subscription
   Future<String?> purchaseSubscription(String planId, bool autoRenewal) async {
