@@ -571,7 +571,7 @@ class AccountSettingsCubit extends Cubit<AccountSettingsState> {
       }
 
       final response = await _networkCaller.uploadImage(
-        AppUrl.singleImageUpload,
+        AppUrl.userProfileImageUpload,
         imageFile: imageFile,
         headers: {
           'Authorization': 'Bearer $accessToken',

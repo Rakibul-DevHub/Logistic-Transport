@@ -5,11 +5,17 @@ import 'package:tag/core/theme/app_colors.dart';
 import 'package:tag/core/theme/app_text_style.dart';
 import '../../../core/constants/app_routes.dart';
 import '../../../shared/components/Custom_Elevated_Button.dart';
+import 'model/bill_of_load_data.dart';
 
 class ScanBillOfLoadingScreen extends StatefulWidget {
   final String imagePath;
+  final OCRData? ocrData;
 
-  const ScanBillOfLoadingScreen({super.key, required this.imagePath});
+  const ScanBillOfLoadingScreen({
+    super.key,
+    required this.imagePath,
+    this.ocrData,
+  });
 
   @override
   State<ScanBillOfLoadingScreen> createState() => _ScanBillOfLoadingScreenState();
@@ -24,21 +30,47 @@ class _ScanBillOfLoadingScreenState extends State<ScanBillOfLoadingScreen> {
   late TextEditingController shipmentDateController;
   late TextEditingController rateController;
 
+  bool _isModified = false;
+
   @override
   void initState() {
     super.initState();
-    // Initialize controllers with default values
-    loadIdController = TextEditingController(text: 'LD-882941-X');
-    companyController = TextEditingController(text: 'SwiftLogix Global');
-    pickupLocationController = TextEditingController(text: '1422 Industrial Way, Chicago, IL');
-    deliveryLocationController = TextEditingController(text: '9900 Logistics Blvd, Dallas, TX');
-    shipmentDateController = TextEditingController(text: '05/24/2024');
-    rateController = TextEditingController(text: '2,450.00');
+    _initializeControllers();
+  }
+
+  void _initializeControllers() {
+    final data = widget.ocrData;
+
+    // Debug: Print what data we received
+    debugPrint('📋 [OCR Data] Load ID: ${data?.loadIdString}');
+    debugPrint('📋 [OCR Data] Company: ${data?.companyName}');
+    debugPrint('📋 [OCR Data] Pickup: ${data?.pickupAddress}');
+    debugPrint('📋 [OCR Data] Delivery: ${data?.deliveryAddress}');
+    debugPrint('📋 [OCR Data] Date: ${data?.formattedPickupDate}');
+
+    // ✅ Populate controllers with OCR data - UI same thakbe
+    loadIdController = TextEditingController(
+      text: data?.loadIdString ?? '',
+    );
+    companyController = TextEditingController(
+      text: data?.companyName ?? '',
+    );
+    pickupLocationController = TextEditingController(
+      text: data?.pickupAddress ?? '',
+    );
+    deliveryLocationController = TextEditingController(
+      text: data?.deliveryAddress ?? '',
+    );
+    shipmentDateController = TextEditingController(
+      text: data?.formattedPickupDate ?? '',
+    );
+    rateController = TextEditingController(
+      text: '', // Khali rakhte hobe, karon API theke rate ashe na
+    );
   }
 
   @override
   void dispose() {
-    // Dispose controllers to prevent memory leaks
     loadIdController.dispose();
     companyController.dispose();
     pickupLocationController.dispose();
@@ -273,6 +305,11 @@ class _ScanBillOfLoadingScreenState extends State<ScanBillOfLoadingScreen> {
                 child: TextField(
                   controller: controller,
                   enabled: isEnabled,
+                  onChanged: (value) {
+                    setState(() {
+                      _isModified = true;
+                    });
+                  },
                   style: AppTextStyle.SFProDisplay_Regular.copyWith(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
@@ -390,15 +427,20 @@ class _ScanBillOfLoadingScreenState extends State<ScanBillOfLoadingScreen> {
                   child: TextField(
                     controller: controller,
                     enabled: isEnabled,
+                    onChanged: (value) {
+                      setState(() {
+                        _isModified = true;
+                      });
+                    },
                     style: AppTextStyle.SFProDisplay_Regular.copyWith(
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
                       color: const Color(0xFF1E3A5F),
                     ),
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       border: InputBorder.none,
                       isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                      contentPadding: EdgeInsets.symmetric(vertical: 10),
                     ),
                   ),
                 ),
@@ -503,10 +545,11 @@ class _ScanBillOfLoadingScreenState extends State<ScanBillOfLoadingScreen> {
     debugPrint('Shipment Date: $shipmentDate');
     debugPrint('Rate: $rate');
     debugPrint('Image Path: ${widget.imagePath}');
+    debugPrint('Is Modified: $_isModified');
     debugPrint('==================');
 
+    // Navigate to load details
     Navigator.pushNamed(context, AppRoutes.loadDetails);
-
   }
 
   @override
@@ -530,6 +573,39 @@ class _ScanBillOfLoadingScreenState extends State<ScanBillOfLoadingScreen> {
             child: SvgPicture.asset('assets/icons/back_button_with_circle.svg'),
           ),
         ),
+        actions: [
+          if (widget.ocrData != null)
+            Padding(
+              padding: const EdgeInsets.only(right: 16),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.green.withOpacity(0.3)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.check_circle,
+                      size: 14,
+                      color: Colors.green[600],
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'OCR Extracted',
+                      style: AppTextStyle.SFProDisplay_Regular.copyWith(
+                        fontSize: 10,
+                        color: Colors.green[600],
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
       ),
       backgroundColor: AppColors.backgroundColor,
       body: SafeArea(
@@ -556,7 +632,9 @@ class _ScanBillOfLoadingScreenState extends State<ScanBillOfLoadingScreen> {
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              'OCR Extraction Complete. Please verify details.',
+                              widget.ocrData != null
+                                  ? 'OCR Extraction Complete. Please verify and edit details.'
+                                  : 'Please fill in the bill of lading details.',
                               style: AppTextStyle.SFProDisplay_Regular.copyWith(
                                 fontSize: 14,
                                 color: const Color(0xFF1E3A5F),
@@ -671,13 +749,35 @@ class _ScanBillOfLoadingScreenState extends State<ScanBillOfLoadingScreen> {
                     const SizedBox(height: 24),
 
                     // Billing Details Header
-                    Text(
-                      'Billing Details',
-                      style: AppTextStyle.SFProDisplay_Regular.copyWith(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.blackColor,
-                      ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Billing Details',
+                          style: AppTextStyle.SFProDisplay_Regular.copyWith(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.blackColor,
+                          ),
+                        ),
+                        if (_isModified)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.orange.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                            ),
+                            child: Text(
+                              'Modified',
+                              style: AppTextStyle.SFProDisplay_Regular.copyWith(
+                                fontSize: 10,
+                                color: Colors.orange[600],
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
 
                     const SizedBox(height: 16),
@@ -732,9 +832,11 @@ class _ScanBillOfLoadingScreenState extends State<ScanBillOfLoadingScreen> {
 
                     // Retake Scan Button
                     CustomElevatedButton(
-                      onPressed: () {},
+                      onPressed: () {
+                        Navigator.pop(context);
+                      },
                       hasShadow: false,
-                      buttonText: 'Save & assign load to a driver',
+                      buttonText: 'Retake Scan',
                       textStyle: AppTextStyle.SFProDisplay_Regular,
                       backgroundColor: AppColors.lightBlueColor,
                       foregroundColor: AppColors.primaryColor,

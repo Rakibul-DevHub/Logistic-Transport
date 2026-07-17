@@ -18,7 +18,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Timer? _subscriptionTimer;
   bool _hasShownSubscription = false;
 
-  // Pre-calculate status data to avoid recreation on every build
+  /// Pre-calculate status data to avoid recreation on every build
   static final List<_StatusData> _statusData = [
     _StatusData(
       title: 'Completed',
@@ -107,9 +107,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Main Content - Separated to prevent unnecessary rebuilds
-// ---------------------------------------------------------------------------
+/// ---------------------------------------------------------------------------
+/// Main Content - Separated to prevent unnecessary rebuilds
+/// ---------------------------------------------------------------------------
 
 class _HomeContent extends StatelessWidget {
   const _HomeContent();
