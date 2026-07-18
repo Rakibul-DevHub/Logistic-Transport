@@ -38,6 +38,7 @@ class AppUrl {
   /// -------------- Document OCR --------------------
   static const String scanDocOcr = "$baseUrl/load/ocr";
   static const String createBillOfLoad = "$baseUrl/load/create-from-ocr";
+  static const String addLoad = "$baseUrl/load/create-manual";
 
 
 

@@ -55,6 +55,9 @@ dependencies:
   webview_flutter: ^4.14.1
   flutter_inappwebview: ^6.1.5
   shared_preferences: ^2.5.5
+  google_maps_flutter: ^2.17.1
+  geolocator: ^14.0.3
+  flutter_dotenv: ^6.0.1
 
 dev_dependencies:
   flutter_test:
@@ -83,6 +86,7 @@ flutter:
    - assets/icons/
    - assets/images/
    - assets/videos/
+   - .env
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

@@ -2,6 +2,8 @@
 
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="true" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
     <!-- For older Android -->
@@ -53,14 +55,18 @@
 
 
 
+        <!-- for google map -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="${MAP_API_KEY}" />
 
 
-        <!-- ✅ Add this for WebView -->
+        <!-- for WebView -->
         <meta-data
             android:name="io.flutter.embedding.android.NormalTheme"
             android:resource="@style/NormalTheme" />
 
-        <!-- ✅ WebView Debugging (optional - remove in production) -->
+        <!-- WebView Debugging (optional - remove in production) -->
         <meta-data
             android:name="android.webkit.WebView.EnableSafeBrowsing"
             android:value="true" />
