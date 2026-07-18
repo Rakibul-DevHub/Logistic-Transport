@@ -1,13 +1,16 @@
+/**
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:tag/core/theme/app_colors.dart';
 import 'package:tag/core/theme/app_text_style.dart';
+import 'package:tag/feature/bill_of_loading/cubit/add_load_cubit.dart';
 import '../../../core/constants/app_routes.dart';
 import '../../../shared/components/Custom_Elevated_Button.dart';
 import 'model/bill_of_load_data.dart';
 
-class ScanBillOfLoadingScreen extends StatefulWidget {
+class ScanBillOfLoadingScreen extends StatelessWidget {
   final String imagePath;
   final OCRData? ocrData;
 
@@ -18,11 +21,31 @@ class ScanBillOfLoadingScreen extends StatefulWidget {
   });
 
   @override
-  State<ScanBillOfLoadingScreen> createState() => _ScanBillOfLoadingScreenState();
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) => AddLoadCubit(),
+      child: _ScanBillOfLoadingView(
+        imagePath: imagePath,
+        ocrData: ocrData,
+      ),
+    );
+  }
 }
 
-class _ScanBillOfLoadingScreenState extends State<ScanBillOfLoadingScreen> {
-  // Editable fields
+class _ScanBillOfLoadingView extends StatefulWidget {
+  final String imagePath;
+  final OCRData? ocrData;
+
+  const _ScanBillOfLoadingView({
+    required this.imagePath,
+    this.ocrData,
+  });
+
+  @override
+  State<_ScanBillOfLoadingView> createState() => _ScanBillOfLoadingViewState();
+}
+
+class _ScanBillOfLoadingViewState extends State<_ScanBillOfLoadingView> {
   late TextEditingController loadIdController;
   late TextEditingController companyController;
   late TextEditingController pickupLocationController;
@@ -41,31 +64,16 @@ class _ScanBillOfLoadingScreenState extends State<ScanBillOfLoadingScreen> {
   void _initializeControllers() {
     final data = widget.ocrData;
 
-    // Debug: Print what data we received
-    debugPrint('📋 [OCR Data] Load ID: ${data?.loadIdString}');
-    debugPrint('📋 [OCR Data] Company: ${data?.companyName}');
-    debugPrint('📋 [OCR Data] Pickup: ${data?.pickupAddress}');
-    debugPrint('📋 [OCR Data] Delivery: ${data?.deliveryAddress}');
-    debugPrint('📋 [OCR Data] Date: ${data?.formattedPickupDate}');
-
-    // ✅ Populate controllers with OCR data - UI same thakbe
-    loadIdController = TextEditingController(
-      text: data?.loadIdString ?? '',
-    );
-    companyController = TextEditingController(
-      text: data?.companyName ?? '',
-    );
-    pickupLocationController = TextEditingController(
-      text: data?.pickupAddress ?? '',
-    );
-    deliveryLocationController = TextEditingController(
-      text: data?.deliveryAddress ?? '',
-    );
-    shipmentDateController = TextEditingController(
-      text: data?.formattedPickupDate ?? '',
-    );
+    loadIdController = TextEditingController(text: data?.loadIdString ?? '');
+    companyController = TextEditingController(text: data?.companyName ?? '');
+    pickupLocationController =
+        TextEditingController(text: data?.pickupAddress ?? '');
+    deliveryLocationController =
+        TextEditingController(text: data?.deliveryAddress ?? '');
+    shipmentDateController =
+        TextEditingController(text: data?.formattedPickupDate ?? '');
     rateController = TextEditingController(
-      text: '', // Khali rakhte hobe, karon API theke rate ashe na
+      text: data?.rate ?? data?.totalCharge ?? data?.price ?? '',
     );
   }
 
@@ -80,7 +88,67 @@ class _ScanBillOfLoadingScreenState extends State<ScanBillOfLoadingScreen> {
     super.dispose();
   }
 
-  /// Show captured image in full-screen dialog
+  /// mm/dd/yyyy or ISO → ISO8601
+  String _toIsoDate(String input) {
+    final raw = input.trim();
+    if (raw.isEmpty) return DateTime.now().toUtc().toIso8601String();
+
+    try {
+      return DateTime.parse(raw).toUtc().toIso8601String();
+    } catch (_) {}
+
+    final parts = raw.split('/');
+    if (parts.length == 3) {
+      final month = int.tryParse(parts[0]);
+      final day = int.tryParse(parts[1]);
+      final year = int.tryParse(parts[2]);
+      if (month != null && day != null && year != null) {
+        return DateTime.utc(year, month, day).toIso8601String();
+      }
+    }
+
+    return DateTime.now().toUtc().toIso8601String();
+  }
+
+  void _saveAndContinue() {
+    final loadId = loadIdController.text.trim();
+    final company = companyController.text.trim();
+    final pickup = pickupLocationController.text.trim();
+    final delivery = deliveryLocationController.text.trim();
+    final dateText = shipmentDateController.text.trim();
+    final rateText = rateController.text.trim();
+
+    if (loadId.isEmpty || company.isEmpty || pickup.isEmpty || delivery.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please fill Load ID, Company, Pickup and Delivery'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final rate = num.tryParse(rateText) ?? 0;
+    final pickupDateIso = _toIsoDate(
+      dateText.isNotEmpty
+          ? dateText
+          : (widget.ocrData?.pickupDate ?? ''),
+    );
+
+    context.read<AddLoadCubit>().createFromOcr(
+      loadId: loadId,
+      companyName: company,
+      pickupAddress: pickup,
+      deliveryAddress: delivery,
+      pickupDateIso: pickupDateIso,
+      rate: rate,
+      pickupCoordinates: widget.ocrData?.pickupLocation?.coordinates,
+      deliveryCoordinates: widget.ocrData?.deliveryLocation?.coordinates,
+      bolImage: widget.ocrData?.bolImage,
+      isModified: _isModified || (widget.ocrData?.isModified ?? false),
+    );
+  }
+
   void _viewOriginalImage(BuildContext context) {
     if (widget.imagePath.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -110,102 +178,22 @@ class _ScanBillOfLoadingScreenState extends State<ScanBillOfLoadingScreen> {
                 fit: BoxFit.contain,
                 errorBuilder: (context, error, stackTrace) {
                   return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.broken_image_rounded, size: 80, color: Colors.grey[600]),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Failed to load image',
-                          style: AppTextStyle.SFProDisplay_Regular.copyWith(
-                            color: Colors.grey[400],
-                            fontSize: 14,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        ElevatedButton.icon(
-                          onPressed: () => Navigator.pop(context),
-                          icon: const Icon(Icons.refresh, size: 18),
-                          label: const Text('Try Again'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white,
-                            foregroundColor: Colors.black,
-                          ),
-                        ),
-                      ],
+                    child: Text(
+                      'Failed to load image',
+                      style: AppTextStyle.SFProDisplay_Regular.copyWith(
+                        color: Colors.grey[400],
+                      ),
                     ),
                   );
                 },
               ),
             ),
             Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [Colors.black.withOpacity(0.7), Colors.transparent],
-                  ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    GestureDetector(
-                      onTap: () => Navigator.pop(context),
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(Icons.close_rounded, color: Colors.white, size: 24),
-                      ),
-                    ),
-                    Text(
-                      'Original Document',
-                      style: AppTextStyle.SFProDisplay_Regular.copyWith(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(width: 40),
-                  ],
-                ),
-              ),
-            ),
-            Positioned(
-              bottom: 24,
-              left: 0,
-              right: 0,
-              child: Center(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.6),
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: Colors.white.withOpacity(0.2)),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.pinch_rounded, size: 16, color: Colors.white70),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Pinch to zoom • Drag to pan',
-                        style: AppTextStyle.SFProDisplay_Regular.copyWith(
-                          color: Colors.white70,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+              top: 12,
+              left: 12,
+              child: IconButton(
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(Icons.close, color: Colors.white),
               ),
             ),
           ],
@@ -214,7 +202,6 @@ class _ScanBillOfLoadingScreenState extends State<ScanBillOfLoadingScreen> {
     );
   }
 
-  /// Build placeholder when no image is available
   Widget _buildImagePlaceholder() {
     return Container(
       decoration: BoxDecoration(
@@ -228,32 +215,13 @@ class _ScanBillOfLoadingScreenState extends State<ScanBillOfLoadingScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.8),
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(color: Colors.grey.withOpacity(0.2), blurRadius: 8, offset: const Offset(0, 2)),
-                ],
-              ),
-              child: Icon(Icons.receipt_long_rounded, size: 48, color: AppColors.primaryColor),
-            ),
+            Icon(Icons.receipt_long_rounded, size: 48, color: AppColors.primaryColor),
             const SizedBox(height: 12),
             Text(
               'Scanned Document',
               style: AppTextStyle.SFProDisplay_Regular.copyWith(
                 color: Colors.grey[700],
                 fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Tap to view original',
-              style: AppTextStyle.SFProDisplay_Regular.copyWith(
-                color: Colors.grey[500],
-                fontSize: 12,
               ),
             ),
           ],
@@ -262,7 +230,6 @@ class _ScanBillOfLoadingScreenState extends State<ScanBillOfLoadingScreen> {
     );
   }
 
-  /// Single Editable Info Field Widget
   Widget _buildEditableInfoField({
     required String label,
     required TextEditingController controller,
@@ -291,9 +258,6 @@ class _ScanBillOfLoadingScreenState extends State<ScanBillOfLoadingScreen> {
           decoration: BoxDecoration(
             color: isEnabled ? const Color(0xFFF3F4F6) : Colors.grey[50],
             borderRadius: BorderRadius.circular(8),
-            border: isEnabled
-                ? Border.all(color: Colors.transparent)
-                : Border.all(color: Colors.grey[200]!),
           ),
           child: Row(
             children: [
@@ -305,11 +269,7 @@ class _ScanBillOfLoadingScreenState extends State<ScanBillOfLoadingScreen> {
                 child: TextField(
                   controller: controller,
                   enabled: isEnabled,
-                  onChanged: (value) {
-                    setState(() {
-                      _isModified = true;
-                    });
-                  },
+                  onChanged: (_) => setState(() => _isModified = true),
                   style: AppTextStyle.SFProDisplay_Regular.copyWith(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
@@ -319,7 +279,6 @@ class _ScanBillOfLoadingScreenState extends State<ScanBillOfLoadingScreen> {
                     hintText: hintText,
                     hintStyle: AppTextStyle.SFProDisplay_Regular.copyWith(
                       fontSize: 15,
-                      fontWeight: FontWeight.w600,
                       color: Colors.grey[400],
                     ),
                     border: InputBorder.none,
@@ -336,7 +295,6 @@ class _ScanBillOfLoadingScreenState extends State<ScanBillOfLoadingScreen> {
     );
   }
 
-  /// Card with two editable info fields
   Widget _buildEditableDoubleInfoCard({
     required String label1,
     required TextEditingController controller1,
@@ -344,11 +302,8 @@ class _ScanBillOfLoadingScreenState extends State<ScanBillOfLoadingScreen> {
     required TextEditingController controller2,
     IconData? icon1,
     IconData? icon2,
-    Color? valueColor1,
-    Color? valueColor2,
     TextInputType? keyboardType1,
     TextInputType? keyboardType2,
-    bool isEnabled = true,
   }) {
     return Container(
       width: double.infinity,
@@ -357,46 +312,41 @@ class _ScanBillOfLoadingScreenState extends State<ScanBillOfLoadingScreen> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
-          BoxShadow(color: Colors.grey.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, 2)),
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.08),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
         ],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildEditableInfoField(
             label: label1,
             controller: controller1,
             icon: icon1,
-            valueColor: valueColor1,
             keyboardType: keyboardType1,
-            isEnabled: isEnabled,
           ),
           const SizedBox(height: 16),
           _buildEditableInfoField(
             label: label2,
             controller: controller2,
             icon: icon2,
-            valueColor: valueColor2,
             keyboardType: keyboardType2,
-            isEnabled: isEnabled,
           ),
         ],
       ),
     );
   }
 
-  /// Location Card with editable fields
-  Widget _buildEditableLocationCard({
-    bool isEnabled = true,
-  }) {
+  Widget _buildEditableLocationCard() {
     const double iconSize = 32.0;
     const double lineWidth = 2.0;
     const double midGap = 20.0;
 
-    Widget editableLocationField({
+    Widget field({
       required String label,
       required TextEditingController controller,
-      bool isEnabled = true,
     }) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -407,7 +357,6 @@ class _ScanBillOfLoadingScreenState extends State<ScanBillOfLoadingScreen> {
               fontSize: 11,
               color: const Color(0xFF6B7280),
               fontWeight: FontWeight.w500,
-              letterSpacing: 0.3,
             ),
           ),
           const SizedBox(height: 6),
@@ -415,36 +364,22 @@ class _ScanBillOfLoadingScreenState extends State<ScanBillOfLoadingScreen> {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
             decoration: BoxDecoration(
-              color: isEnabled ? const Color(0xFFF3F4F6) : Colors.grey[50],
+              color: const Color(0xFFF3F4F6),
               borderRadius: BorderRadius.circular(8),
-              border: isEnabled
-                  ? Border.all(color: Colors.transparent)
-                  : Border.all(color: Colors.grey[200]!),
             ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: controller,
-                    enabled: isEnabled,
-                    onChanged: (value) {
-                      setState(() {
-                        _isModified = true;
-                      });
-                    },
-                    style: AppTextStyle.SFProDisplay_Regular.copyWith(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFF1E3A5F),
-                    ),
-                    decoration: const InputDecoration(
-                      border: InputBorder.none,
-                      isDense: true,
-                      contentPadding: EdgeInsets.symmetric(vertical: 10),
-                    ),
-                  ),
-                ),
-              ],
+            child: TextField(
+              controller: controller,
+              onChanged: (_) => setState(() => _isModified = true),
+              style: AppTextStyle.SFProDisplay_Regular.copyWith(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF1E3A5F),
+              ),
+              decoration: const InputDecoration(
+                border: InputBorder.none,
+                isDense: true,
+                contentPadding: EdgeInsets.symmetric(vertical: 10),
+              ),
             ),
           ),
         ],
@@ -458,14 +393,17 @@ class _ScanBillOfLoadingScreenState extends State<ScanBillOfLoadingScreen> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
-          BoxShadow(color: Colors.grey.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, 2)),
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.08),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
         ],
       ),
       child: IntrinsicHeight(
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // LEFT: icon column with Stack-based connector line
             SizedBox(
               width: iconSize,
               child: Stack(
@@ -501,21 +439,17 @@ class _ScanBillOfLoadingScreenState extends State<ScanBillOfLoadingScreen> {
               ),
             ),
             const SizedBox(width: 12),
-            // RIGHT: pickup field + gap + delivery field
             Expanded(
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  editableLocationField(
+                  field(
                     label: 'PICKUP LOCATION',
                     controller: pickupLocationController,
-                    isEnabled: isEnabled,
                   ),
                   const SizedBox(height: midGap),
-                  editableLocationField(
+                  field(
                     label: 'DELIVERY LOCATION',
                     controller: deliveryLocationController,
-                    isEnabled: isEnabled,
                   ),
                 ],
               ),
@@ -526,337 +460,1166 @@ class _ScanBillOfLoadingScreenState extends State<ScanBillOfLoadingScreen> {
     );
   }
 
-  /// Save all edited data
-  void _saveAndContinue() {
-    // Get all edited values
-    final String loadId = loadIdController.text;
-    final String company = companyController.text;
-    final String pickupLocation = pickupLocationController.text;
-    final String deliveryLocation = deliveryLocationController.text;
-    final String shipmentDate = shipmentDateController.text;
-    final String rate = rateController.text;
+  @override
+  Widget build(BuildContext context) {
+    return BlocConsumer<AddLoadCubit, AddLoadState>(
+      listener: (context, state) {
+        if (state is AddLoadSuccess) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(state.message),
+              backgroundColor: Colors.green,
+            ),
+          );
+          Navigator.pushReplacementNamed(
+            context,
+            AppRoutes.loadDetails,
+            arguments: state.data, // ✅ shows on Load Details
+          );
+        } else if (state is AddLoadFailure) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(state.errorMessage),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      },
+      builder: (context, state) {
+        final isLoading = state is AddLoadLoading;
 
-    // Here you can save to database, API, etc.
-    debugPrint('=== SAVED DATA ===');
-    debugPrint('Load ID: $loadId');
-    debugPrint('Company/Broker: $company');
-    debugPrint('Pickup Location: $pickupLocation');
-    debugPrint('Delivery Location: $deliveryLocation');
-    debugPrint('Shipment Date: $shipmentDate');
-    debugPrint('Rate: $rate');
-    debugPrint('Image Path: ${widget.imagePath}');
-    debugPrint('Is Modified: $_isModified');
-    debugPrint('==================');
-
-    // Navigate to load details
-    Navigator.pushNamed(context, AppRoutes.loadDetails);
+        return Scaffold(
+          appBar: AppBar(
+            backgroundColor: AppColors.backgroundColor,
+            surfaceTintColor: AppColors.backgroundColor,
+            centerTitle: true,
+            title: Text(
+              'Scan bill of lading',
+              style: AppTextStyle.SFProDisplay_Regular.copyWith(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            leading: InkWell(
+              onTap: isLoading ? null : () => Navigator.pop(context),
+              child: Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: SvgPicture.asset('assets/icons/back_button_with_circle.svg'),
+              ),
+            ),
+            actions: [
+              if (widget.ocrData != null)
+                Padding(
+                  padding: const EdgeInsets.only(right: 16),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.green.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.check_circle, size: 14, color: Colors.green[600]),
+                        const SizedBox(width: 4),
+                        Text(
+                          'OCR Extracted',
+                          style: AppTextStyle.SFProDisplay_Regular.copyWith(
+                            fontSize: 10,
+                            color: Colors.green[600],
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          backgroundColor: AppColors.backgroundColor,
+          body: SafeArea(
+            child: Stack(
+              children: [
+                Column(
+                  children: [
+                    Expanded(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEFF6FF),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: const Color(0xFFDBEAFE)),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.check_circle,
+                                      color: AppColors.primaryColor, size: 20),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      widget.ocrData != null
+                                          ? 'OCR Extraction Complete. Please verify and edit details.'
+                                          : 'Please fill in the bill of lading details.',
+                                      style: AppTextStyle.SFProDisplay_Regular.copyWith(
+                                        fontSize: 14,
+                                        color: const Color(0xFF1E3A5F),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            GestureDetector(
+                              onTap: () => _viewOriginalImage(context),
+                              child: Container(
+                                width: double.infinity,
+                                height: 200,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(16),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.grey.withOpacity(0.15),
+                                      blurRadius: 12,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(16),
+                                  child: widget.imagePath.isNotEmpty &&
+                                      File(widget.imagePath).existsSync()
+                                      ? Image.file(
+                                    File(widget.imagePath),
+                                    fit: BoxFit.cover,
+                                  )
+                                      : _buildImagePlaceholder(),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+                            Text(
+                              'Billing Details',
+                              style: AppTextStyle.SFProDisplay_Regular.copyWith(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            _buildEditableDoubleInfoCard(
+                              label1: 'LOAD ID',
+                              controller1: loadIdController,
+                              label2: 'COMPANY/BROKER',
+                              controller2: companyController,
+                              icon1: Icons.confirmation_number_outlined,
+                              icon2: Icons.business_outlined,
+                            ),
+                            const SizedBox(height: 12),
+                            _buildEditableLocationCard(),
+                            const SizedBox(height: 12),
+                            _buildEditableDoubleInfoCard(
+                              label1: 'SHIPMENT DATE',
+                              controller1: shipmentDateController,
+                              label2: 'RATE (\$)',
+                              controller2: rateController,
+                              icon1: Icons.calendar_today_outlined,
+                              icon2: Icons.attach_money,
+                              keyboardType2: TextInputType.number,
+                            ),
+                            const SizedBox(height: 24),
+                            CustomElevatedButton(
+                              onPressed: isLoading ? null : _saveAndContinue,
+                              buttonText: isLoading
+                                  ? 'Saving...'
+                                  : 'Save Load & Continue',
+                              backgroundColor: AppColors.primaryColor,
+                              foregroundColor: AppColors.whiteColor,
+                              height: 56,
+                              isFullWidth: true,
+                              hasShadow: false,
+                              borderRadius: BorderRadius.circular(30),
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            const SizedBox(height: 12),
+                            CustomElevatedButton(
+                              onPressed: isLoading ? null : () => Navigator.pop(context),
+                              buttonText: 'Retake Scan',
+                              backgroundColor: AppColors.lightBlueColor,
+                              foregroundColor: AppColors.primaryColor,
+                              height: 56,
+                              isFullWidth: true,
+                              hasShadow: false,
+                              borderRadius: BorderRadius.circular(30),
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            const SizedBox(height: 20),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (isLoading)
+                  Container(
+                    color: Colors.black.withOpacity(0.25),
+                    child: Center(
+                      child: CircularProgressIndicator(color: AppColors.primaryColor),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
+}*/
+
+
+
+
+
+
+
+
+
+
+///
+///
+///
+/// todo:: adding data
+///
+///
+///
+///
+
+
+
+
+
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:tag/core/theme/app_colors.dart';
+import 'package:tag/core/theme/app_text_style.dart';
+import 'package:tag/feature/bill_of_loading/cubit/add_load_cubit.dart';
+import '../../../core/constants/app_routes.dart';
+import '../../../shared/components/Custom_Elevated_Button.dart';
+import 'model/bill_of_load_data.dart';
+
+class ScanBillOfLoadingScreen extends StatelessWidget {
+  final String imagePath;
+  final OCRData? ocrData;
+
+  const ScanBillOfLoadingScreen({
+    super.key,
+    required this.imagePath,
+    this.ocrData,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: AppColors.backgroundColor,
-        surfaceTintColor: AppColors.backgroundColor,
-        centerTitle: true,
-        title: Text(
-          'Scan bill of lading',
-          style: AppTextStyle.SFProDisplay_Regular.copyWith(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
+    return BlocProvider(
+      create: (_) => AddLoadCubit(),
+      child: _ScanBillOfLoadingView(
+        imagePath: imagePath,
+        ocrData: ocrData,
+      ),
+    );
+  }
+}
+
+class _ScanBillOfLoadingView extends StatefulWidget {
+  final String imagePath;
+  final OCRData? ocrData;
+
+  const _ScanBillOfLoadingView({
+    required this.imagePath,
+    this.ocrData,
+  });
+
+  @override
+  State<_ScanBillOfLoadingView> createState() => _ScanBillOfLoadingViewState();
+}
+
+class _ScanBillOfLoadingViewState extends State<_ScanBillOfLoadingView> {
+  final _formKey = GlobalKey<FormState>();
+
+  late TextEditingController loadIdController;
+  late TextEditingController companyController;
+  late TextEditingController pickupLocationController;
+  late TextEditingController deliveryLocationController;
+  late TextEditingController pickupDateController;
+  late TextEditingController rateController;
+
+  DateTime? _selectedPickupDate;
+  bool _isModified = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeControllers();
+  }
+
+  void _initializeControllers() {
+    final data = widget.ocrData;
+
+    loadIdController = TextEditingController(text: data?.loadIdString ?? '');
+    companyController = TextEditingController(text: data?.companyName ?? '');
+    pickupLocationController =
+        TextEditingController(text: data?.pickupAddress ?? '');
+    deliveryLocationController =
+        TextEditingController(text: data?.deliveryAddress ?? '');
+
+    // Prefill pickup date from OCR when available (same display as Add Load)
+    final ocrDateText = data?.formattedPickupDate ?? '';
+    pickupDateController = TextEditingController(text: ocrDateText);
+    _selectedPickupDate = _parseDate(ocrDateText) ??
+        _parseDate(data?.pickupDate ?? '');
+
+    rateController = TextEditingController(
+      text: data?.rate ?? data?.totalCharge ?? data?.price ?? '',
+    );
+  }
+
+  DateTime? _parseDate(String raw) {
+    final text = raw.trim();
+    if (text.isEmpty) return null;
+
+    try {
+      return DateTime.parse(text).toLocal();
+    } catch (_) {}
+
+    final parts = text.split('/');
+    if (parts.length == 3) {
+      final month = int.tryParse(parts[0]);
+      final day = int.tryParse(parts[1]);
+      final year = int.tryParse(parts[2]);
+      if (month != null && day != null && year != null) {
+        return DateTime(year, month, day);
+      }
+    }
+    return null;
+  }
+
+  @override
+  void dispose() {
+    loadIdController.dispose();
+    companyController.dispose();
+    pickupLocationController.dispose();
+    deliveryLocationController.dispose();
+    pickupDateController.dispose();
+    rateController.dispose();
+    super.dispose();
+  }
+
+  /// Same date picker as Add Load
+  Future<void> _selectDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedPickupDate ?? DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2030),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(
+              primary: AppColors.primaryColor,
+              onPrimary: Colors.white,
+              surface: Colors.white,
+              onSurface: const Color(0xFF1E3A5F),
+            ),
           ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null) {
+      setState(() {
+        _selectedPickupDate = picked;
+        _isModified = true;
+        pickupDateController.text =
+        '${picked.month.toString().padLeft(2, '0')}/'
+            '${picked.day.toString().padLeft(2, '0')}/'
+            '${picked.year}';
+      });
+    }
+  }
+
+  String _toIsoDate() {
+    if (_selectedPickupDate != null) {
+      final d = _selectedPickupDate!;
+      return DateTime.utc(d.year, d.month, d.day).toIso8601String();
+    }
+
+    final parsed = _parseDate(pickupDateController.text);
+    if (parsed != null) {
+      return DateTime.utc(parsed.year, parsed.month, parsed.day)
+          .toIso8601String();
+    }
+
+    final ocrRaw = widget.ocrData?.pickupDate;
+    if (ocrRaw != null && ocrRaw.trim().isNotEmpty) {
+      try {
+        return DateTime.parse(ocrRaw).toUtc().toIso8601String();
+      } catch (_) {}
+    }
+
+    return DateTime.now().toUtc().toIso8601String();
+  }
+
+  void _saveAndContinue() {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+
+    final loadId = loadIdController.text.trim();
+    final company = companyController.text.trim();
+    final pickup = pickupLocationController.text.trim();
+    final delivery = deliveryLocationController.text.trim();
+    final rateText = rateController.text.trim();
+
+    if (pickup.isEmpty || delivery.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please fill Pickup and Delivery locations'),
+          backgroundColor: Colors.red,
         ),
-        leading: InkWell(
-          onTap: () => Navigator.pop(context),
-          child: Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: SvgPicture.asset('assets/icons/back_button_with_circle.svg'),
-          ),
+      );
+      return;
+    }
+
+    final rate = num.tryParse(rateText) ?? 0;
+
+    context.read<AddLoadCubit>().createFromOcr(
+      loadId: loadId,
+      companyName: company,
+      pickupAddress: pickup,
+      deliveryAddress: delivery,
+      pickupDateIso: _toIsoDate(),
+      rate: rate,
+      pickupCoordinates: widget.ocrData?.pickupLocation?.coordinates,
+      deliveryCoordinates: widget.ocrData?.deliveryLocation?.coordinates,
+      bolImage: widget.ocrData?.bolImage,
+      isModified: _isModified || (widget.ocrData?.isModified ?? false),
+    );
+  }
+
+  void _viewOriginalImage(BuildContext context) {
+    if (widget.imagePath.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No image available'),
+          backgroundColor: Colors.orange,
         ),
-        actions: [
-          if (widget.ocrData != null)
-            Padding(
-              padding: const EdgeInsets.only(right: 16),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.green.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.green.withOpacity(0.3)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.check_circle,
-                      size: 14,
-                      color: Colors.green[600],
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      'OCR Extracted',
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.black,
+        insetPadding: EdgeInsets.zero,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            InteractiveViewer(
+              panEnabled: true,
+              boundaryMargin: const EdgeInsets.all(20),
+              minScale: 0.5,
+              maxScale: 4.0,
+              child: Image.file(
+                File(widget.imagePath),
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) {
+                  return Center(
+                    child: Text(
+                      'Failed to load image',
                       style: AppTextStyle.SFProDisplay_Regular.copyWith(
-                        fontSize: 10,
-                        color: Colors.green[600],
-                        fontWeight: FontWeight.w600,
+                        color: Colors.grey[400],
                       ),
                     ),
-                  ],
-                ),
+                  );
+                },
               ),
             ),
-        ],
-      ),
-      backgroundColor: AppColors.backgroundColor,
-      body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // OCR Success Banner
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFEFF6FF),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFFDBEAFE)),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.check_circle, color: AppColors.primaryColor, size: 20),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              widget.ocrData != null
-                                  ? 'OCR Extraction Complete. Please verify and edit details.'
-                                  : 'Please fill in the bill of lading details.',
-                              style: AppTextStyle.SFProDisplay_Regular.copyWith(
-                                fontSize: 14,
-                                color: const Color(0xFF1E3A5F),
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Document Preview
-                    GestureDetector(
-                      onTap: () => _viewOriginalImage(context),
-                      child: Container(
-                        width: double.infinity,
-                        height: 200,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.grey.withOpacity(0.15),
-                              blurRadius: 12,
-                              offset: const Offset(0, 4),
-                              spreadRadius: 1,
-                            ),
-                          ],
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(16),
-                          child: Stack(
-                            fit: StackFit.expand,
-                            children: [
-                              if (widget.imagePath.isNotEmpty && File(widget.imagePath).existsSync())
-                                Image.file(
-                                  File(widget.imagePath),
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) => _buildImagePlaceholder(),
-                                )
-                              else
-                                _buildImagePlaceholder(),
-                              Positioned.fill(
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      begin: Alignment.topCenter,
-                                      end: Alignment.bottomCenter,
-                                      colors: [Colors.transparent, Colors.black.withOpacity(0.4)],
-                                      stops: const [0.6, 1.0],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              Positioned(
-                                bottom: 14,
-                                right: 14,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.95),
-                                    borderRadius: BorderRadius.circular(24),
-                                    boxShadow: [
-                                      BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 8, offset: const Offset(0, 2)),
-                                    ],
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.all(6),
-                                        decoration: BoxDecoration(
-                                          color: AppColors.primaryColor.withOpacity(0.1),
-                                          borderRadius: BorderRadius.circular(12),
-                                        ),
-                                        child: Icon(Icons.visibility_rounded, size: 16, color: AppColors.primaryColor),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        'View Original',
-                                        style: AppTextStyle.SFProDisplay_Regular.copyWith(
-                                          fontSize: 13,
-                                          color: Colors.grey[800],
-                                          fontWeight: FontWeight.w600,
-                                          letterSpacing: 0.2,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Icon(Icons.arrow_forward_rounded, size: 14, color: Colors.grey[600]),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                              Positioned.fill(
-                                child: Material(
-                                  color: Colors.transparent,
-                                  child: InkWell(
-                                    borderRadius: BorderRadius.circular(16),
-                                    onTap: () => _viewOriginalImage(context),
-                                    splashColor: Colors.white.withOpacity(0.3),
-                                    highlightColor: Colors.white.withOpacity(0.15),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // Billing Details Header
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Billing Details',
-                          style: AppTextStyle.SFProDisplay_Regular.copyWith(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.blackColor,
-                          ),
-                        ),
-                        if (_isModified)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: Colors.orange.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.orange.withOpacity(0.3)),
-                            ),
-                            child: Text(
-                              'Modified',
-                              style: AppTextStyle.SFProDisplay_Regular.copyWith(
-                                fontSize: 10,
-                                color: Colors.orange[600],
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // CARD 1: LOAD ID + COMPANY/BROKER (Editable)
-                    _buildEditableDoubleInfoCard(
-                      label1: 'LOAD ID',
-                      controller1: loadIdController,
-                      label2: 'COMPANY/BROKER',
-                      controller2: companyController,
-                      icon1: Icons.confirmation_number_outlined,
-                      icon2: Icons.business_outlined,
-                    ),
-
-                    const SizedBox(height: 12),
-
-                    // CARD 2: PICKUP + DELIVERY LOCATIONS (Editable)
-                    _buildEditableLocationCard(),
-
-                    const SizedBox(height: 12),
-
-                    // CARD 3: SHIPMENT DATE + RATE (Editable)
-                    _buildEditableDoubleInfoCard(
-                      label1: 'SHIPMENT DATE',
-                      controller1: shipmentDateController,
-                      label2: 'RATE (\$)',
-                      controller2: rateController,
-                      icon1: Icons.calendar_today_outlined,
-                      icon2: Icons.attach_money,
-                      keyboardType2: TextInputType.number,
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // Save Load & Continue Button
-                    CustomElevatedButton(
-                      onPressed: _saveAndContinue,
-                      buttonText: 'Save Load & Continue',
-                      textStyle: AppTextStyle.SFProDisplay_Regular,
-                      backgroundColor: AppColors.primaryColor,
-                      foregroundColor: AppColors.whiteColor,
-                      height: 56,
-                      isFullWidth: true,
-                      hasShadow: false,
-                      elevation: 2,
-                      borderRadius: BorderRadius.circular(30),
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-
-                    const SizedBox(height: 12),
-
-                    // Retake Scan Button
-                    CustomElevatedButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                      },
-                      hasShadow: false,
-                      buttonText: 'Retake Scan',
-                      textStyle: AppTextStyle.SFProDisplay_Regular,
-                      backgroundColor: AppColors.lightBlueColor,
-                      foregroundColor: AppColors.primaryColor,
-                      height: 56,
-                      isFullWidth: true,
-                      isOutlined: false,
-                      borderRadius: BorderRadius.circular(30),
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      gap: 8,
-                    ),
-
-                    const SizedBox(height: 20),
-                  ],
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 8,
+              left: 12,
+              child: IconButton(
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(Icons.close, color: Colors.white, size: 28),
+              ),
+            ),
+            Positioned(
+              bottom: 24,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Text(
+                  'Pinch to zoom • Drag to pan',
+                  style: AppTextStyle.SFProDisplay_Regular.copyWith(
+                    color: Colors.white70,
+                    fontSize: 12,
+                  ),
                 ),
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildImagePlaceholder() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Colors.grey[300]!, Colors.grey[200]!],
+        ),
+      ),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.receipt_long_rounded,
+                size: 48, color: AppColors.primaryColor),
+            const SizedBox(height: 12),
+            Text(
+              'Scanned Document',
+              style: AppTextStyle.SFProDisplay_Regular.copyWith(
+                color: Colors.grey[700],
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLabel(String text, {bool required = true}) {
+    return RichText(
+      text: TextSpan(
+        text: text,
+        style: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+          color: Color(0xFF6B7280),
+          letterSpacing: 0.2,
+        ),
+        children: required
+            ? const [
+          TextSpan(
+            text: ' *',
+            style: TextStyle(
+              color: Color(0xFFEF4444),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ]
+            : [],
+      ),
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String hint,
+    Widget? prefixIcon,
+    Widget? suffixIcon,
+    bool readOnly = false,
+    VoidCallback? onTap,
+    TextInputType keyboardType = TextInputType.text,
+    String? Function(String?)? validator,
+    int maxLines = 1,
+  }) {
+    return TextFormField(
+      controller: controller,
+      readOnly: readOnly,
+      onTap: onTap,
+      keyboardType: keyboardType,
+      maxLines: maxLines,
+      validator: validator,
+      onChanged: (_) => setState(() => _isModified = true),
+      style: const TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.w500,
+        color: Color(0xFF1E3A5F),
+      ),
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: const TextStyle(fontSize: 14, color: Color(0xFFB0B7C3)),
+        prefixIcon: prefixIcon,
+        suffixIcon: suffixIcon,
+        filled: true,
+        fillColor: AppColors.textFieldWhiteColor,
+        contentPadding: EdgeInsets.symmetric(
+          horizontal: prefixIcon == null ? 12 : 0,
+          vertical: maxLines > 1 ? 14 : 12,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: AppColors.primaryColor, width: 1.5),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Color(0xFFEF4444), width: 1.5),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Color(0xFFEF4444), width: 1.5),
+        ),
+        errorStyle: const TextStyle(fontSize: 11, color: Color(0xFFEF4444)),
+      ),
+    );
+  }
+
+  Widget _buildFieldGroup({
+    required String label,
+    required Widget field,
+    bool required = true,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildLabel(label, required: required),
+        const SizedBox(height: 6),
+        field,
+      ],
+    );
+  }
+
+  Widget _buildSectionCard({required Widget child}) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.07),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+
+  Widget _buildSectionHeader({required IconData icon, required String title}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: const Color(0xFF1E3A5F)),
+          const SizedBox(width: 8),
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF1E3A5F),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBasicInfoSection() {
+    return _buildSectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSectionHeader(
+            icon: Icons.info_outline_rounded,
+            title: 'Basic Info',
+          ),
+          _buildFieldGroup(
+            label: 'LOAD ID',
+            field: _buildTextField(
+              controller: loadIdController,
+              hint: 'Enter Load ID',
+              validator: (v) =>
+              v == null || v.trim().isEmpty ? 'Load ID is required' : null,
+            ),
+          ),
+          const SizedBox(height: 14),
+          _buildFieldGroup(
+            label: 'COMPANY/BROKER',
+            field: _buildTextField(
+              controller: companyController,
+              hint: 'Enter company name',
+              validator: (v) => v == null || v.trim().isEmpty
+                  ? 'Company name is required'
+                  : null,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Same Date & Payment section as Add Load (PICKUP DATE picker + RATE)
+  Widget _buildDatePaymentSection() {
+    return _buildSectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSectionHeader(
+            icon: Icons.calendar_today_outlined,
+            title: 'Date & Payment',
+          ),
+          _buildFieldGroup(
+            label: 'PICKUP DATE',
+            field: _buildTextField(
+              controller: pickupDateController,
+              hint: 'mm/dd/yyyy',
+              readOnly: true,
+              onTap: () => _selectDate(context),
+              suffixIcon: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Icon(
+                  Icons.calendar_month_outlined,
+                  size: 18,
+                  color: Colors.grey[400],
+                ),
+              ),
+              validator: (v) => v == null || v.trim().isEmpty
+                  ? 'Pickup date is required'
+                  : null,
+            ),
+          ),
+          const SizedBox(height: 14),
+          _buildFieldGroup(
+            label: 'RATE (\$)',
+            field: TextFormField(
+              controller: rateController,
+              keyboardType:
+              const TextInputType.numberWithOptions(decimal: true),
+              onChanged: (_) => setState(() => _isModified = true),
+              validator: (v) {
+                if (v == null || v.trim().isEmpty) return 'Rate is required';
+                if (num.tryParse(v.trim()) == null) {
+                  return 'Enter a valid number';
+                }
+                return null;
+              },
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF1E3A5F),
+              ),
+              decoration: InputDecoration(
+                hintText: '0.00',
+                hintStyle:
+                const TextStyle(fontSize: 14, color: Color(0xFFB0B7C3)),
+                prefixIcon: Padding(
+                  padding: const EdgeInsets.only(
+                      left: 12, right: 4, top: 12, bottom: 12),
+                  child: Icon(
+                    Icons.attach_money,
+                    color: AppColors.primaryColor,
+                    size: 20,
+                  ),
+                ),
+                filled: true,
+                fillColor: AppColors.textFieldWhiteColor,
+                contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide.none,
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide:
+                  BorderSide(color: AppColors.primaryColor, width: 1.5),
+                ),
+                errorBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide:
+                  const BorderSide(color: Color(0xFFEF4444), width: 1.5),
+                ),
+                focusedErrorBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide:
+                  const BorderSide(color: Color(0xFFEF4444), width: 1.5),
+                ),
+                errorStyle:
+                const TextStyle(fontSize: 11, color: Color(0xFFEF4444)),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEditableLocationCard() {
+    const double iconSize = 32.0;
+    const double lineWidth = 2.0;
+    const double midGap = 20.0;
+
+    Widget field({
+      required String label,
+      required TextEditingController controller,
+    }) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: AppTextStyle.SFProDisplay_Regular.copyWith(
+              fontSize: 11,
+              color: const Color(0xFF6B7280),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF3F4F6),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: TextField(
+              controller: controller,
+              onChanged: (_) => setState(() => _isModified = true),
+              style: AppTextStyle.SFProDisplay_Regular.copyWith(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF1E3A5F),
+              ),
+              decoration: const InputDecoration(
+                border: InputBorder.none,
+                isDense: true,
+                contentPadding: EdgeInsets.symmetric(vertical: 10),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.08),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: iconSize,
+              child: Stack(
+                children: [
+                  Positioned(
+                    top: iconSize / 2,
+                    bottom: iconSize / 2,
+                    left: (iconSize / 2) - (lineWidth / 2),
+                    width: lineWidth,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: AppColors.lightBlueColor,
+                        borderRadius: BorderRadius.circular(lineWidth / 2),
+                      ),
+                    ),
+                  ),
+                  Column(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      SvgPicture.asset(
+                        'assets/icons/pickup_location.svg',
+                        width: iconSize,
+                        height: iconSize,
+                      ),
+                      SvgPicture.asset(
+                        'assets/icons/delivery_location.svg',
+                        width: iconSize,
+                        height: iconSize,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                children: [
+                  field(
+                    label: 'PICKUP LOCATION',
+                    controller: pickupLocationController,
+                  ),
+                  const SizedBox(height: midGap),
+                  field(
+                    label: 'DELIVERY LOCATION',
+                    controller: deliveryLocationController,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocConsumer<AddLoadCubit, AddLoadState>(
+      listener: (context, state) {
+        if (state is AddLoadSuccess) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(state.message),
+              backgroundColor: Colors.green,
+            ),
+          );
+          Navigator.pushReplacementNamed(
+            context,
+            AppRoutes.loadDetails,
+            arguments: state.data,
+          );
+        } else if (state is AddLoadFailure) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(state.errorMessage),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      },
+      builder: (context, state) {
+        final isLoading = state is AddLoadLoading;
+
+        return Scaffold(
+          appBar: AppBar(
+            backgroundColor: AppColors.backgroundColor,
+            surfaceTintColor: AppColors.backgroundColor,
+            centerTitle: true,
+            title: Text(
+              'Scan bill of lading',
+              style: AppTextStyle.SFProDisplay_Regular.copyWith(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            leading: InkWell(
+              onTap: isLoading ? null : () => Navigator.pop(context),
+              child: Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: SvgPicture.asset(
+                    'assets/icons/back_button_with_circle.svg'),
+              ),
+            ),
+            actions: [
+              if (widget.ocrData != null)
+                Padding(
+                  padding: const EdgeInsets.only(right: 16),
+                  child: Container(
+                    padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.green.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.check_circle,
+                            size: 14, color: Colors.green[600]),
+                        const SizedBox(width: 4),
+                        Text(
+                          'OCR Extracted',
+                          style: AppTextStyle.SFProDisplay_Regular.copyWith(
+                            fontSize: 10,
+                            color: Colors.green[600],
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          backgroundColor: AppColors.backgroundColor,
+          body: SafeArea(
+            child: Stack(
+              children: [
+                Column(
+                  children: [
+                    Expanded(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.all(16),
+                        child: Form(
+                          key: _formKey,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFEFF6FF),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                      color: const Color(0xFFDBEAFE)),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.check_circle,
+                                        color: AppColors.primaryColor,
+                                        size: 20),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        widget.ocrData != null
+                                            ? 'OCR Extraction Complete. Please verify and edit details.'
+                                            : 'Please fill in the bill of lading details.',
+                                        style: AppTextStyle.SFProDisplay_Regular
+                                            .copyWith(
+                                          fontSize: 14,
+                                          color: const Color(0xFF1E3A5F),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              GestureDetector(
+                                onTap: () => _viewOriginalImage(context),
+                                child: Container(
+                                  width: double.infinity,
+                                  height: 200,
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(16),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.grey.withOpacity(0.15),
+                                        blurRadius: 12,
+                                        offset: const Offset(0, 4),
+                                      ),
+                                    ],
+                                  ),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(16),
+                                    child: widget.imagePath.isNotEmpty &&
+                                        File(widget.imagePath).existsSync()
+                                        ? Image.file(
+                                      File(widget.imagePath),
+                                      fit: BoxFit.cover,
+                                    )
+                                        : _buildImagePlaceholder(),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+                              Text(
+                                'Billing Details',
+                                style:
+                                AppTextStyle.SFProDisplay_Regular.copyWith(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              _buildBasicInfoSection(),
+                              const SizedBox(height: 12),
+                              _buildEditableLocationCard(),
+                              const SizedBox(height: 12),
+                              _buildDatePaymentSection(),
+                              const SizedBox(height: 24),
+                              CustomElevatedButton(
+                                onPressed:
+                                isLoading ? null : _saveAndContinue,
+                                buttonText: isLoading
+                                    ? 'Saving...'
+                                    : 'Save Load & Continue',
+                                backgroundColor: AppColors.primaryColor,
+                                foregroundColor: AppColors.whiteColor,
+                                height: 56,
+                                isFullWidth: true,
+                                hasShadow: false,
+                                borderRadius: BorderRadius.circular(30),
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              const SizedBox(height: 12),
+                              CustomElevatedButton(
+                                onPressed: isLoading
+                                    ? null
+                                    : () => Navigator.pop(context),
+                                buttonText: 'Retake Scan',
+                                backgroundColor: AppColors.lightBlueColor,
+                                foregroundColor: AppColors.primaryColor,
+                                height: 56,
+                                isFullWidth: true,
+                                hasShadow: false,
+                                borderRadius: BorderRadius.circular(30),
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              const SizedBox(height: 20),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (isLoading)
+                  Container(
+                    color: Colors.black.withOpacity(0.25),
+                    child: Center(
+                      child: CircularProgressIndicator(
+                          color: AppColors.primaryColor),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

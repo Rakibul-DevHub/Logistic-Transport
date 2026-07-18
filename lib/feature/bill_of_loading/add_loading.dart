@@ -1120,6 +1120,53 @@ class _AddLoadViewState extends State<_AddLoadView> {
     );
   }
 
+  // void _onSave() {
+  //   if (!_formKey.currentState!.validate()) return;
+  //
+  //   if (_pickupCoords == null || _deliveryCoords == null) {
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       const SnackBar(
+  //         content: Text('Select pickup & delivery from suggestions or map'),
+  //         backgroundColor: Colors.red,
+  //       ),
+  //     );
+  //     return;
+  //   }
+  //
+  //   final rate = num.tryParse(_rateController.text.trim());
+  //   if (rate == null) {
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       const SnackBar(content: Text('Enter a valid rate'), backgroundColor: Colors.red),
+  //     );
+  //     return;
+  //   }
+  //
+  //   if (_selectedPickupDate == null) {
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       const SnackBar(content: Text('Please select pickup date'), backgroundColor: Colors.red),
+  //     );
+  //     return;
+  //   }
+  //
+  //   final pickupDateIso = DateTime.utc(
+  //     _selectedPickupDate!.year,
+  //     _selectedPickupDate!.month,
+  //     _selectedPickupDate!.day,
+  //   ).toIso8601String();
+  //
+  //   context.read<AddLoadCubit>().createManualLoad(
+  //     loadId: _loadIdController.text,
+  //     companyName: _companyController.text,
+  //     pickupCoordinates: _pickupCoords!,
+  //     deliveryCoordinates: _deliveryCoords!,
+  //     pickupDateIso: pickupDateIso,
+  //     rate: rate,
+  //     bolImageFile: _pickedImageFile,
+  //     notes: _notesController.text,
+  //   );
+  // }
+
+
   void _onSave() {
     if (!_formKey.currentState!.validate()) return;
 
@@ -1159,12 +1206,15 @@ class _AddLoadViewState extends State<_AddLoadView> {
       companyName: _companyController.text,
       pickupCoordinates: _pickupCoords!,
       deliveryCoordinates: _deliveryCoords!,
+      pickupAddress: _pickupLocationController.text,
+      deliveryAddress: _deliveryLocationController.text,
       pickupDateIso: pickupDateIso,
       rate: rate,
       bolImageFile: _pickedImageFile,
       notes: _notesController.text,
     );
   }
+
 
   void _onScanBOL() {
     Navigator.pushNamed(context, AppRoutes.camScan);
@@ -1509,18 +1559,41 @@ class _AddLoadViewState extends State<_AddLoadView> {
   @override
   Widget build(BuildContext context) {
     return BlocConsumer<AddLoadCubit, AddLoadState>(
+      // listener: (context, state) {
+      //   if (state is AddLoadSuccess) {
+      //     ScaffoldMessenger.of(context).showSnackBar(
+      //       SnackBar(content: Text(state.message), backgroundColor: Colors.green),
+      //     );
+      //     Navigator.pop(context, state.data);
+      //   } else if (state is AddLoadFailure) {
+      //     ScaffoldMessenger.of(context).showSnackBar(
+      //       SnackBar(content: Text(state.errorMessage), backgroundColor: Colors.red),
+      //     );
+      //   }
+      // },
+
+
       listener: (context, state) {
         if (state is AddLoadSuccess) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(state.message), backgroundColor: Colors.green),
           );
-          Navigator.pop(context, state.data);
+
+          Navigator.pushReplacementNamed(
+            context,
+            AppRoutes.loadDetails,
+            arguments: state.data,
+          );
         } else if (state is AddLoadFailure) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(state.errorMessage), backgroundColor: Colors.red),
           );
         }
       },
+
+
+
+
       builder: (context, state) {
         final isLoading = state is AddLoadLoading;
         final loadingMsg = state is AddLoadLoading ? state.progressMessage : null;

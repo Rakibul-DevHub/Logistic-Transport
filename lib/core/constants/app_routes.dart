@@ -22,6 +22,7 @@ import 'package:tag/feature/report/view/report_screen.dart';
 import 'package:tag/feature/welcome/view/welcome_screen.dart';
 import 'package:tag/shared/widget/bottom_nav.dart';
 import '../../feature/auth/view/reset_password_screen.dart';
+import '../../feature/bill_of_loading/model/add_load_data.dart';
 import '../../feature/home/view/home_screen.dart';
 import '../../feature/onboard/controller/onboard_cubit.dart';
 import 'package:flutter/material.dart';
@@ -81,7 +82,13 @@ class AppRoutes {
       final args = ModalRoute.of(context)?.settings.arguments as String?;
       return ScanBillOfLoadingScreen(imagePath: args ?? '');
     },
-    loadDetails: (context) => const LoadDetailsScreen(),
+    // loadDetails: (context) => const LoadDetailsScreen(),
+    loadDetails: (context) {
+      final args = ModalRoute.of(context)?.settings.arguments;
+      return LoadDetailsScreen(
+        load: args is AddLoadData ? args : null,
+      );
+    },
     billOfLoad: (context) => const BOLScreen(),
     proofOfDelivery: (context) => const PODScreen(),
     addLoading: (context) => const AddLoadScreen(),
