@@ -58,4 +58,8 @@ class AppUrl {
 
 
 
+  static const String termsAndConditions = "$baseUrl/setting/terms-conditions";
+  static const String privacyPolicy = "$baseUrl/setting/privacy-policy";
+
+
 }

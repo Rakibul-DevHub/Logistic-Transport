@@ -8,23 +8,21 @@ import 'feature/auth/cubit/auth_registration_cubit.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 
-  // Set system UI mode
-  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+  SystemChrome.setSystemUIChangeCallback((systemOverlaysAreVisible) async {
+    if (systemOverlaysAreVisible) {
+      await Future.delayed(const Duration(seconds: 2));
+      await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    }
+  });
+
   await dotenv.load(fileName: '.env');
 
-  // Lock orientation for consistent UI
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
-
-  // Initialize secure storage
-  final storage = SecureStorageService.instance;
-
-  // Optional: Check if user is logged in
-  // final isLoggedIn = await storage.isLoggedIn();
-  // print('User logged in: $isLoggedIn');
 
   runApp(const MyApp());
 }

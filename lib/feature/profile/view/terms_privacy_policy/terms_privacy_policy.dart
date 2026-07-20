@@ -1,3 +1,4 @@
+/**
 // lib/feature/profile/view/terms_privacy_screen.dart
 
 import 'package:flutter/material.dart';
@@ -291,6 +292,180 @@ class TermsPrivacyScreen extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}*/
+
+
+
+
+
+///
+///
+///
+///
+/// todO:: implementing api
+///
+///
+///
+
+
+
+
+
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_html/flutter_html.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:tag/core/theme/app_colors.dart';
+import 'package:tag/core/theme/app_text_style.dart';
+import '../../../../shared/components/custom_background.dart';
+import 'cubit/terms_conditions_cubit.dart';
+
+enum ContentType {
+  terms,
+  privacy,
+}
+
+/// One common page for Terms & Privacy.
+/// Pass ContentType → cubit calls the matching API → show HTML on this screen.
+class TermsPrivacyScreen extends StatelessWidget {
+  final ContentType contentType;
+
+  const TermsPrivacyScreen({
+    super.key,
+    required this.contentType,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isTerms = contentType == ContentType.terms;
+    final apiType =
+    isTerms ? SettingsContentType.terms : SettingsContentType.privacy;
+    final title = isTerms ? 'Terms & Conditions' : 'Privacy Policy';
+    final iconPath = isTerms
+        ? 'assets/icons/terms_and_condition.svg'
+        : 'assets/icons/privacy_policy.svg';
+
+    return BlocProvider(
+      create: (_) => SettingsContentCubit()..fetch(apiType),
+      child: Scaffold(
+        backgroundColor: AppColors.backgroundColor,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+          leading: IconButton(
+            icon: SvgPicture.asset(
+              'assets/icons/back_button_with_circle.svg',
+              height: 40,
+              width: 40,
+            ),
+            onPressed: () => Navigator.pop(context),
+          ),
+          title: Text(
+            title,
+            style: AppTextStyle.SFProDisplay_Regular.copyWith(
+              fontWeight: FontWeight.bold,
+              fontSize: 22,
+              color: AppColors.primaryColor,
+            ),
+          ),
+          centerTitle: true,
+        ),
+        body: CustomBackground(
+          child: BlocBuilder<SettingsContentCubit, SettingsContentState>(
+            builder: (context, state) {
+              if (state is SettingsContentLoading ||
+                  state is SettingsContentInitial) {
+                return const Center(
+                  child: CircularProgressIndicator(
+                    color: AppColors.primaryColor,
+                  ),
+                );
+              }
+
+              if (state is SettingsContentFailure) {
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.error_outline,
+                            size: 48, color: Colors.grey[400]),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Failed to load $title',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey[700],
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          state.errorMessage,
+                          style:
+                          TextStyle(fontSize: 13, color: Colors.grey[500]),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: () {
+                            context
+                                .read<SettingsContentCubit>()
+                                .fetch(apiType);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primaryColor,
+                          ),
+                          child: const Text(
+                            'Retry',
+                            style: TextStyle(color: Colors.white),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }
+
+              if (state is SettingsContentSuccess) {
+                // ✅ Same screen body — no WebView / secondary window
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    children: [
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: AppColors.whiteColor,
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.05),
+                              blurRadius: 10,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        // ✅ Exact HTML from API `data.value`
+                        child: Html(data: state.htmlContent),
+                      ),
+                      const SizedBox(height: 24),
+                    ],
+                  ),
+                );
+              }
+
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+      ),
     );
   }
 }
