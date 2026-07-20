@@ -523,7 +523,7 @@ class _AccountSettingScreenState extends State<AccountSettingScreen> {
             }
 
             Future.delayed(const Duration(seconds: 1), () {
-              if (mounted) Navigator.pop(context);
+              if (mounted) Navigator.pop(context, true);
             });
           } else if (state is AccountSettingsFailure) {
             ScaffoldMessenger.of(context).showSnackBar(

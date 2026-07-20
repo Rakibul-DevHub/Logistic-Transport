@@ -1,3 +1,4 @@
+/**
 // lib/feature/auth/cubit/logout_cubit.dart
 
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -75,6 +76,90 @@ class LogoutCubit extends Cubit<LogoutState> {
       } catch (_) {}
 
       // Still emit success so user can navigate to login
+      emit(LogoutSuccess());
+    }
+  }
+}*/
+
+
+
+
+
+
+
+///
+///
+///
+/// todo:: clearing cache
+///
+///
+
+
+
+
+import 'package:equatable/equatable.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:tag/core/network/network_caller_dio.dart';
+import 'package:tag/core/network/secure_storage_service.dart';
+import 'package:tag/core/utils/app_url.dart';
+import 'package:tag/feature/profile/cubit/user_profile_cubit.dart';
+
+abstract class LogoutState extends Equatable {
+  const LogoutState();
+
+  @override
+  List<Object?> get props => [];
+}
+
+class LogoutInitial extends LogoutState {}
+
+class LogoutLoading extends LogoutState {}
+
+class LogoutSuccess extends LogoutState {}
+
+class LogoutFailure extends LogoutState {
+  final String errorMessage;
+
+  const LogoutFailure({required this.errorMessage});
+
+  @override
+  List<Object?> get props => [errorMessage];
+}
+
+class LogoutCubit extends Cubit<LogoutState> {
+  final NetworkCallerDio _networkCaller = NetworkCallerDio();
+  final SecureStorageService _storage = SecureStorageService.instance;
+
+  LogoutCubit() : super(LogoutInitial());
+
+  Future<void> logout() async {
+    try {
+      emit(LogoutLoading());
+
+      final accessToken = await _storage.getAccessToken();
+
+      if (accessToken == null || accessToken.isEmpty) {
+        await _storage.deleteAllTokens();
+        await UserProfileCubit.clearCache();
+        emit(LogoutSuccess());
+        return;
+      }
+
+      await _networkCaller.postRequest(
+        AppUrl.logOut,
+        headers: {
+          'Authorization': 'Bearer $accessToken',
+        },
+      );
+
+      await _storage.deleteAllTokens();
+      await UserProfileCubit.clearCache();
+      emit(LogoutSuccess());
+    } catch (e) {
+      try {
+        await _storage.deleteAllTokens();
+        await UserProfileCubit.clearCache();
+      } catch (_) {}
       emit(LogoutSuccess());
     }
   }
