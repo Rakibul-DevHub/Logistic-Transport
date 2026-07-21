@@ -1474,7 +1474,7 @@ class _AddLoadViewState extends State<_AddLoadView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildSectionHeader(icon: Icons.file_copy_outlined, title: 'Document (Optional)'),
+          _buildSectionHeader(icon: Icons.file_copy_outlined, title: 'Document(BOL)'),
           if (_isPickingImage)
             const Center(child: Padding(
               padding: EdgeInsets.all(24),
