@@ -6,7 +6,7 @@ import 'package:tag/core/network/network_caller_dio.dart';
 import 'package:tag/core/network/network_response_dio.dart';
 import 'package:tag/core/utils/app_url.dart';
 import '../../../core/network/secure_storage_service.dart';
-import '../model/login_data.dart';
+import '../model_data/login_data.dart';
 
 // ==================== STATES ====================
 abstract class LoginState extends Equatable {

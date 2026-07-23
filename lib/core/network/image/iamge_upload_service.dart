@@ -18,10 +18,10 @@ class ImageUploadService {
 
       // Use Dio's native upload method
       final response = await _networkCaller.uploadImage(
-        AppUrl.updatePersonalInformationProfileImage,
+        AppUrl.singleImageUpload,
         imageFile: imageFile,
         headers: {'Authorization': 'Bearer $token'},
-        fileFieldName: 'profileImage',
+        fileFieldName: 'image',
       );
 
       debugPrint('📡 Upload response status: ${response.statusCode}');
@@ -69,7 +69,7 @@ class ImageUploadService {
       }
 
       final response = await _networkCaller.uploadMultipleImages(
-        AppUrl.updatePersonalInformationProfileImage, // Update with your URL
+        AppUrl.updateMultipleImage, // Update with your URL
         imageFiles: imageFiles,
         headers: {'Authorization': 'Bearer $token'},
         fileFieldName: 'images',

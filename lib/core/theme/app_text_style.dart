@@ -19,5 +19,17 @@ class AppTextStyle {
     fontWeight: FontWeight.normal,
     color: AppColors.primaryTextColor,
   );
+  static TextStyle get SFProDisplay_White => const TextStyle(
+    fontFamily: 'SFProDisplay-Regular',
+    fontSize: 16,
+    fontWeight: FontWeight.normal,
+    color: AppColors.whiteColor,
+  );
+  static TextStyle get SFProDisplay_Black => const TextStyle(
+    fontFamily: 'SFProDisplay-Regular',
+    fontSize: 16,
+    fontWeight: FontWeight.normal,
+    color: AppColors.blackColor,
+  );
 
 }

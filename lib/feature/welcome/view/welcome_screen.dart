@@ -52,7 +52,7 @@ class WelcomeScreen extends StatelessWidget {
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 40),
                     child: SvgPicture.asset(
-                      'assets/images/splash_image.svg',
+                      'assets/images/splash_logo.svg',
                       width: double.infinity,
                       fit: BoxFit.contain,
                     ),

@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:tag/feature/auth/view/create_account_screen.dart';
+import 'package:tag/feature/auth/view/forgot_password_screen.dart';
 import 'package:tag/feature/auth/view/login_screen.dart';
 import 'package:tag/feature/auth/view/otp_verify_screen.dart';
 import 'package:tag/feature/bill_of_loading/add_loading.dart';
@@ -20,6 +21,8 @@ import 'package:tag/feature/profile/view/subscription/subscription_screen.dart';
 import 'package:tag/feature/report/view/report_screen.dart';
 import 'package:tag/feature/welcome/view/welcome_screen.dart';
 import 'package:tag/shared/widget/bottom_nav.dart';
+import '../../feature/auth/view/reset_password_screen.dart';
+import '../../feature/bill_of_loading/model/add_load_data.dart';
 import '../../feature/home/view/home_screen.dart';
 import '../../feature/onboard/controller/onboard_cubit.dart';
 import 'package:flutter/material.dart';
@@ -57,6 +60,8 @@ class AppRoutes {
   static const String helpSupportScreen = '/helpSupportScreen';
   static const String sendToAccountantScreen = '/sendToAccountantScreen';
   static const String drivers = '/drivers';
+  static const String forgotPassword = '/forgotPassword';
+  static const String resetPassword = '/resetPassword';
 
   ///
   /// ==============Route map
@@ -73,12 +78,17 @@ class AppRoutes {
     otpVerify: (context) => const OtpVerificationScreen(),
     bottomNav: (context) => const BottomNav(),
     home: (context) => const HomeScreen(),
-    // bol: (context) => const BillOfLoadingScreen(imagePath: imagePath ?? ''),
     scanBillOfLoading: (context) {
       final args = ModalRoute.of(context)?.settings.arguments as String?;
       return ScanBillOfLoadingScreen(imagePath: args ?? '');
     },
-    loadDetails: (context) => const LoadDetailsScreen(),
+    // loadDetails: (context) => const LoadDetailsScreen(),
+    loadDetails: (context) {
+      final args = ModalRoute.of(context)?.settings.arguments;
+      return LoadDetailsScreen(
+        load: args is AddLoadData ? args : null,
+      );
+    },
     billOfLoad: (context) => const BOLScreen(),
     proofOfDelivery: (context) => const PODScreen(),
     addLoading: (context) => const AddLoadScreen(),
@@ -93,15 +103,7 @@ class AppRoutes {
     helpSupportScreen: (context) => const HelpSupportScreen(),
     sendToAccountantScreen: (context) => const SendToAccountantScreen(),
     drivers: (context) => const DriversScreen(),
-
+    forgotPassword: (context) => const ForgotPasswordScreen(),
+    resetPassword: (context) => const ResetPasswordScreen(),
   };
 }
-
-
-
-
-
-
-
-
-
