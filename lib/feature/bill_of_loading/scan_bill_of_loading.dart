@@ -1589,7 +1589,7 @@ class _ScanBillOfLoadingViewState extends State<_ScanBillOfLoadingView> {
                                 onPressed: isLoading
                                     ? null
                                     : () => Navigator.pop(context),
-                                buttonText: 'Retake Scan',
+                                buttonText: 'Save & assign load to a driver',
                                 backgroundColor: AppColors.lightBlueColor,
                                 foregroundColor: AppColors.primaryColor,
                                 height: 56,
