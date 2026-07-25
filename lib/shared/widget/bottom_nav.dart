@@ -40,7 +40,6 @@ class _BottomNavState extends State<BottomNav> {
   @override
   void initState() {
     super.initState();
-    // ✅ Create screens ONCE — Profile cubit is not recreated on tab change
     _screens = [
       AppRoutes.routes[AppRoutes.home]!(context),
       AppRoutes.routes[AppRoutes.load]!(context),
@@ -86,11 +85,7 @@ class _BottomNavState extends State<BottomNav> {
     final isSelected = _selectedIndex == index;
 
     return GestureDetector(
-      onTap: () {
-        setState(() {
-          _selectedIndex = index;
-        });
-      },
+      onTap: () => setState(() => _selectedIndex = index),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
@@ -144,6 +139,11 @@ class NavItem {
 
 
 
+
+
+
+
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../core/constants/app_routes.dart';
@@ -152,10 +152,10 @@ class BottomNav extends StatefulWidget {
   const BottomNav({super.key});
 
   @override
-  State<BottomNav> createState() => _BottomNavState();
+  State<BottomNav> createState() => BottomNavState();
 }
 
-class _BottomNavState extends State<BottomNav> {
+class BottomNavState extends State<BottomNav> {
   int _selectedIndex = 0;
   late final List<Widget> _screens;
 
@@ -191,6 +191,13 @@ class _BottomNavState extends State<BottomNav> {
       AppRoutes.routes[AppRoutes.report]!(context),
       AppRoutes.routes[AppRoutes.profile]!(context),
     ];
+  }
+
+  /// Switch tab programmatically from any child screen:
+  /// context.findAncestorStateOfType<BottomNavState>()?.switchTab(1);
+  void switchTab(int index) {
+    if (index < 0 || index >= _screens.length) return;
+    setState(() => _selectedIndex = index);
   }
 
   @override
@@ -230,7 +237,7 @@ class _BottomNavState extends State<BottomNav> {
     final isSelected = _selectedIndex == index;
 
     return GestureDetector(
-      onTap: () => setState(() => _selectedIndex = index),
+      onTap: () => switchTab(index),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),

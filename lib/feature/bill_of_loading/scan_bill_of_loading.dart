@@ -1450,36 +1450,36 @@ class _ScanBillOfLoadingViewState extends State<_ScanBillOfLoadingView> {
                     'assets/icons/back_button_with_circle.svg'),
               ),
             ),
-            actions: [
-              if (widget.ocrData != null)
-                Padding(
-                  padding: const EdgeInsets.only(right: 16),
-                  child: Container(
-                    padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.green.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.check_circle,
-                            size: 14, color: Colors.green[600]),
-                        const SizedBox(width: 4),
-                        Text(
-                          'OCR Extracted',
-                          style: AppTextStyle.SFProDisplay_Regular.copyWith(
-                            fontSize: 10,
-                            color: Colors.green[600],
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-            ],
+            // actions: [
+            //   if (widget.ocrData != null)
+            //     Padding(
+            //       padding: const EdgeInsets.only(right: 16),
+            //       child: Container(
+            //         padding:
+            //         const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            //         decoration: BoxDecoration(
+            //           color: Colors.green.withOpacity(0.1),
+            //           borderRadius: BorderRadius.circular(12),
+            //         ),
+            //         child: Row(
+            //           mainAxisSize: MainAxisSize.min,
+            //           children: [
+            //             Icon(Icons.check_circle,
+            //                 size: 14, color: Colors.green[600]),
+            //             const SizedBox(width: 4),
+            //             Text(
+            //               'OCR Extracted',
+            //               style: AppTextStyle.SFProDisplay_Regular.copyWith(
+            //                 fontSize: 10,
+            //                 color: Colors.green[600],
+            //                 fontWeight: FontWeight.w600,
+            //               ),
+            //             ),
+            //           ],
+            //         ),
+            //       ),
+            //     ),
+            // ],
           ),
           backgroundColor: AppColors.backgroundColor,
           body: SafeArea(

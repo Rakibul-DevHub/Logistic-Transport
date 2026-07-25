@@ -7,6 +7,7 @@ import 'package:tag/feature/bill_of_loading/add_loading.dart';
 import 'package:tag/feature/bill_of_loading/scan_bill_of_loading.dart';
 import 'package:tag/feature/home/model/camera_scanner.dart';
 import 'package:tag/feature/load/view/bol_screen.dart';
+import 'package:tag/feature/load/view/expense/expense_screen.dart';
 import 'package:tag/feature/load/view/load_details_screen.dart';
 import 'package:tag/feature/load/view/load_screen.dart';
 import 'package:tag/feature/load/view/pod_screen.dart';
@@ -46,6 +47,7 @@ class AppRoutes {
   static const String home = '/home';
   static const String scanBillOfLoading = '/scanBillOfLoading';
   static const String loadDetails = '/loadDetails';
+  static const String addExpense = '/expense';
   static const String billOfLoad = '/billOfLoad';
   static const String proofOfDelivery = '/proofOfDelivery';
   static const String addLoading = '/addLoading';
@@ -88,6 +90,10 @@ class AppRoutes {
       return LoadDetailsScreen(
         load: args is AddLoadData ? args : null,
       );
+    },
+    addExpense: (context) {
+      final args = ModalRoute.of(context)?.settings.arguments as String?;
+      return ExpenseScreen(loadId: args ?? '');
     },
     billOfLoad: (context) => const BOLScreen(),
     proofOfDelivery: (context) => const PODScreen(),

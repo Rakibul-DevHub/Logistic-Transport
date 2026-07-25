@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:tag/core/theme/app_colors.dart';
@@ -95,18 +96,30 @@ class LoadScreen extends StatefulWidget {
 class _LoadScreenState extends State<LoadScreen> {
   String _selectedFilter = 'All';
   String _selectedDriver = 'All Drivers';
+  String _searchQuery = '';
+
+  /// Search container expanded (field visible)
+  bool _isSearchExpanded = false;
+
+  /// Dropdown shown only when search is fully collapsed (avoids overflow)
+  bool _showDropdown = true;
+
   late final List<LoadModel> _allLoads;
   late List<LoadModel> _filteredLoads;
+  late List<String> _driverList;
+
+  final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
+  final GlobalKey _driverFilterKey = GlobalKey();
 
   final List<String> _filters = [
     'All',
     'In Progress',
     'Completed',
-    'Missing POD'
+    'Missing POD',
   ];
 
-  // List of unique driver names
-  late List<String> _driverList;
+  static const Duration _animDuration = Duration(milliseconds: 280);
 
   @override
   void initState() {
@@ -114,50 +127,218 @@ class _LoadScreenState extends State<LoadScreen> {
     _allLoads = LoadData.getLoads();
     _filteredLoads = _allLoads;
 
-    // Extract unique driver names
     final drivers = _allLoads.map((load) => load.driverName).toSet().toList();
-    drivers.sort(); // Sort alphabetically
+    drivers.sort();
     _driverList = ['All Drivers', ...drivers];
   }
 
-  List<LoadModel> _filterLoads(String filter, String driver) {
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _searchFocusNode.dispose();
+    super.dispose();
+  }
+
+  List<LoadModel> _filterLoads({
+    required String filter,
+    required String driver,
+    required String searchQuery,
+  }) {
     List<LoadModel> result = _allLoads;
 
-    // Apply status filter
     switch (filter) {
       case 'In Progress':
-        result = result.where((load) => load.status == LoadStatus.inProgress).toList();
+        result = result
+            .where((load) => load.status == LoadStatus.inProgress)
+            .toList();
         break;
       case 'Completed':
-        result = result.where((load) => load.status == LoadStatus.completed).toList();
+        result = result
+            .where((load) => load.status == LoadStatus.completed)
+            .toList();
         break;
       case 'Missing POD':
-        result = result.where((load) => load.status == LoadStatus.missingPOD).toList();
+        result = result
+            .where((load) => load.status == LoadStatus.missingPOD)
+            .toList();
         break;
       default:
         break;
     }
 
-    // Apply driver filter
     if (driver != 'All Drivers') {
       result = result.where((load) => load.driverName == driver).toList();
+    }
+
+    final query = searchQuery.trim().toLowerCase();
+    if (query.isNotEmpty) {
+      result = result
+          .where((load) => load.driverName.toLowerCase().contains(query))
+          .toList();
     }
 
     return result;
   }
 
-  void _applyFilter(String filter) {
+  void _refreshList() {
     setState(() {
-      _selectedFilter = filter;
-      _filteredLoads = _filterLoads(filter, _selectedDriver);
+      _filteredLoads = _filterLoads(
+        filter: _selectedFilter,
+        driver: _selectedDriver,
+        searchQuery: _searchQuery,
+      );
     });
   }
 
+  void _applyFilter(String filter) {
+    _selectedFilter = filter;
+    _refreshList();
+  }
+
   void _applyDriverFilter(String driver) {
+    _selectedDriver = driver;
+    _refreshList();
+  }
+
+  void _onSearchChanged(String value) {
+    _searchQuery = value;
+    _refreshList();
+  }
+
+  Future<void> _openSearch() async {
+    if (_isSearchExpanded) return;
+
+    // 1) Hide dropdown first so row has full width
+    setState(() => _showDropdown = false);
+
+    await Future.delayed(const Duration(milliseconds: 16));
+    if (!mounted) return;
+
+    // 2) Expand search container to full width
+    setState(() => _isSearchExpanded = true);
+
+    await Future.delayed(_animDuration);
+    if (!mounted) return;
+
+    _searchFocusNode.requestFocus();
+  }
+
+  Future<void> _closeSearch() async {
+    if (!_isSearchExpanded && _showDropdown) return;
+
+    _searchFocusNode.unfocus();
+
+    // 1) Collapse search container first (dropdown still hidden)
     setState(() {
-      _selectedDriver = driver;
-      _filteredLoads = _filterLoads(_selectedFilter, driver);
+      _isSearchExpanded = false;
+      _searchController.clear();
+      _searchQuery = '';
+      _filteredLoads = _filterLoads(
+        filter: _selectedFilter,
+        driver: _selectedDriver,
+        searchQuery: '',
+      );
     });
+
+    await Future.delayed(_animDuration);
+    if (!mounted) return;
+
+    // 2) Show dropdown again after collapse finishes
+    setState(() => _showDropdown = true);
+  }
+
+  void _clearSearchText() {
+    setState(() {
+      _searchController.clear();
+      _searchQuery = '';
+      _filteredLoads = _filterLoads(
+        filter: _selectedFilter,
+        driver: _selectedDriver,
+        searchQuery: '',
+      );
+    });
+    _searchFocusNode.requestFocus();
+  }
+
+  /// Toggle search - opens if closed, closes if open
+  Future<void> _toggleSearch() async {
+    if (_isSearchExpanded) {
+      await _closeSearch();
+    } else {
+      await _openSearch();
+    }
+  }
+
+  Future<void> _openDriverDropdown() async {
+    if (_isSearchExpanded || !_showDropdown) return;
+
+    final media = MediaQuery.of(context);
+    final fullMenuWidth = media.size.width - 32;
+
+    final keyContext = _driverFilterKey.currentContext;
+    double top = media.padding.top + 60 + 48 + 8;
+
+    if (keyContext != null) {
+      final box = keyContext.findRenderObject() as RenderBox?;
+      if (box != null && box.hasSize) {
+        final offset = box.localToGlobal(Offset.zero);
+        top = offset.dy + box.size.height + 6;
+      }
+    }
+
+    final selected = await showMenu<String>(
+      context: context,
+      color: Colors.white,
+      elevation: 8,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      constraints: BoxConstraints(
+        minWidth: fullMenuWidth,
+        maxWidth: fullMenuWidth,
+      ),
+      position: RelativeRect.fromLTRB(16, top, 16, 0),
+      items: _driverList.map((driver) {
+        final isSelected = driver == _selectedDriver;
+        return PopupMenuItem<String>(
+          value: driver,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          child: Row(
+            children: [
+              Icon(
+                Icons.person_outline,
+                size: 18,
+                color: driver == 'All Drivers'
+                    ? const Color(0xFF6B7280)
+                    : const Color(0xFF3B82F6),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  driver,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight:
+                    isSelected ? FontWeight.w600 : FontWeight.w500,
+                    color: const Color(0xFF1E3A5F),
+                  ),
+                ),
+              ),
+              if (isSelected)
+                const Icon(
+                  Icons.check_rounded,
+                  size: 18,
+                  color: Color(0xFF1E3A5F),
+                ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+
+    if (selected != null) {
+      _applyDriverFilter(selected);
+    }
   }
 
   @override
@@ -168,15 +349,11 @@ class _LoadScreenState extends State<LoadScreen> {
         padding: const EdgeInsets.only(top: 60.0, bottom: 20),
         child: Column(
           children: [
-            // Driver Filter Dropdown
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-              child: _buildDriverFilter(),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: _buildSearchAndDropdownRow(),
             ),
-
             const SizedBox(height: 16),
-
-            // Status Filter Tabs
             RepaintBoundary(
               child: Container(
                 margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -235,10 +412,7 @@ class _LoadScreenState extends State<LoadScreen> {
                 ),
               ),
             ),
-
             const SizedBox(height: 20),
-
-            // Load List
             Expanded(
               child: _filteredLoads.isEmpty
                   ? Center(
@@ -261,7 +435,9 @@ class _LoadScreenState extends State<LoadScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Try changing your filters',
+                      _searchQuery.isNotEmpty
+                          ? 'No driver matches "$_searchQuery"'
+                          : 'Try changing your filters',
                       style: TextStyle(
                         fontSize: 14,
                         color: Colors.grey[500],
@@ -288,51 +464,178 @@ class _LoadScreenState extends State<LoadScreen> {
     );
   }
 
-  Widget _buildDriverFilter() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-      decoration: BoxDecoration(
-        color: const Color(0xFFE8ECF1),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: _selectedDriver,
-          isExpanded: true,
-          icon: const Icon(Icons.arrow_drop_down, color: Color(0xFF6B7280)),
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: Color(0xFF1E3A5F),
-          ),
-          dropdownColor: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          items: _driverList.map((driver) {
-            return DropdownMenuItem<String>(
-              value: driver,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.person_outline,
-                      size: 18,
-                      color: driver == 'All Drivers'
-                          ? const Color(0xFF6B7280)
-                          : const Color(0xFF3B82F6),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(driver),
-                  ],
+  Widget _buildSearchAndDropdownRow() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxWidth = constraints.maxWidth;
+
+        return SizedBox(
+          height: 48,
+          width: maxWidth,
+          child: Row(
+            children: [
+              // OUTER: only this width animates (48 → full)
+              AnimatedContainer(
+                duration: _animDuration,
+                curve: Curves.easeOutCubic,
+                width: _isSearchExpanded ? maxWidth : 48,
+                height: 48,
+                clipBehavior: Clip.hardEdge,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE8ECF1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                // INNER: always full-width layout; clipped by outer
+                // OverflowBox prevents layout overflow while outer is still 48
+                child: OverflowBox(
+                  minWidth: maxWidth,
+                  maxWidth: maxWidth,
+                  alignment: Alignment.centerLeft,
+                  child: SizedBox(
+                    width: maxWidth,
+                    height: 48,
+                    child: _buildSearchFieldInsideContainer(),
+                  ),
                 ),
               ),
-            );
-          }).toList(),
-          onChanged: (value) {
-            if (value != null) {
-              _applyDriverFilter(value);
-            }
-          },
+
+              // Dropdown on the RIGHT (only when search is collapsed)
+              if (_showDropdown) ...[
+                const SizedBox(width: 10),
+                Expanded(child: _buildDriverFilterButton()),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildSearchFieldInsideContainer() {
+    return Row(
+      children: [
+        // Icon stays in a fixed 48 slot — toggles search on tap
+        SizedBox(
+          width: 48,
+          height: 48,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: _toggleSearch, // ← Now toggles open/close
+              borderRadius: BorderRadius.circular(12),
+              // Remove splash and highlight effects
+              splashColor: Colors.transparent,
+              highlightColor: Colors.transparent,
+              child: Center(
+                child: Icon(
+                  Icons.search_rounded,
+                  size: 22,
+                  color: _isSearchExpanded
+                      ? const Color(0xFF1E3A5F)
+                      : const Color(0xFF6B7280),
+                ),
+              ),
+            ),
+          ),
+        ),
+        Expanded(
+          child: IgnorePointer(
+            ignoring: !_isSearchExpanded,
+            child: TextField(
+              controller: _searchController,
+              focusNode: _searchFocusNode,
+              onChanged: _onSearchChanged,
+              textInputAction: TextInputAction.search,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF1E3A5F),
+              ),
+              decoration: const InputDecoration(
+                hintText: 'Search by driver name...',
+                hintStyle: TextStyle(
+                  fontSize: 14,
+                  color: Color(0xFF9CA3AF),
+                  fontWeight: FontWeight.w400,
+                ),
+                border: InputBorder.none,
+                isDense: true,
+                contentPadding: EdgeInsets.symmetric(vertical: 12),
+              ),
+            ),
+          ),
+        ),
+        if (_searchQuery.isNotEmpty)
+          IconButton(
+            tooltip: 'Clear',
+            onPressed: _clearSearchText,
+            icon: const Icon(
+              Icons.close_rounded,
+              size: 18,
+              color: Color(0xFF6B7280),
+            ),
+            // Remove splash effect from clear button
+            splashColor: Colors.transparent,
+            highlightColor: Colors.transparent,
+          ),
+        IconButton(
+          tooltip: 'Close search',
+          onPressed: _closeSearch,
+          icon: Icon(
+            CupertinoIcons.arrow_uturn_left,
+            size: 20,
+            color: const Color(0xFF1E3A5F),
+          ),
+          // Remove splash effect from close button
+          splashColor: Colors.transparent,
+          highlightColor: Colors.transparent,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDriverFilterButton() {
+    return Material(
+      key: _driverFilterKey,
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: _openDriverDropdown,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          height: 48,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFE8ECF1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.person_outline,
+                size: 18,
+                color: _selectedDriver == 'All Drivers'
+                    ? const Color(0xFF6B7280)
+                    : const Color(0xFF3B82F6),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  _selectedDriver,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF1E3A5F),
+                  ),
+                ),
+              ),
+              const Icon(
+                Icons.arrow_drop_down,
+                color: Color(0xFF6B7280),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -428,16 +731,10 @@ class LoadCard extends StatelessWidget {
               ),
             ],
           ),
-
           const SizedBox(height: 12),
-
           Row(
             children: [
-              const Icon(
-                Icons.person,
-                size: 20,
-                color: Color(0xFF6B7280),
-              ),
+              const Icon(Icons.person, size: 20, color: Color(0xFF6B7280)),
               const SizedBox(width: 8),
               Text(
                 load.driverName,
@@ -449,9 +746,7 @@ class LoadCard extends StatelessWidget {
               ),
             ],
           ),
-
           const SizedBox(height: 24),
-
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -490,9 +785,7 @@ class LoadCard extends StatelessWidget {
                   ),
                 ],
               ),
-
               const SizedBox(width: 16),
-
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -521,9 +814,7 @@ class LoadCard extends StatelessWidget {
                         ),
                       ],
                     ),
-
                     const SizedBox(height: 24),
-
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -553,13 +844,9 @@ class LoadCard extends StatelessWidget {
               ),
             ],
           ),
-
           const SizedBox(height: 24),
-
           Container(height: 1, color: const Color(0xFFF3F4F6)),
-
           const SizedBox(height: 20),
-
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -593,9 +880,7 @@ class LoadCard extends StatelessWidget {
                 child: Material(
                   color: Colors.transparent,
                   child: InkWell(
-                    onTap: () {
-                      // Navigate to load details
-                    },
+                    onTap: () {},
                     borderRadius: BorderRadius.circular(12),
                     child: const Padding(
                       padding: EdgeInsets.symmetric(
@@ -632,7 +917,6 @@ class LoadCard extends StatelessWidget {
   }
 }
 
-// Custom painter for dotted line
 class DottedLinePainter extends CustomPainter {
   final Color color;
   final double strokeWidth;
