@@ -31,7 +31,6 @@ class _LoadDetailsScreenState extends State<LoadDetailsScreen> {
   @override
   void initState() {
     super.initState();
-    // If load already has a BOL image from create API
     if (_load?.bolImage != null && _load!.bolImage!.isNotEmpty) {
       _bolUploaded = true;
     }
@@ -67,24 +66,64 @@ class _LoadDetailsScreenState extends State<LoadDetailsScreen> {
     return '—';
   }
 
-  String get _pickupAddress {
-    final a = _load?.pickupAddress;
-    if (a != null && a.isNotEmpty) return a;
-    final coords = _load?.pickupCoordinates;
-    if (coords != null && coords.length >= 2) {
-      return '${coords[0].toStringAsFixed(6)}, ${coords[1].toStringAsFixed(6)}';
+  // Get pickup addresses (multiple)
+  List<String> get _pickupAddresses {
+    if (_load?.pickupAddresses != null && _load!.pickupAddresses!.isNotEmpty) {
+      return _load!.pickupAddresses!;
     }
-    return '—';
+    final single = _load?.pickupAddress;
+    if (single != null && single.isNotEmpty) {
+      return [single];
+    }
+    final coords = _load?.pickupCoordinates;
+    if (coords != null && coords.isNotEmpty) {
+      return coords.map((coord) {
+        if (coord.length >= 2) {
+          return '${coord[0].toStringAsFixed(6)}, ${coord[1].toStringAsFixed(6)}';
+        }
+        return '—';
+      }).toList();
+    }
+    return ['—'];
   }
 
-  String get _deliveryAddress {
-    final a = _load?.deliveryAddress;
-    if (a != null && a.isNotEmpty) return a;
-    final coords = _load?.deliveryCoordinates;
-    if (coords != null && coords.length >= 2) {
-      return '${coords[0].toStringAsFixed(6)}, ${coords[1].toStringAsFixed(6)}';
+  // Get delivery addresses (multiple)
+  List<String> get _deliveryAddresses {
+    if (_load?.deliveryAddresses != null && _load!.deliveryAddresses!.isNotEmpty) {
+      return _load!.deliveryAddresses!;
     }
-    return '—';
+    final single = _load?.deliveryAddress;
+    if (single != null && single.isNotEmpty) {
+      return [single];
+    }
+    final coords = _load?.deliveryCoordinates;
+    if (coords != null && coords.isNotEmpty) {
+      return coords.map((coord) {
+        if (coord.length >= 2) {
+          return '${coord[0].toStringAsFixed(6)}, ${coord[1].toStringAsFixed(6)}';
+        }
+        return '—';
+      }).toList();
+    }
+    return ['—'];
+  }
+
+  // Get pickup coordinates (for map)
+  List<double>? get _firstPickupCoords {
+    final coords = _load?.pickupCoordinates;
+    if (coords != null && coords.isNotEmpty && coords.first.length >= 2) {
+      return coords.first;
+    }
+    return null;
+  }
+
+  // Get delivery coordinates (for map)
+  List<double>? get _firstDeliveryCoords {
+    final coords = _load?.deliveryCoordinates;
+    if (coords != null && coords.isNotEmpty && coords.first.length >= 2) {
+      return coords.first;
+    }
+    return null;
   }
 
   String? get _notes {
@@ -127,8 +166,8 @@ class _LoadDetailsScreenState extends State<LoadDetailsScreen> {
   }
 
   Future<void> _openRouteMap() async {
-    final pickup = _load?.pickupCoordinates;
-    final delivery = _load?.deliveryCoordinates;
+    final pickup = _firstPickupCoords;
+    final delivery = _firstDeliveryCoords;
     if (pickup == null ||
         delivery == null ||
         pickup.length < 2 ||
@@ -144,8 +183,8 @@ class _LoadDetailsScreenState extends State<LoadDetailsScreen> {
       title: 'Load Route',
       pickupCoordinates: pickup,
       deliveryCoordinates: delivery,
-      pickupLabel: _pickupAddress,
-      deliveryLabel: _deliveryAddress,
+      pickupLabel: _pickupAddresses.isNotEmpty ? _pickupAddresses.first : 'Pickup',
+      deliveryLabel: _deliveryAddresses.isNotEmpty ? _deliveryAddresses.first : 'Delivery',
     );
   }
 
@@ -646,10 +685,12 @@ class _LoadDetailsScreenState extends State<LoadDetailsScreen> {
     );
   }
 
+  /// Route card with dashed line, pin/flag icons, and aligned dots
+  /// Route card with dashed line, pin/flag icons, and aligned dots
   Widget _buildRouteCard() {
-    const double iconSize = 32.0;
-    const double lineWidth = 2.0;
-    const double midGap = 20.0;
+    const double iconSize = 36.0;
+    final pickupAddresses = _pickupAddresses;
+    final deliveryAddresses = _deliveryAddresses;
 
     return Container(
       width: double.infinity,
@@ -670,95 +711,207 @@ class _LoadDetailsScreenState extends State<LoadDetailsScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           IntrinsicHeight(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // LEFT COLUMN: Timeline & Icons
                 SizedBox(
                   width: iconSize,
                   child: Stack(
+                    clipBehavior: Clip.none,
                     children: [
+                      // Vertical Dashed Line
                       Positioned(
-                        top: iconSize / 2,
-                        bottom: iconSize / 2,
-                        left: (iconSize / 2) - (lineWidth / 2),
-                        width: lineWidth,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: AppColors.lightBlueColor,
-                            borderRadius: BorderRadius.circular(lineWidth / 2),
+                        top: iconSize * 0.6,
+                        bottom: iconSize * 0.6,
+                        left: (iconSize / 2) - 1,
+                        child: CustomPaint(
+                          painter: DottedLinePainter(
+                            color: const Color(0xFFCBD5E1),
+                            dashWidth: 4,
+                            dashSpace: 4,
+                            isHorizontal: false,
                           ),
+                          size: const Size(2, double.infinity),
                         ),
                       ),
+                      // Main Icons
                       Column(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          SvgPicture.asset(
-                            'assets/icons/pickup_location.svg',
+                          // Pickup Icon (Pin)
+                          Container(
                             width: iconSize,
                             height: iconSize,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.08),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Icon(
+                              Icons.location_on,
+                              color: AppColors.primaryColor,
+                              size: 24,
+                            ),
                           ),
-                          SvgPicture.asset(
-                            'assets/icons/delivery_location.svg',
+                          // Delivery Icon (Flag)
+                          Container(
                             width: iconSize,
                             height: iconSize,
+                            decoration: BoxDecoration(
+                              color: AppColors.primaryColor,
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppColors.primaryColor.withOpacity(0.3),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: const Icon(
+                              Icons.flag,
+                              color: Colors.white,
+                              size: 20,
+                            ),
                           ),
                         ],
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 16),
+                // RIGHT COLUMN: Addresses
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'PICKUP LOCATION',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: Color(0xFF6B7280),
-                              fontWeight: FontWeight.w500,
-                              letterSpacing: 0.3,
-                            ),
+                      // PICKUP SECTION
+                      ...List.generate(pickupAddresses.length, (index) {
+                        return Padding(
+                          padding: EdgeInsets.only(
+                            top: index == 0 ? 6 : 0,
+                            bottom: 12,
                           ),
-                          Text(
-                            _pickupAddress,
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF1E3A5F),
-                            ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Small Blue Dot
+                              Padding(
+                                padding: const EdgeInsets.only(top: 6, right: 12),
+                                child: Container(
+                                  width: 8,
+                                  height: 8,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primaryColor,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    if (index == 0)
+                                      const Text(
+                                        'PICKUP LOCATION',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          color: Color(0xFF6B7280),
+                                          fontWeight: FontWeight.w600,
+                                          letterSpacing: 0.5,
+                                        ),
+                                      ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      pickupAddresses[index],
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                        color: Color(0xFF1E293B),
+                                        height: 1.4,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: midGap),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'DELIVERY LOCATION',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: Color(0xFF6B7280),
-                              fontWeight: FontWeight.w500,
-                              letterSpacing: 0.3,
-                            ),
+                        );
+                      }),
+
+                      // DIVIDER BETWEEN PICKUP AND DELIVERY
+                      if (pickupAddresses.isNotEmpty && deliveryAddresses.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: Divider(
+                            color: const Color(0xFFE2E8F0),
+                            thickness: 1,
+                            height: 1,
                           ),
-                          Text(
-                            _deliveryAddress,
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF1E3A5F),
-                            ),
+                        ),
+
+                      // DELIVERY SECTION
+                      ...List.generate(deliveryAddresses.length, (index) {
+                        return Padding(
+                          padding: EdgeInsets.only(
+                            top: index == 0 ? 6 : 0,
+                            bottom: index == deliveryAddresses.length - 1 ? 0 : 12,
                           ),
-                        ],
-                      ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Small Blue Dot
+                              Padding(
+                                padding: const EdgeInsets.only(top: 6, right: 12),
+                                child: Container(
+                                  width: 8,
+                                  height: 8,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primaryColor,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    if (index == 0)
+                                      const Text(
+                                        'DELIVERY LOCATION',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          color: Color(0xFF6B7280),
+                                          fontWeight: FontWeight.w600,
+                                          letterSpacing: 0.5,
+                                        ),
+                                      ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      deliveryAddresses[index],
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                        color: Color(0xFF1E293B),
+                                        height: 1.4,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
                     ],
                   ),
                 ),
@@ -771,10 +924,7 @@ class _LoadDetailsScreenState extends State<LoadDetailsScreen> {
   }
 
   Widget _buildMapPreview() {
-    final hasRoute = _load?.pickupCoordinates != null &&
-        _load?.deliveryCoordinates != null &&
-        (_load!.pickupCoordinates!.length >= 2) &&
-        (_load!.deliveryCoordinates!.length >= 2);
+    final hasRoute = _firstPickupCoords != null && _firstDeliveryCoords != null;
 
     return Container(
       decoration: _cardDecoration(),
@@ -932,8 +1082,6 @@ class _LoadDetailsScreenState extends State<LoadDetailsScreen> {
     );
   }
 
-
-
   void _viewFullBolImage() {
     final localFile = _bolImage;
     final networkUrl = _bolImageUrl;
@@ -1036,7 +1184,7 @@ class _LoadDetailsScreenState extends State<LoadDetailsScreen> {
                   ],
                 ),
                 TextButton(
-                  onPressed: _viewFullBolImage, // ✅ VIEW FULL (not CHANGE)
+                  onPressed: _viewFullBolImage,
                   child: Text(
                     'VIEW FULL',
                     style: AppTextStyle.SFProDisplay_Regular.copyWith(
@@ -1053,7 +1201,7 @@ class _LoadDetailsScreenState extends State<LoadDetailsScreen> {
               bottomRight: Radius.circular(12),
             ),
             child: GestureDetector(
-              onTap: _viewFullBolImage, // optional: tap image also opens full view
+              onTap: _viewFullBolImage,
               child: _bolImage != null
                   ? Image.file(
                 _bolImage!,
@@ -1100,4 +1248,60 @@ class _LoadDetailsScreenState extends State<LoadDetailsScreen> {
       ],
     );
   }
+}
+
+// Custom painter for dotted line
+class DottedLinePainter extends CustomPainter {
+  final Color color;
+  final double dashWidth;
+  final double dashSpace;
+  final bool isHorizontal;
+
+  DottedLinePainter({
+    required this.color,
+    this.dashWidth = 6,
+    this.dashSpace = 4,
+    this.isHorizontal = true,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke;
+
+    if (isHorizontal) {
+      double startX = 0;
+      double endX = size.width;
+      double y = size.height / 2;
+
+      double currentX = startX;
+      while (currentX < endX) {
+        canvas.drawLine(
+          Offset(currentX, y),
+          Offset(currentX + dashWidth, y),
+          paint,
+        );
+        currentX += dashWidth + dashSpace;
+      }
+    } else {
+      double startY = 0;
+      double endY = size.height;
+      double x = size.width / 2;
+
+      double currentY = startY;
+      while (currentY < endY) {
+        canvas.drawLine(
+          Offset(x, currentY),
+          Offset(x, currentY + dashWidth),
+          paint,
+        );
+        currentY += dashWidth + dashSpace;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
