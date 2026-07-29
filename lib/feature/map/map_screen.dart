@@ -12,6 +12,7 @@ import 'places_service.dart';
 class MapScreen extends StatefulWidget {
   final MapScreenArgs args;
 
+
   const MapScreen({
     super.key,
     required this.args,
