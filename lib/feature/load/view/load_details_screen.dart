@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
@@ -109,21 +110,27 @@ class _LoadDetailsScreenState extends State<LoadDetailsScreen> {
   }
 
   // Get pickup coordinates (for map)
-  List<double>? get _firstPickupCoords {
+  List<List<double>> get _allPickupCoords {
     final coords = _load?.pickupCoordinates;
-    if (coords != null && coords.isNotEmpty && coords.first.length >= 2) {
-      return coords.first;
-    }
-    return null;
+    if (coords == null) return const [];
+    return coords.where((c) => c.length >= 2).toList();
   }
 
   // Get delivery coordinates (for map)
-  List<double>? get _firstDeliveryCoords {
+  List<List<double>> get _allDeliveryCoords {
     final coords = _load?.deliveryCoordinates;
-    if (coords != null && coords.isNotEmpty && coords.first.length >= 2) {
-      return coords.first;
-    }
-    return null;
+    if (coords == null) return const [];
+    return coords.where((c) => c.length >= 2).toList();
+  }
+
+  List<double>? get _firstPickupCoords {
+    final coords = _allPickupCoords;
+    return coords.isNotEmpty ? coords.first : null;
+  }
+
+  List<double>? get _firstDeliveryCoords {
+    final coords = _allDeliveryCoords;
+    return coords.isNotEmpty ? coords.first : null;
   }
 
   String? get _notes {
@@ -165,26 +172,59 @@ class _LoadDetailsScreenState extends State<LoadDetailsScreen> {
     }
   }
 
+  Future<void> _copyLocationAddress(String address) async {
+    final text = address.trim();
+    if (text.isEmpty || text == '—') return;
+
+    await Clipboard.setData(ClipboardData(text: text));
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Address copied'),
+        duration: Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  Widget _buildCopyableAddress(String address) {
+    return Tooltip(
+      message: 'Long press to copy',
+      child: GestureDetector(
+        onLongPress: () => _copyLocationAddress(address),
+        behavior: HitTestBehavior.opaque,
+        child: Text(
+          address,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: Color(0xFF1E293B),
+            height: 1.4,
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _openRouteMap() async {
-    final pickup = _firstPickupCoords;
-    final delivery = _firstDeliveryCoords;
-    if (pickup == null ||
-        delivery == null ||
-        pickup.length < 2 ||
-        delivery.length < 2) {
+    final pickups = _allPickupCoords;
+    final deliveries = _allDeliveryCoords;
+    if (pickups.isEmpty && deliveries.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Route coordinates not available')),
+        const SnackBar(content: Text('Location coordinates not available')),
       );
       return;
     }
 
     await MapScreen.openViewRoute(
       context,
-      title: 'Load Route',
-      pickupCoordinates: pickup,
-      deliveryCoordinates: delivery,
-      pickupLabel: _pickupAddresses.isNotEmpty ? _pickupAddresses.first : 'Pickup',
-      deliveryLabel: _deliveryAddresses.isNotEmpty ? _deliveryAddresses.first : 'Delivery',
+      title: 'Load Locations',
+      pickupCoordinatesList: pickups,
+      deliveryCoordinatesList: deliveries,
+      pickupLabels: _pickupAddresses,
+      deliveryLabels: _deliveryAddresses,
     );
   }
 
@@ -831,15 +871,7 @@ class _LoadDetailsScreenState extends State<LoadDetailsScreen> {
                                         ),
                                       ),
                                     const SizedBox(height: 2),
-                                    Text(
-                                      pickupAddresses[index],
-                                      style: const TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w500,
-                                        color: Color(0xFF1E293B),
-                                        height: 1.4,
-                                      ),
-                                    ),
+                                    _buildCopyableAddress(pickupAddresses[index]),
                                   ],
                                 ),
                               ),
@@ -896,14 +928,8 @@ class _LoadDetailsScreenState extends State<LoadDetailsScreen> {
                                         ),
                                       ),
                                     const SizedBox(height: 2),
-                                    Text(
+                                    _buildCopyableAddress(
                                       deliveryAddresses[index],
-                                      style: const TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w500,
-                                        color: Color(0xFF1E293B),
-                                        height: 1.4,
-                                      ),
                                     ),
                                   ],
                                 ),
@@ -924,7 +950,8 @@ class _LoadDetailsScreenState extends State<LoadDetailsScreen> {
   }
 
   Widget _buildMapPreview() {
-    final hasRoute = _firstPickupCoords != null && _firstDeliveryCoords != null;
+    final hasRoute =
+        _allPickupCoords.isNotEmpty || _allDeliveryCoords.isNotEmpty;
 
     return Container(
       decoration: _cardDecoration(),
@@ -948,7 +975,7 @@ class _LoadDetailsScreenState extends State<LoadDetailsScreen> {
                   TextButton(
                     onPressed: _openRouteMap,
                     child: Text(
-                      'VIEW ROUTE',
+                      'VIEW MAP',
                       style: AppTextStyle.SFProDisplay_Regular.copyWith(
                         fontSize: 11,
                         color: AppColors.primaryColor,
@@ -989,7 +1016,7 @@ class _LoadDetailsScreenState extends State<LoadDetailsScreen> {
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: const Text(
-                            'Tap to view full route',
+                            'Tap to view all locations',
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: 12,

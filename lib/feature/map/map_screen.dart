@@ -1043,8 +1043,12 @@ class MapScreen extends StatefulWidget {
 
   static Future<void> openViewRoute(
       BuildContext context, {
-        required List<double> pickupCoordinates,
-        required List<double> deliveryCoordinates,
+        List<List<double>>? pickupCoordinatesList,
+        List<List<double>>? deliveryCoordinatesList,
+        List<double>? pickupCoordinates,
+        List<double>? deliveryCoordinates,
+        List<String>? pickupLabels,
+        List<String>? deliveryLabels,
         String title = 'Route',
         String? pickupLabel,
         String? deliveryLabel,
@@ -1056,8 +1060,12 @@ class MapScreen extends StatefulWidget {
           args: MapScreenArgs(
             mode: MapMode.viewRoute,
             title: title,
+            pickupCoordinatesList: pickupCoordinatesList,
+            deliveryCoordinatesList: deliveryCoordinatesList,
             pickupCoordinates: pickupCoordinates,
             deliveryCoordinates: deliveryCoordinates,
+            pickupLabels: pickupLabels,
+            deliveryLabels: deliveryLabels,
             pickupLabel: pickupLabel,
             deliveryLabel: deliveryLabel,
           ),
@@ -1212,116 +1220,85 @@ class _MapScreenState extends State<MapScreen> {
     return true;
   }
 
+  Set<Marker> _buildStopMarkers({LatLng? userLatLng}) {
+    final pickups = widget.args.resolvedPickupCoordinates;
+    final deliveries = widget.args.resolvedDeliveryCoordinates;
+    final markers = <Marker>{};
+
+    for (var i = 0; i < pickups.length; i++) {
+      final coord = pickups[i];
+      markers.add(
+        Marker(
+          markerId: MarkerId('pickup_$i'),
+          position: LatLng(coord[1], coord[0]),
+          infoWindow: InfoWindow(title: widget.args.pickupLabelAt(i)),
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            BitmapDescriptor.hueBlue,
+          ),
+        ),
+      );
+    }
+
+    for (var i = 0; i < deliveries.length; i++) {
+      final coord = deliveries[i];
+      markers.add(
+        Marker(
+          markerId: MarkerId('delivery_$i'),
+          position: LatLng(coord[1], coord[0]),
+          infoWindow: InfoWindow(title: widget.args.deliveryLabelAt(i)),
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            BitmapDescriptor.hueRed,
+          ),
+        ),
+      );
+    }
+
+    if (userLatLng != null) {
+      markers.add(
+        Marker(
+          markerId: const MarkerId('you'),
+          position: userLatLng,
+          infoWindow: const InfoWindow(title: 'You'),
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            BitmapDescriptor.hueGreen,
+          ),
+        ),
+      );
+    }
+
+    return markers;
+  }
+
   Future<void> _setupRoute() async {
     if (_routeLoading || _routeLoaded) {
       return;
     }
 
-    final pickup = widget.args.pickupCoordinates;
-    final delivery = widget.args.deliveryCoordinates;
+    final pickups = widget.args.resolvedPickupCoordinates;
+    final deliveries = widget.args.resolvedDeliveryCoordinates;
 
-    if (pickup == null ||
-        delivery == null ||
-        pickup.length < 2 ||
-        delivery.length < 2) {
+    if (pickups.isEmpty && deliveries.isEmpty) {
       return;
     }
 
-    final pickupLatLng = LatLng(pickup[1], pickup[0]);
-    final deliveryLatLng = LatLng(delivery[1], delivery[0]);
-
     _routeLoading = true;
+
+    final points = <LatLng>[
+      for (final coord in pickups) LatLng(coord[1], coord[0]),
+      for (final coord in deliveries) LatLng(coord[1], coord[0]),
+    ];
 
     if (mounted) {
       setState(() {
-        _markers = {
-          Marker(
-            markerId: const MarkerId('pickup'),
-            position: pickupLatLng,
-            infoWindow: InfoWindow(
-              title: widget.args.pickupLabel ?? 'Pickup',
-            ),
-            icon: BitmapDescriptor.defaultMarkerWithHue(
-              BitmapDescriptor.hueAzure,
-            ),
-          ),
-          Marker(
-            markerId: const MarkerId('delivery'),
-            position: deliveryLatLng,
-            infoWindow: InfoWindow(
-              title: widget.args.deliveryLabel ?? 'Delivery',
-            ),
-            icon: BitmapDescriptor.defaultMarkerWithHue(
-              BitmapDescriptor.hueRed,
-            ),
-          ),
-        };
-
+        _markers = _buildStopMarkers();
         _polylines = {};
-      });
-    }
-
-    try {
-      final routeCoordinates = await _placesService.getDrivingRoute(
-        pickupCoordinates: pickup,
-        deliveryCoordinates: delivery,
-      );
-
-      if (!mounted) {
-        return;
-      }
-
-      final points = routeCoordinates
-          .where((coordinate) => coordinate.length >= 2)
-          .map(
-            (coordinate) => LatLng(
-          coordinate[1],
-          coordinate[0],
-        ),
-      )
-          .toList();
-
-      if (points.length < 2) {
-        throw Exception('No valid road path was returned');
-      }
-
-      setState(() {
         _routePoints = points;
         _routeLoaded = true;
         _routeLoading = false;
-        _polylines = {
-          Polyline(
-            polylineId: const PolylineId('driving_route'),
-            points: points,
-            color: AppColors.primaryColor,
-            width: 5,
-            geodesic: false,
-            jointType: JointType.round,
-            startCap: Cap.roundCap,
-            endCap: Cap.roundCap,
-          ),
-        };
       });
-
-      await _fitRouteOnMap(points);
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-
-      _routeLoaded = false;
-
-      setState(() {
-        _routeLoading = false;
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Could not load road route: $error'),
-          backgroundColor: Colors.red,
-        ),
-      );
     }
+
+    await _fitRouteOnMap(points);
   }
 
   Future<void> _startLiveRouteTracking() async {
@@ -1337,11 +1314,9 @@ class _MapScreenState extends State<MapScreen> {
       if (!mounted) return;
 
       _lastRouteUpdatePosition = current;
-
-      // First live update from current GPS → delivery
       await _updateLiveRouteFromPosition(current, force: true);
     } catch (_) {
-      // Keep static pickup→delivery route if GPS fails
+      // Keep stop markers if GPS fails
     }
 
     _positionSubscription = Geolocator.getPositionStream(
@@ -1379,114 +1354,31 @@ class _MapScreenState extends State<MapScreen> {
     await _updateLiveRouteFromPosition(position);
   }
 
-  /// Recalculate road path: current user position → delivery
+  /// Update green "you" pin only — no driving route path.
   Future<void> _updateLiveRouteFromPosition(
       Position position, {
         bool force = false,
       }) async {
-    final delivery = widget.args.deliveryCoordinates;
-    final pickup = widget.args.pickupCoordinates;
-
-    if (delivery == null || delivery.length < 2) return;
     if (_liveRouteUpdating && !force) return;
 
     final requestId = ++_liveRouteRequestId;
+    final userLatLng = LatLng(position.latitude, position.longitude);
+
+    if (!mounted || requestId != _liveRouteRequestId) return;
 
     setState(() {
-      _liveRouteUpdating = true;
+      _liveRouteUpdating = false;
+      _polylines = {};
+      _markers = _buildStopMarkers(userLatLng: userLatLng);
     });
 
-    try {
-      final origin = <double>[position.longitude, position.latitude];
-
-      final routeCoordinates = await _placesService.getDrivingRoute(
-        pickupCoordinates: origin, // treated as route origin [lng, lat]
-        deliveryCoordinates: delivery,
-      );
-
-      if (!mounted || requestId != _liveRouteRequestId) return;
-
-      final points = routeCoordinates
-          .where((coordinate) => coordinate.length >= 2)
-          .map(
-            (coordinate) => LatLng(
-          coordinate[1],
-          coordinate[0],
-        ),
-      )
-          .toList();
-
-      if (points.length < 2) {
-        throw Exception('No valid live road path');
-      }
-
-      final pickupLatLng = pickup != null && pickup.length >= 2
-          ? LatLng(pickup[1], pickup[0])
-          : null;
-
-      final deliveryLatLng = LatLng(delivery[1], delivery[0]);
-      final userLatLng = LatLng(position.latitude, position.longitude);
-
-      setState(() {
-        _routePoints = points;
-        _liveRouteUpdating = false;
-
-        _markers = {
-          if (pickupLatLng != null)
-            Marker(
-              markerId: const MarkerId('pickup'),
-              position: pickupLatLng,
-              infoWindow: InfoWindow(
-                title: widget.args.pickupLabel ?? 'Pickup',
-              ),
-              icon: BitmapDescriptor.defaultMarkerWithHue(
-                BitmapDescriptor.hueAzure,
-              ),
-            ),
-          Marker(
-            markerId: const MarkerId('delivery'),
-            position: deliveryLatLng,
-            infoWindow: InfoWindow(
-              title: widget.args.deliveryLabel ?? 'Delivery',
-            ),
-            icon: BitmapDescriptor.defaultMarkerWithHue(
-              BitmapDescriptor.hueRed,
-            ),
-          ),
-          Marker(
-            markerId: const MarkerId('you'),
-            position: userLatLng,
-            infoWindow: const InfoWindow(title: 'You'),
-            icon: BitmapDescriptor.defaultMarkerWithHue(
-              BitmapDescriptor.hueGreen,
-            ),
-          ),
-        };
-
-        _polylines = {
-          Polyline(
-            polylineId: const PolylineId('driving_route'),
-            points: points,
-            color: AppColors.primaryColor,
-            width: 5,
-            geodesic: false,
-            jointType: JointType.round,
-            startCap: Cap.roundCap,
-            endCap: Cap.roundCap,
-          ),
-        };
-      });
-
-      // Keep user + remaining path in view (light follow)
-      await _mapController?.animateCamera(
-        CameraUpdate.newLatLngZoom(userLatLng, 15),
-      );
-    } catch (_) {
-      if (!mounted || requestId != _liveRouteRequestId) return;
-
-      setState(() {
-        _liveRouteUpdating = false;
-      });
+    // Only refit once when GPS first arrives so all pins stay in view.
+    if (force) {
+      final fitPoints = <LatLng>[
+        ..._routePoints,
+        userLatLng,
+      ];
+      await _fitRouteOnMap(fitPoints);
     }
   }
 
@@ -1873,8 +1765,8 @@ class _MapScreenState extends State<MapScreen> {
                         const SizedBox(width: 10),
                         Text(
                           _liveRouteUpdating
-                              ? 'Updating route...'
-                              : 'Loading road route...',
+                              ? 'Updating location...'
+                              : 'Loading locations...',
                         ),
                       ],
                     ),
