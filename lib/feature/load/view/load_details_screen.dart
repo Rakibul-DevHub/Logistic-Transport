@@ -189,19 +189,27 @@ class _LoadDetailsScreenState extends State<LoadDetailsScreen> {
     );
   }
 
-  Widget _buildCopyableAddress(String address) {
+  Widget _buildCopyableAddress(
+    String address, {
+    VoidCallback? onTap,
+  }) {
     return Tooltip(
-      message: 'Long press to copy',
+      message: onTap != null
+          ? 'Tap to view on map • Long press to copy'
+          : 'Long press to copy',
       child: GestureDetector(
+        onTap: onTap,
         onLongPress: () => _copyLocationAddress(address),
         behavior: HitTestBehavior.opaque,
         child: Text(
           address,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w500,
-            color: Color(0xFF1E293B),
+            color: const Color(0xFF1E293B),
             height: 1.4,
+            decoration: onTap != null ? TextDecoration.underline : null,
+            decorationColor: const Color(0xFF94A3B8),
           ),
         ),
       ),
@@ -225,6 +233,37 @@ class _LoadDetailsScreenState extends State<LoadDetailsScreen> {
       deliveryCoordinatesList: deliveries,
       pickupLabels: _pickupAddresses,
       deliveryLabels: _deliveryAddresses,
+    );
+  }
+
+  /// Open map preview focused on one pickup or delivery point
+  Future<void> _openSingleLocationMap({
+    required bool isPickup,
+    required int index,
+    required String address,
+  }) async {
+    final coordsList = isPickup ? _allPickupCoords : _allDeliveryCoords;
+    if (index < 0 ||
+        index >= coordsList.length ||
+        coordsList[index].length < 2) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Location coordinates not available')),
+      );
+      return;
+    }
+
+    final coords = coordsList[index];
+    final label = address.trim().isNotEmpty
+        ? address.trim()
+        : (isPickup ? 'Pickup' : 'Delivery');
+
+    await MapScreen.openViewRoute(
+      context,
+      title: isPickup ? 'Pickup Location' : 'Delivery Location',
+      pickupCoordinatesList: isPickup ? [coords] : const [],
+      deliveryCoordinatesList: isPickup ? const [] : [coords],
+      pickupLabels: isPickup ? [label] : const [],
+      deliveryLabels: isPickup ? const [] : [label],
     );
   }
 
@@ -871,7 +910,14 @@ class _LoadDetailsScreenState extends State<LoadDetailsScreen> {
                                         ),
                                       ),
                                     const SizedBox(height: 2),
-                                    _buildCopyableAddress(pickupAddresses[index]),
+                                    _buildCopyableAddress(
+                                      pickupAddresses[index],
+                                      onTap: () => _openSingleLocationMap(
+                                        isPickup: true,
+                                        index: index,
+                                        address: pickupAddresses[index],
+                                      ),
+                                    ),
                                   ],
                                 ),
                               ),
@@ -930,6 +976,11 @@ class _LoadDetailsScreenState extends State<LoadDetailsScreen> {
                                     const SizedBox(height: 2),
                                     _buildCopyableAddress(
                                       deliveryAddresses[index],
+                                      onTap: () => _openSingleLocationMap(
+                                        isPickup: false,
+                                        index: index,
+                                        address: deliveryAddresses[index],
+                                      ),
                                     ),
                                   ],
                                 ),
