@@ -1,12 +1,56 @@
-/**
+// driver_screen_cubit.dart
+
 import 'package:dio/dio.dart';
-import '../../../../../core/network/secure_storage_service.dart';
-import '../../../../../core/utils/app_url.dart';
+import 'package:tag/core/network/secure_storage_service.dart';
+import 'package:tag/core/utils/app_url.dart';
 import '../model/driver_data.dart';
 
-
 class DriverService {
+  DriverService._internal() {
+    _dio.interceptors.add(
+      LogInterceptor(
+        request: true,
+        requestHeader: true,
+        requestBody: true,
+        responseHeader: true,
+        responseBody: true,
+        error: true,
+      ),
+    );
+  }
+
+  static final DriverService instance = DriverService._internal();
+
+  /// Keeps existing `DriverService()` call sites working as the singleton.
+  factory DriverService() => instance;
+
   final Dio _dio = Dio();
+
+  List<Driver>? _cachedDrivers;
+
+  bool get hasCache => _cachedDrivers != null;
+
+  List<Driver> get cachedDrivers =>
+      List<Driver>.unmodifiable(_cachedDrivers ?? const []);
+
+  /// Sorted unique driver names from cache (empty if no cache yet).
+  List<String> get cachedDriverNames {
+    final names = cachedDrivers
+        .map((d) => d.name.trim())
+        .where((n) => n.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    return names;
+  }
+
+  void clearCache() {
+    _cachedDrivers = null;
+  }
+
+  void _setCache(List<Driver> drivers) {
+    _cachedDrivers = List<Driver>.from(drivers);
+  }
 
   Future<String> _authHeader() async {
     final token = await SecureStorageService.instance.getAccessToken();
@@ -17,7 +61,12 @@ class DriverService {
   }
 
   /// GET /user/drivers/sub-drivers
-  Future<List<Driver>> fetchDrivers() async {
+  /// Returns cached list unless [forceRefresh] is true or cache is empty.
+  Future<List<Driver>> fetchDrivers({bool forceRefresh = false}) async {
+    if (!forceRefresh && _cachedDrivers != null) {
+      return List<Driver>.from(_cachedDrivers!);
+    }
+
     try {
       final response = await _dio.get(
         AppUrl.getDriverList,
@@ -25,20 +74,43 @@ class DriverService {
       );
 
       final data = response.data['data'];
-      if (data is! List) return [];
+      if (data is! List) {
+        _setCache(const []);
+        return [];
+      }
 
-      return data
-          .whereType<Map<String, dynamic>>()
-          .map((e) => Driver.fromJson(e))
+      final drivers = data
+          .whereType<Map>()
+          .map((e) => Driver.fromJson(Map<String, dynamic>.from(e)))
           .toList();
+
+      _setCache(drivers);
+      return List<Driver>.from(drivers);
     } on DioException catch (e) {
-      throw DriverApiException(_extractMessage(e, fallback: 'Could not load drivers'));
+      throw DriverApiException(
+        _extractMessage(e, fallback: 'Could not load drivers'),
+      );
+    } catch (e) {
+      throw DriverApiException('An unexpected error occurred: $e');
     }
   }
 
+  /// Convenience: names for dropdowns (`['All Drivers', ...]` if [includeAll]).
+  Future<List<String>> getDriverNames({
+    bool forceRefresh = false,
+    bool includeAll = true,
+  }) async {
+    await fetchDrivers(forceRefresh: forceRefresh);
+    final names = cachedDriverNames;
+    if (!includeAll) return names;
+    return ['All Drivers', ...names];
+  }
+
   /// POST /user/drivers/sub-drivers
-  /// body: { "name": ..., "email": ... }
-  Future<Driver> addDriver({required String name, required String email}) async {
+  Future<Driver> addDriver({
+    required String name,
+    required String email,
+  }) async {
     try {
       final response = await _dio.post(
         AppUrl.addDriver,
@@ -47,12 +119,22 @@ class DriverService {
       );
 
       final data = response.data['data'];
-      if (data is! Map<String, dynamic>) {
+      if (data is! Map) {
         throw DriverApiException('Unexpected response from server.');
       }
-      return Driver.fromJson(data);
+
+      final driver = Driver.fromJson(Map<String, dynamic>.from(data));
+      final current = List<Driver>.from(_cachedDrivers ?? const []);
+      current.add(driver);
+      _setCache(current);
+      return driver;
     } on DioException catch (e) {
-      throw DriverApiException(_extractMessage(e, fallback: 'Could not add driver'));
+      throw DriverApiException(
+        _extractMessage(e, fallback: 'Could not add driver'),
+      );
+    } catch (e) {
+      if (e is DriverApiException) rethrow;
+      throw DriverApiException('An unexpected error occurred: $e');
     }
   }
 
@@ -63,146 +145,18 @@ class DriverService {
         AppUrl.deleteDriver(subDriverId),
         options: Options(headers: {'Authorization': await _authHeader()}),
       );
-    } on DioException catch (e) {
-      throw DriverApiException(_extractMessage(e, fallback: 'Could not remove driver'));
-    }
-  }
 
-  String _extractMessage(DioException e, {required String fallback}) {
-    final data = e.response?.data;
-    if (data is Map && data['message'] != null) {
-      return data['message'].toString();
-    }
-    return e.message ?? fallback;
-  }
-}
-
-class DriverApiException implements Exception {
-  final String message;
-  DriverApiException(this.message);
-
-  @override
-  String toString() => message;
-}*/
-
-
-
-
-
-
-
-
-
-// driver_screen_cubit.dart
-
-import 'package:dio/dio.dart';
-import 'package:tag/core/network/secure_storage_service.dart';
-import 'package:tag/core/utils/app_url.dart';
-import '../model/driver_data.dart';
-
-class DriverService {
-  final Dio _dio = Dio();
-
-  // Add logging interceptor for debugging
-  DriverService() {
-    _dio.interceptors.add(LogInterceptor(
-      request: true,
-      requestHeader: true,
-      requestBody: true,
-      responseHeader: true,
-      responseBody: true,
-      error: true,
-    ));
-  }
-
-  Future<String> _authHeader() async {
-    final token = await SecureStorageService.instance.getAccessToken();
-    if (token == null || token.isEmpty) {
-      throw DriverApiException('Not authenticated. Please log in again.');
-    }
-    return 'Bearer $token';
-  }
-
-  /// GET /user/drivers/sub-drivers
-  Future<List<Driver>> fetchDrivers() async {
-    try {
-      final response = await _dio.get(
-        AppUrl.getDriverList,
-        options: Options(headers: {'Authorization': await _authHeader()}),
-      );
-
-      // Log the full response for debugging
-      print('📡 GET Drivers Response: ${response.data}');
-
-      final data = response.data['data'];
-      if (data is! List) return [];
-
-      return data
-          .whereType<Map<String, dynamic>>()
-          .map((e) => Driver.fromJson(e))
-          .toList();
-    } on DioException catch (e) {
-      print('❌ GET Drivers Error: ${e.response?.data}');
-      print('❌ Status Code: ${e.response?.statusCode}');
-      throw DriverApiException(_extractMessage(e, fallback: 'Could not load drivers'));
-    } catch (e) {
-      print('❌ Unexpected Error: $e');
-      throw DriverApiException('An unexpected error occurred: ${e.toString()}');
-    }
-  }
-
-  /// POST /user/drivers/sub-drivers
-  /// body: { "name": ..., "email": ... }
-  Future<Driver> addDriver({required String name, required String email}) async {
-    try {
-      final response = await _dio.post(
-        AppUrl.addDriver,
-        data: {'name': name, 'email': email},
-        options: Options(headers: {'Authorization': await _authHeader()}),
-      );
-
-      // Log the full response for debugging
-      print('📡 POST Add Driver Response: ${response.data}');
-      print('📡 Status Code: ${response.statusCode}');
-
-      final data = response.data['data'];
-      if (data is! Map<String, dynamic>) {
-        throw DriverApiException('Unexpected response from server.');
+      if (_cachedDrivers != null) {
+        _setCache(
+          _cachedDrivers!.where((d) => d.id != subDriverId).toList(),
+        );
       }
-      return Driver.fromJson(data);
     } on DioException catch (e) {
-      // Log detailed error information
-      print('❌ POST Add Driver Error: ${e.response?.data}');
-      print('❌ Status Code: ${e.response?.statusCode}');
-      print('❌ Error Message: ${e.message}');
-
-      String errorMsg = _extractMessage(e, fallback: 'Could not add driver');
-      print('❌ Extracted Error: $errorMsg');
-      throw DriverApiException(errorMsg);
-    } catch (e) {
-      print('❌ Unexpected Error: $e');
-      throw DriverApiException('An unexpected error occurred: ${e.toString()}');
-    }
-  }
-
-  /// DELETE /user/drivers/sub-drivers/:id
-  Future<void> deleteDriver(String subDriverId) async {
-    try {
-      final response = await _dio.delete(
-        AppUrl.deleteDriver(subDriverId),
-        options: Options(headers: {'Authorization': await _authHeader()}),
+      throw DriverApiException(
+        _extractMessage(e, fallback: 'Could not remove driver'),
       );
-
-      // Log the full response for debugging
-      print('📡 DELETE Driver Response: ${response.data}');
-      print('📡 Status Code: ${response.statusCode}');
-    } on DioException catch (e) {
-      print('❌ DELETE Driver Error: ${e.response?.data}');
-      print('❌ Status Code: ${e.response?.statusCode}');
-      throw DriverApiException(_extractMessage(e, fallback: 'Could not remove driver'));
     } catch (e) {
-      print('❌ Unexpected Error: $e');
-      throw DriverApiException('An unexpected error occurred: ${e.toString()}');
+      throw DriverApiException('An unexpected error occurred: $e');
     }
   }
 
@@ -210,58 +164,35 @@ class DriverService {
     try {
       final data = e.response?.data;
 
-      // Handle different response formats
       if (data is Map) {
-        // Try to get message from different possible keys
-        if (data.containsKey('message')) {
-          return data['message'].toString();
-        }
-        if (data.containsKey('error')) {
-          return data['error'].toString();
-        }
+        if (data.containsKey('message')) return data['message'].toString();
+        if (data.containsKey('error')) return data['error'].toString();
         if (data.containsKey('errors')) {
           final errors = data['errors'];
           if (errors is Map) {
-            // If there are field-specific errors, combine them
-            return errors.values
-                .whereType<String>()
-                .join(', ');
+            return errors.values.whereType<String>().join(', ');
           }
           return errors.toString();
         }
-        if (data.containsKey('msg')) {
-          return data['msg'].toString();
-        }
-        // If we can't find a message, return the whole data as string
+        if (data.containsKey('msg')) return data['msg'].toString();
         return data.toString();
       }
 
-      // If data is a string, use it as the message
-      if (data is String) {
-        return data;
-      }
+      if (data is String) return data;
 
-      // Check for common error status codes
       if (e.response?.statusCode == 409) {
         return 'Driver with this email already exists.';
       }
-
-      if (e.response?.statusCode == 404) {
-        return 'Driver not found.';
-      }
-
+      if (e.response?.statusCode == 404) return 'Driver not found.';
       if (e.response?.statusCode == 400) {
         return 'Invalid request. Please check your input.';
       }
-
       if (e.response?.statusCode == 401 || e.response?.statusCode == 403) {
         return 'Session expired. Please log in again.';
       }
 
-      // Use Dio's error message as fallback
       return e.message ?? fallback;
-    } catch (e) {
-      // If something goes wrong extracting the message, use the fallback
+    } catch (_) {
       return fallback;
     }
   }

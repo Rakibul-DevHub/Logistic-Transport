@@ -58,7 +58,14 @@ class _DriversScreenState extends State<DriversScreen> {
   // ─────────────────────────────────────────────────────────────────────
 
   Future<void> _fetchDrivers({bool isRefresh = false}) async {
-    if (!isRefresh) {
+    // Instant UI from cache when available
+    if (!isRefresh && _driverService.hasCache) {
+      setState(() {
+        _drivers = _driverService.cachedDrivers;
+        _isLoading = false;
+        _errorMessage = '';
+      });
+    } else if (!isRefresh) {
       setState(() {
         _isLoading = true;
         _errorMessage = '';
@@ -66,7 +73,9 @@ class _DriversScreenState extends State<DriversScreen> {
     }
 
     try {
-      final drivers = await _driverService.fetchDrivers();
+      final drivers = await _driverService.fetchDrivers(
+        forceRefresh: isRefresh || !_driverService.hasCache,
+      );
       if (!mounted) return;
       setState(() {
         _drivers = drivers;

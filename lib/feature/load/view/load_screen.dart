@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:tag/core/theme/app_colors.dart';
+import 'package:tag/feature/profile/view/manage_drivers/cubit/driver_screen_cubit.dart';
 
 // Data Model for Load
 class LoadModel {
@@ -106,11 +107,12 @@ class _LoadScreenState extends State<LoadScreen> {
 
   late final List<LoadModel> _allLoads;
   late List<LoadModel> _filteredLoads;
-  late List<String> _driverList;
+  List<String> _driverList = const ['All Drivers'];
 
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   final GlobalKey _driverFilterKey = GlobalKey();
+  final DriverService _driverService = DriverService();
 
   final List<String> _filters = [
     'All',
@@ -127,9 +129,43 @@ class _LoadScreenState extends State<LoadScreen> {
     _allLoads = LoadData.getLoads();
     _filteredLoads = _allLoads;
 
-    final drivers = _allLoads.map((load) => load.driverName).toSet().toList();
-    drivers.sort();
-    _driverList = ['All Drivers', ...drivers];
+    // Prefer cached API drivers; fall back to names from sample loads
+    if (_driverService.hasCache) {
+      _driverList = ['All Drivers', ..._driverService.cachedDriverNames];
+    } else {
+      final fromLoads =
+          _allLoads.map((load) => load.driverName).toSet().toList()..sort();
+      _driverList = ['All Drivers', ...fromLoads];
+    }
+
+    _loadDriverNamesFromService();
+  }
+
+  Future<void> _loadDriverNamesFromService() async {
+    try {
+      final names = await _driverService.getDriverNames(
+        forceRefresh: !_driverService.hasCache,
+        includeAll: true,
+      );
+      if (!mounted) return;
+      setState(() {
+        _driverList = names;
+        if (!_driverList.contains(_selectedDriver)) {
+          _selectedDriver = 'All Drivers';
+          _updateFilteredLoads();
+        }
+      });
+    } catch (_) {
+      // Keep existing fallback list if drivers API fails
+    }
+  }
+
+  void _updateFilteredLoads() {
+    _filteredLoads = _filterLoads(
+      filter: _selectedFilter,
+      driver: _selectedDriver,
+      searchQuery: _searchQuery,
+    );
   }
 
   @override
