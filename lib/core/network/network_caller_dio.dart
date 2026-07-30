@@ -489,6 +489,7 @@ class NetworkCallerDio {
         String fileFieldName = 'profileImage',
         String method = 'POST', // ✅ Added method parameter
         Function(int sent, int total)? onProgress,
+        CancelToken? cancelToken,
       }) async {
     try {
       final Map<String, String> requestHeaders = <String, String>{
@@ -548,6 +549,7 @@ class NetworkCallerDio {
         response = await _dio.post(
           url,
           data: formData,
+          cancelToken: cancelToken,
           options: Options(
             headers: requestHeaders,
             contentType: 'multipart/form-data',
@@ -563,6 +565,7 @@ class NetworkCallerDio {
         response = await _dio.put(
           url,
           data: formData,
+          cancelToken: cancelToken,
           options: Options(
             headers: requestHeaders,
             contentType: 'multipart/form-data',
@@ -578,6 +581,7 @@ class NetworkCallerDio {
         response = await _dio.post(
           url,
           data: formData,
+          cancelToken: cancelToken,
           options: Options(
             headers: requestHeaders,
             contentType: 'multipart/form-data',
@@ -595,6 +599,19 @@ class NetworkCallerDio {
       debugPrint('📄 Upload Response Body: ${response.data}');
 
       return _handleResponse(response, isLogin);
+    } on DioException catch (e) {
+      if (CancelToken.isCancel(e)) {
+        debugPrint('🛑 Upload cancelled');
+        return NetworkResponseDio(
+          isSuccess: false,
+          errorMessage: 'cancelled',
+        );
+      }
+      debugPrint('❌ Upload Error: $e');
+      return NetworkResponseDio(
+        isSuccess: false,
+        errorMessage: e.toString(),
+      );
     } catch (e) {
       debugPrint('❌ Upload Error: $e');
       return NetworkResponseDio(

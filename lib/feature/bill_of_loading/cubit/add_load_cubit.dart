@@ -521,14 +521,15 @@ class AddLoadCubit extends Cubit<AddLoadState> {
   Future<void> createFromOcr({
     required String loadId,
     required String companyName,
+    required String ocrCopyId,
     required String pickupAddress,
     required String deliveryAddress,
     required String pickupDateIso,
     required num rate,
     List<double>? pickupCoordinates,
     List<double>? deliveryCoordinates,
-    String? bolImage,
-    bool isModified = false,
+    List<List<double>>? allPickupCoordinates,
+    List<List<double>>? allDeliveryCoordinates,
   }) async {
     try {
       emit(const AddLoadLoading(progressMessage: 'Creating load from scan...'));
@@ -539,19 +540,38 @@ class AddLoadCubit extends Cubit<AddLoadState> {
         return;
       }
 
+      if (ocrCopyId.trim().isEmpty) {
+        emit(const AddLoadFailure(
+          errorMessage: 'Missing OCR copy id. Please scan the document again.',
+        ));
+        return;
+      }
+
+      // API expects array-of-arrays: [[lng, lat], ...]
+      final pickupCoords = (allPickupCoordinates != null &&
+              allPickupCoordinates.isNotEmpty)
+          ? allPickupCoordinates
+          : (pickupCoordinates != null && pickupCoordinates.length >= 2
+              ? [pickupCoordinates]
+              : <List<double>>[]);
+
+      final deliveryCoords = (allDeliveryCoordinates != null &&
+              allDeliveryCoordinates.isNotEmpty)
+          ? allDeliveryCoordinates
+          : (deliveryCoordinates != null && deliveryCoordinates.length >= 2
+              ? [deliveryCoordinates]
+              : <List<double>>[]);
+
       final body = <String, dynamic>{
         'loadId': loadId.trim(),
         'companyName': companyName.trim(),
-        'pickupAddress': pickupAddress.trim(),
-        'deliveryAddress': deliveryAddress.trim(),
+        'ocrCopyId': ocrCopyId.trim(),
+        'pickupAddresses': [pickupAddress.trim()],
+        'deliveryAddresses': [deliveryAddress.trim()],
         'pickupDate': pickupDateIso,
         'rate': rate,
-        if (pickupCoordinates != null && pickupCoordinates.length >= 2)
-          'pickupCoordinates': pickupCoordinates,
-        if (deliveryCoordinates != null && deliveryCoordinates.length >= 2)
-          'deliveryCoordinates': deliveryCoordinates,
-        if (bolImage != null && bolImage.isNotEmpty) 'bolImage': bolImage,
-        'isModified': isModified,
+        if (pickupCoords.isNotEmpty) 'pickupCoordinates': pickupCoords,
+        if (deliveryCoords.isNotEmpty) 'deliveryCoordinates': deliveryCoords,
       };
 
       final response = await _networkCaller.postRequest(
@@ -574,27 +594,44 @@ class AddLoadCubit extends Cubit<AddLoadState> {
         }
       }
 
-      // Fallback: still open details with form/OCR data if API shape differs
-      emit(AddLoadSuccess(
-        data: AddLoadData(
-          loadId: loadId.trim(),
-          companyName: companyName.trim(),
-          pickupAddresses: [pickupAddress.trim()],
-          deliveryAddresses: [deliveryAddress.trim()],
-          pickupCoordinates: pickupCoordinates != null ? [pickupCoordinates] : null,
-          deliveryCoordinates: deliveryCoordinates != null ? [deliveryCoordinates] : null,
-          pickupDate: pickupDateIso,
-          rate: rate,
-          bolImage: bolImage,
-          status: 'pending',
+      // Do NOT navigate on failure (old code emitted AddLoadSuccess as fallback)
+      emit(AddLoadFailure(
+        errorMessage: _extractErrorMessage(
+          response.errorMessage,
+          response.jsonResponse,
+          fallback: 'Failed to create load from OCR',
         ),
-        message: response.errorMessage ??
-            response.jsonResponse?['message']?.toString() ??
-            'Load prepared from scan',
       ));
     } catch (e) {
       emit(AddLoadFailure(errorMessage: e.toString()));
     }
+  }
+
+  String _extractErrorMessage(
+    String? errorMessage,
+    Map<String, dynamic>? json, {
+    required String fallback,
+  }) {
+    if (json == null) return errorMessage ?? fallback;
+
+    final message = json['message']?.toString();
+    if (message != null && message.isNotEmpty) return message;
+
+    final errors = json['error'];
+    if (errors is List && errors.isNotEmpty) {
+      final parts = errors.map((e) {
+        if (e is Map) {
+          final path = e['path']?.toString() ?? '';
+          final msg = e['message']?.toString() ?? '';
+          if (path.isNotEmpty && msg.isNotEmpty) return '$path: $msg';
+          return msg.isNotEmpty ? msg : path;
+        }
+        return e.toString();
+      }).where((e) => e.isNotEmpty).toList();
+      if (parts.isNotEmpty) return parts.join('\n');
+    }
+
+    return errorMessage ?? fallback;
   }
 
   void reset() => emit(AddLoadInitial());

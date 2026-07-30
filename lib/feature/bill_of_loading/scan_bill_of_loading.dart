@@ -142,8 +142,8 @@ class _ScanBillOfLoadingViewState extends State<_ScanBillOfLoadingView> {
       deliveryAddress: delivery,
       pickupDateIso: pickupDateIso,
       rate: rate,
-      pickupCoordinates: widget.ocrData?.pickupLocation?.coordinates,
-      deliveryCoordinates: widget.ocrData?.deliveryLocation?.coordinates,
+      pickupCoordinates: widget.ocrData?.firstPickupCoordinates,
+      deliveryCoordinates: widget.ocrData?.firstDeliveryCoordinates,
       bolImage: widget.ocrData?.bolImage,
       isModified: _isModified || (widget.ocrData?.isModified ?? false),
     );
@@ -902,14 +902,15 @@ class _ScanBillOfLoadingViewState extends State<_ScanBillOfLoadingView> {
     context.read<AddLoadCubit>().createFromOcr(
       loadId: loadId,
       companyName: company,
+      ocrCopyId: widget.ocrData?.id ?? '',
       pickupAddress: pickup,
       deliveryAddress: delivery,
       pickupDateIso: _toIsoDate(),
       rate: rate,
-      pickupCoordinates: widget.ocrData?.pickupLocation?.coordinates,
-      deliveryCoordinates: widget.ocrData?.deliveryLocation?.coordinates,
-      bolImage: widget.ocrData?.bolImage,
-      isModified: _isModified || (widget.ocrData?.isModified ?? false),
+      pickupCoordinates: widget.ocrData?.firstPickupCoordinates,
+      deliveryCoordinates: widget.ocrData?.firstDeliveryCoordinates,
+      allPickupCoordinates: widget.ocrData?.allPickupCoordinates,
+      allDeliveryCoordinates: widget.ocrData?.allDeliveryCoordinates,
     );
   }
 
