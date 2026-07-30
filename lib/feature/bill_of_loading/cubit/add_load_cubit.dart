@@ -522,14 +522,12 @@ class AddLoadCubit extends Cubit<AddLoadState> {
     required String loadId,
     required String companyName,
     required String ocrCopyId,
-    required String pickupAddress,
-    required String deliveryAddress,
+    required List<String> pickupAddresses,
+    required List<String> deliveryAddresses,
     required String pickupDateIso,
     required num rate,
-    List<double>? pickupCoordinates,
-    List<double>? deliveryCoordinates,
-    List<List<double>>? allPickupCoordinates,
-    List<List<double>>? allDeliveryCoordinates,
+    required List<List<double>> pickupCoordinates,
+    required List<List<double>> deliveryCoordinates,
   }) async {
     try {
       emit(const AddLoadLoading(progressMessage: 'Creating load from scan...'));
@@ -547,31 +545,22 @@ class AddLoadCubit extends Cubit<AddLoadState> {
         return;
       }
 
-      // API expects array-of-arrays: [[lng, lat], ...]
-      final pickupCoords = (allPickupCoordinates != null &&
-              allPickupCoordinates.isNotEmpty)
-          ? allPickupCoordinates
-          : (pickupCoordinates != null && pickupCoordinates.length >= 2
-              ? [pickupCoordinates]
-              : <List<double>>[]);
-
-      final deliveryCoords = (allDeliveryCoordinates != null &&
-              allDeliveryCoordinates.isNotEmpty)
-          ? allDeliveryCoordinates
-          : (deliveryCoordinates != null && deliveryCoordinates.length >= 2
-              ? [deliveryCoordinates]
-              : <List<double>>[]);
+      final cleanedPickupAddresses =
+          pickupAddresses.map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+      final cleanedDeliveryAddresses =
+          deliveryAddresses.map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
 
       final body = <String, dynamic>{
         'loadId': loadId.trim(),
         'companyName': companyName.trim(),
         'ocrCopyId': ocrCopyId.trim(),
-        'pickupAddresses': [pickupAddress.trim()],
-        'deliveryAddresses': [deliveryAddress.trim()],
+        'pickupAddresses': cleanedPickupAddresses,
+        'deliveryAddresses': cleanedDeliveryAddresses,
         'pickupDate': pickupDateIso,
         'rate': rate,
-        if (pickupCoords.isNotEmpty) 'pickupCoordinates': pickupCoords,
-        if (deliveryCoords.isNotEmpty) 'deliveryCoordinates': deliveryCoords,
+        if (pickupCoordinates.isNotEmpty) 'pickupCoordinates': pickupCoordinates,
+        if (deliveryCoordinates.isNotEmpty)
+          'deliveryCoordinates': deliveryCoordinates,
       };
 
       final response = await _networkCaller.postRequest(
@@ -594,7 +583,6 @@ class AddLoadCubit extends Cubit<AddLoadState> {
         }
       }
 
-      // Do NOT navigate on failure (old code emitted AddLoadSuccess as fallback)
       emit(AddLoadFailure(
         errorMessage: _extractErrorMessage(
           response.errorMessage,
