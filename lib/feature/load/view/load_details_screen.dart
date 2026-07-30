@@ -1,5 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
@@ -7,9 +9,12 @@ import 'package:tag/core/constants/app_routes.dart';
 import 'package:tag/core/theme/app_colors.dart';
 import 'package:tag/core/utils/app_url.dart';
 import 'package:tag/feature/bill_of_loading/model/add_load_data.dart';
+import 'package:tag/feature/load/view/expense/controller/add_load_expense_cubit.dart';
+import 'package:tag/feature/load/view/expense/model/load_expense_data.dart';
 import 'package:tag/feature/map/map_screen.dart';
 import '../../../core/theme/app_text_style.dart';
 import '../../../shared/components/Custom_Elevated_Button.dart';
+import '../../../shared/widget/immersive_safe_area.dart';
 
 class LoadDetailsScreen extends StatefulWidget {
   final AddLoadData? load;
@@ -25,17 +30,35 @@ class _LoadDetailsScreenState extends State<LoadDetailsScreen> {
   bool _podUploaded = false;
   File? _bolImage;
   final ImagePicker _picker = ImagePicker();
+  late final AddLoadExpenseCubit _expenseCubit;
+  List<LoadExpenseData> _expenses = [];
+  double _expenseTotal = 0;
 
   AddLoadData? get _load => widget.load;
 
   @override
   void initState() {
     super.initState();
-    // If load already has a BOL image from create API
+    _expenseCubit = AddLoadExpenseCubit();
     if (_load?.bolImage != null && _load!.bolImage!.isNotEmpty) {
       _bolUploaded = true;
     }
+    _fetchExpenses();
   }
+
+  @override
+  void dispose() {
+    _expenseCubit.close();
+    super.dispose();
+  }
+
+  Future<void> _fetchExpenses() async {
+    final mongoId = _load?.id?.trim() ?? '';
+    if (mongoId.isEmpty) return;
+    await _expenseCubit.fetchExpenses(mongoId);
+  }
+
+  String get _expenseText => '\$${_expenseTotal.toStringAsFixed(2)}';
 
   String get _loadIdText {
     final id = _load?.loadId;
@@ -67,24 +90,70 @@ class _LoadDetailsScreenState extends State<LoadDetailsScreen> {
     return '—';
   }
 
-  String get _pickupAddress {
-    final a = _load?.pickupAddress;
-    if (a != null && a.isNotEmpty) return a;
-    final coords = _load?.pickupCoordinates;
-    if (coords != null && coords.length >= 2) {
-      return '${coords[0].toStringAsFixed(6)}, ${coords[1].toStringAsFixed(6)}';
+  // Get pickup addresses (multiple)
+  List<String> get _pickupAddresses {
+    if (_load?.pickupAddresses != null && _load!.pickupAddresses!.isNotEmpty) {
+      return _load!.pickupAddresses!;
     }
-    return '—';
+    final single = _load?.pickupAddress;
+    if (single != null && single.isNotEmpty) {
+      return [single];
+    }
+    final coords = _load?.pickupCoordinates;
+    if (coords != null && coords.isNotEmpty) {
+      return coords.map((coord) {
+        if (coord.length >= 2) {
+          return '${coord[0].toStringAsFixed(6)}, ${coord[1].toStringAsFixed(6)}';
+        }
+        return '—';
+      }).toList();
+    }
+    return ['—'];
   }
 
-  String get _deliveryAddress {
-    final a = _load?.deliveryAddress;
-    if (a != null && a.isNotEmpty) return a;
-    final coords = _load?.deliveryCoordinates;
-    if (coords != null && coords.length >= 2) {
-      return '${coords[0].toStringAsFixed(6)}, ${coords[1].toStringAsFixed(6)}';
+  // Get delivery addresses (multiple)
+  List<String> get _deliveryAddresses {
+    if (_load?.deliveryAddresses != null && _load!.deliveryAddresses!.isNotEmpty) {
+      return _load!.deliveryAddresses!;
     }
-    return '—';
+    final single = _load?.deliveryAddress;
+    if (single != null && single.isNotEmpty) {
+      return [single];
+    }
+    final coords = _load?.deliveryCoordinates;
+    if (coords != null && coords.isNotEmpty) {
+      return coords.map((coord) {
+        if (coord.length >= 2) {
+          return '${coord[0].toStringAsFixed(6)}, ${coord[1].toStringAsFixed(6)}';
+        }
+        return '—';
+      }).toList();
+    }
+    return ['—'];
+  }
+
+  // Get pickup coordinates (for map)
+  List<List<double>> get _allPickupCoords {
+    final coords = _load?.pickupCoordinates;
+    if (coords == null) return const [];
+    return coords.where((c) => c.length >= 2).toList();
+  }
+
+  // Get delivery coordinates (for map)
+  List<List<double>> get _allDeliveryCoords {
+    final coords = _load?.deliveryCoordinates;
+    if (coords == null) return const [];
+    return coords.where((c) => c.length >= 2).toList();
+  }
+
+  List<double>? get _firstPickupCoords {
+    final coords = _allPickupCoords;
+    return coords.isNotEmpty ? coords.first : null;
+  }
+
+  List<double>? get _firstDeliveryCoords {
+    final coords = _allDeliveryCoords;
+    return coords.isNotEmpty ? coords.first : null;
   }
 
   String? get _notes {
@@ -126,26 +195,98 @@ class _LoadDetailsScreenState extends State<LoadDetailsScreen> {
     }
   }
 
+  Future<void> _copyLocationAddress(String address) async {
+    final text = address.trim();
+    if (text.isEmpty || text == '—') return;
+
+    await Clipboard.setData(ClipboardData(text: text));
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Address copied'),
+        duration: Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  Widget _buildCopyableAddress(
+    String address, {
+    VoidCallback? onTap,
+  }) {
+    return Tooltip(
+      message: onTap != null
+          ? 'Tap to view on map • Long press to copy'
+          : 'Long press to copy',
+      child: GestureDetector(
+        onTap: onTap,
+        onLongPress: () => _copyLocationAddress(address),
+        behavior: HitTestBehavior.opaque,
+        child: Text(
+          address,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: const Color(0xFF1E293B),
+            height: 1.4,
+            decoration: onTap != null ? TextDecoration.underline : null,
+            decorationColor: const Color(0xFF94A3B8),
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _openRouteMap() async {
-    final pickup = _load?.pickupCoordinates;
-    final delivery = _load?.deliveryCoordinates;
-    if (pickup == null ||
-        delivery == null ||
-        pickup.length < 2 ||
-        delivery.length < 2) {
+    final pickups = _allPickupCoords;
+    final deliveries = _allDeliveryCoords;
+    if (pickups.isEmpty && deliveries.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Route coordinates not available')),
+        const SnackBar(content: Text('Location coordinates not available')),
       );
       return;
     }
 
     await MapScreen.openViewRoute(
       context,
-      title: 'Load Route',
-      pickupCoordinates: pickup,
-      deliveryCoordinates: delivery,
-      pickupLabel: _pickupAddress,
-      deliveryLabel: _deliveryAddress,
+      title: 'Load Locations',
+      pickupCoordinatesList: pickups,
+      deliveryCoordinatesList: deliveries,
+      pickupLabels: _pickupAddresses,
+      deliveryLabels: _deliveryAddresses,
+    );
+  }
+
+  /// Open map preview focused on one pickup or delivery point
+  Future<void> _openSingleLocationMap({
+    required bool isPickup,
+    required int index,
+    required String address,
+  }) async {
+    final coordsList = isPickup ? _allPickupCoords : _allDeliveryCoords;
+    if (index < 0 ||
+        index >= coordsList.length ||
+        coordsList[index].length < 2) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Location coordinates not available')),
+      );
+      return;
+    }
+
+    final coords = coordsList[index];
+    final label = address.trim().isNotEmpty
+        ? address.trim()
+        : (isPickup ? 'Pickup' : 'Delivery');
+
+    await MapScreen.openViewRoute(
+      context,
+      title: isPickup ? 'Pickup Location' : 'Delivery Location',
+      pickupCoordinatesList: isPickup ? [coords] : const [],
+      deliveryCoordinatesList: isPickup ? const [] : [coords],
+      pickupLabels: isPickup ? [label] : const [],
+      deliveryLabels: isPickup ? const [] : [label],
     );
   }
 
@@ -291,95 +432,139 @@ class _LoadDetailsScreenState extends State<LoadDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.backgroundColor,
-      appBar: _buildAppBar(),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (_load != null) ...[
-              _buildSuccessBanner(),
-              const SizedBox(height: 10),
-            ],
-            if (!_bolUploaded)
-              _buildWarningCard(
-                label: 'BOL: Missing',
-                subtitle: 'Bill of Lading required',
-                buttonLabel: 'Upload BOL',
-                onUpload: _showImageSourceDialogForBOL,
+    return BlocProvider.value(
+      value: _expenseCubit,
+      child: BlocListener<AddLoadExpenseCubit, AddLoadExpenseState>(
+        listener: (context, state) {
+          if (state is LoadExpenseListSuccess) {
+            setState(() {
+              _expenses = state.expenses;
+              _expenseTotal = state.totalAmount;
+            });
+          } else if (state is LoadExpenseListFailure) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(state.errorMessage),
+                backgroundColor: Colors.red,
               ),
-            if (!_bolUploaded) const SizedBox(height: 8),
-            if (!_podUploaded)
-              _buildWarningCard(
-                label: 'POD: Missing',
-                subtitle: 'Proof of Delivery required',
-                buttonLabel: 'Upload POD',
-                onUpload: () => setState(() => _podUploaded = true),
-              ),
-            if (!_podUploaded) const SizedBox(height: 12),
-            _buildLoadIdCard(),
-            const SizedBox(height: 12),
-            _buildIncomeExpenseRow(),
-            const SizedBox(height: 12),
-            _buildRouteCard(),
-            const SizedBox(height: 12),
-            _buildMapPreview(),
-            const SizedBox(height: 12),
-            _buildCarrierCard(),
-            if (_notes != null) ...[
-              const SizedBox(height: 12),
-              _buildNotesCard(),
-            ],
-            const SizedBox(height: 12),
-            _buildBolScanCard(),
-            const SizedBox(height: 60),
-            CustomElevatedButton(
-              onPressed: () {
-                Navigator.pushNamed(
-                  context,
-                  AppRoutes.addExpense,
-                  arguments: _load?.id ?? '',
-                );
-              },
-              buttonText: 'Add Expense',
-              isOutlined: true,
-              borderSide: const BorderSide(),
-              backgroundColor: AppColors.whiteColor,
-              foregroundColor: AppColors.primaryColor,
-              height: 44,
-              borderRadius: BorderRadius.circular(30),
-              isFullWidth: true,
-              hasShadow: false,
-              icon: const Icon(Icons.add_circle_outline, size: 20),
-              gap: 8,
-            ),
-            const SizedBox(height: 8),
-            CustomElevatedButton(
-              onPressed: () {
-                Navigator.pushNamed(context, AppRoutes.proofOfDelivery);
-              },
-              buttonText: 'Upload POD/Signed BOL',
-              backgroundColor: AppColors.primaryColor,
-              foregroundColor: AppColors.whiteColor,
-              height: 48,
-              borderRadius: BorderRadius.circular(30),
-              isFullWidth: true,
-              hasShadow: false,
-              icon: SvgPicture.asset(
-                'assets/icons/upload.svg',
-                colorFilter: const ColorFilter.mode(
-                  AppColors.whiteColor,
-                  BlendMode.srcIn,
+            );
+          }
+        },
+        child: MediaQuery(
+          data: withImmersiveSafePadding(context),
+          child: Scaffold(
+            backgroundColor: AppColors.backgroundColor,
+            appBar: _buildAppBar(),
+            body: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (!_bolUploaded)
+                    _buildWarningCard(
+                      label: 'BOL: Missing',
+                      subtitle: 'Bill of Lading required',
+                      buttonLabel: 'Upload BOL',
+                      onUpload: _showImageSourceDialogForBOL,
+                    ),
+                if (!_bolUploaded) const SizedBox(height: 8),
+                if (!_podUploaded)
+                  _buildWarningCard(
+                    label: 'POD: Missing',
+                    subtitle: 'Proof of Delivery required',
+                    buttonLabel: 'Upload POD',
+                    onUpload: () => setState(() => _podUploaded = true),
+                  ),
+                if (!_podUploaded) const SizedBox(height: 12),
+                _buildLoadIdCard(),
+                const SizedBox(height: 12),
+                _buildIncomeExpenseRow(),
+                if (_expenses.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  _buildExpensesSection(),
+                ],
+                const SizedBox(height: 12),
+                _buildRouteCard(),
+                const SizedBox(height: 12),
+                _buildMapPreview(),
+                const SizedBox(height: 12),
+                _buildCarrierCard(),
+                if (_notes != null) ...[
+                  const SizedBox(height: 12),
+                  _buildNotesCard(),
+                ],
+                const SizedBox(height: 12),
+                _buildBolScanCard(),
+                const SizedBox(height: 60),
+                CustomElevatedButton(
+                  onPressed: () async {
+                    final mongoId = _load?.id?.trim() ?? '';
+                    final displayId = _load?.loadId?.trim() ?? '';
+                    if (mongoId.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Load ID is missing'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                      return;
+                    }
+
+                    await Navigator.pushNamed(
+                      context,
+                      AppRoutes.addExpense,
+                      arguments: ExpenseScreenArgs(
+                        loadMongoId: mongoId,
+                        displayLoadId:
+                            displayId.isNotEmpty ? displayId : mongoId,
+                        totalExpenses: _expenseTotal,
+                      ),
+                    );
+
+                    if (mounted) {
+                      await _fetchExpenses();
+                    }
+                  },
+                  buttonText: 'Add Expense',
+                  isOutlined: true,
+                  borderSide: const BorderSide(),
+                  backgroundColor: AppColors.whiteColor,
+                  foregroundColor: AppColors.primaryColor,
+                  height: 44,
+                  borderRadius: BorderRadius.circular(30),
+                  isFullWidth: true,
+                  hasShadow: false,
+                  icon: const Icon(Icons.add_circle_outline, size: 20),
+                  gap: 8,
                 ),
-              ),
-              gap: 8,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
+                const SizedBox(height: 8),
+                CustomElevatedButton(
+                  onPressed: () {
+                    Navigator.pushNamed(context, AppRoutes.proofOfDelivery);
+                  },
+                  buttonText: 'Upload POD/Signed BOL',
+                  backgroundColor: AppColors.primaryColor,
+                  foregroundColor: AppColors.whiteColor,
+                  height: 48,
+                  borderRadius: BorderRadius.circular(30),
+                  isFullWidth: true,
+                  hasShadow: false,
+                  icon: SvgPicture.asset(
+                    'assets/icons/upload.svg',
+                    colorFilter: const ColorFilter.mode(
+                      AppColors.whiteColor,
+                      BlendMode.srcIn,
+                    ),
+                  ),
+                  gap: 8,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+                const SizedBox(height: 100),
+              ],
             ),
-            const SizedBox(height: 100),
-          ],
+          ),
+        ),
         ),
       ),
     );
@@ -405,29 +590,6 @@ class _LoadDetailsScreenState extends State<LoadDetailsScreen> {
         ),
       ),
       centerTitle: true,
-    );
-  }
-
-  Widget _buildSuccessBanner() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: AppColors.lightBlueColor,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.lightBlueColor),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.check_circle, color: AppColors.primaryColor, size: 18),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              'Load created successfully',
-              style: AppTextStyle.SFProDisplay_Regular,
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -630,9 +792,9 @@ class _LoadDetailsScreenState extends State<LoadDetailsScreen> {
                   ],
                 ),
                 const SizedBox(height: 6),
-                const Text(
-                  '\$0.00',
-                  style: TextStyle(
+                Text(
+                  _expenseText,
+                  style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w700,
                     color: Color(0xFF1A1A2E),
@@ -646,10 +808,131 @@ class _LoadDetailsScreenState extends State<LoadDetailsScreen> {
     );
   }
 
+  Widget _buildExpensesSection() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: _cardDecoration(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.receipt_long_outlined,
+                  size: 16, color: AppColors.primaryColor),
+              const SizedBox(width: 6),
+              Text(
+                'Expenses',
+                style: AppTextStyle.SFProDisplay_Regular.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '${_expenses.length} item${_expenses.length == 1 ? '' : 's'}',
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Color(0xFF6B7280),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ...List.generate(_expenses.length, (index) {
+            final expense = _expenses[index];
+            final isLast = index == _expenses.length - 1;
+            return Padding(
+              padding: EdgeInsets.only(bottom: isLast ? 0 : 10),
+              child: _buildExpenseCard(expense),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildExpenseCard(LoadExpenseData expense) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: AppColors.primaryColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              Icons.local_gas_station_outlined,
+              color: AppColors.primaryColor,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  expense.typeLabel,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF1E293B),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  expense.formattedDate,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+                if (expense.notes != null &&
+                    expense.notes!.trim().isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    expense.notes!.trim(),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF64748B),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          Text(
+            expense.formattedAmount,
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF1E293B),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Route card with dashed line, pin/flag icons, and aligned dots
+  /// Route card with dashed line, pin/flag icons, and aligned dots
   Widget _buildRouteCard() {
-    const double iconSize = 32.0;
-    const double lineWidth = 2.0;
-    const double midGap = 20.0;
+    const double iconSize = 36.0;
+    final pickupAddresses = _pickupAddresses;
+    final deliveryAddresses = _deliveryAddresses;
 
     return Container(
       width: double.infinity,
@@ -670,95 +953,205 @@ class _LoadDetailsScreenState extends State<LoadDetailsScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           IntrinsicHeight(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // LEFT COLUMN: Timeline & Icons
                 SizedBox(
                   width: iconSize,
                   child: Stack(
+                    clipBehavior: Clip.none,
                     children: [
+                      // Vertical Dashed Line
                       Positioned(
-                        top: iconSize / 2,
-                        bottom: iconSize / 2,
-                        left: (iconSize / 2) - (lineWidth / 2),
-                        width: lineWidth,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: AppColors.lightBlueColor,
-                            borderRadius: BorderRadius.circular(lineWidth / 2),
+                        top: iconSize * 0.6,
+                        bottom: iconSize * 0.6,
+                        left: (iconSize / 2) - 1,
+                        child: CustomPaint(
+                          painter: DottedLinePainter(
+                            color: const Color(0xFFCBD5E1),
+                            dashWidth: 4,
+                            dashSpace: 4,
+                            isHorizontal: false,
                           ),
+                          size: const Size(2, double.infinity),
                         ),
                       ),
+                      // Main Icons
                       Column(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          SvgPicture.asset(
-                            'assets/icons/pickup_location.svg',
+                          // Pickup Icon (Pin)
+                          Container(
                             width: iconSize,
                             height: iconSize,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.08),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Icon(
+                              Icons.location_on,
+                              color: AppColors.primaryColor,
+                              size: 24,
+                            ),
                           ),
-                          SvgPicture.asset(
-                            'assets/icons/delivery_location.svg',
+                          // Delivery Icon (Flag)
+                          Container(
                             width: iconSize,
                             height: iconSize,
+                            decoration: BoxDecoration(
+                              color: AppColors.primaryColor,
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppColors.primaryColor.withOpacity(0.3),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: const Icon(
+                              Icons.flag,
+                              color: Colors.white,
+                              size: 20,
+                            ),
                           ),
                         ],
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 16),
+                // RIGHT COLUMN: Addresses
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'PICKUP LOCATION',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: Color(0xFF6B7280),
-                              fontWeight: FontWeight.w500,
-                              letterSpacing: 0.3,
-                            ),
+                      // PICKUP SECTION
+                      ...List.generate(pickupAddresses.length, (index) {
+                        return Padding(
+                          padding: EdgeInsets.only(
+                            top: index == 0 ? 6 : 0,
+                            bottom: 12,
                           ),
-                          Text(
-                            _pickupAddress,
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF1E3A5F),
-                            ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Small Blue Dot
+                              Padding(
+                                padding: const EdgeInsets.only(top: 6, right: 12),
+                                child: Container(
+                                  width: 8,
+                                  height: 8,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primaryColor,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    if (index == 0)
+                                      const Text(
+                                        'PICKUP LOCATION',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          color: Color(0xFF6B7280),
+                                          fontWeight: FontWeight.w600,
+                                          letterSpacing: 0.5,
+                                        ),
+                                      ),
+                                    const SizedBox(height: 2),
+                                    _buildCopyableAddress(
+                                      pickupAddresses[index],
+                                      onTap: () => _openSingleLocationMap(
+                                        isPickup: true,
+                                        index: index,
+                                        address: pickupAddresses[index],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: midGap),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'DELIVERY LOCATION',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: Color(0xFF6B7280),
-                              fontWeight: FontWeight.w500,
-                              letterSpacing: 0.3,
-                            ),
+                        );
+                      }),
+
+                      // DIVIDER BETWEEN PICKUP AND DELIVERY
+                      if (pickupAddresses.isNotEmpty && deliveryAddresses.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: Divider(
+                            color: const Color(0xFFE2E8F0),
+                            thickness: 1,
+                            height: 1,
                           ),
-                          Text(
-                            _deliveryAddress,
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF1E3A5F),
-                            ),
+                        ),
+
+                      // DELIVERY SECTION
+                      ...List.generate(deliveryAddresses.length, (index) {
+                        return Padding(
+                          padding: EdgeInsets.only(
+                            top: index == 0 ? 6 : 0,
+                            bottom: index == deliveryAddresses.length - 1 ? 0 : 12,
                           ),
-                        ],
-                      ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Small Blue Dot
+                              Padding(
+                                padding: const EdgeInsets.only(top: 6, right: 12),
+                                child: Container(
+                                  width: 8,
+                                  height: 8,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primaryColor,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    if (index == 0)
+                                      const Text(
+                                        'DELIVERY LOCATION',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          color: Color(0xFF6B7280),
+                                          fontWeight: FontWeight.w600,
+                                          letterSpacing: 0.5,
+                                        ),
+                                      ),
+                                    const SizedBox(height: 2),
+                                    _buildCopyableAddress(
+                                      deliveryAddresses[index],
+                                      onTap: () => _openSingleLocationMap(
+                                        isPickup: false,
+                                        index: index,
+                                        address: deliveryAddresses[index],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
                     ],
                   ),
                 ),
@@ -771,10 +1164,8 @@ class _LoadDetailsScreenState extends State<LoadDetailsScreen> {
   }
 
   Widget _buildMapPreview() {
-    final hasRoute = _load?.pickupCoordinates != null &&
-        _load?.deliveryCoordinates != null &&
-        (_load!.pickupCoordinates!.length >= 2) &&
-        (_load!.deliveryCoordinates!.length >= 2);
+    final hasRoute =
+        _allPickupCoords.isNotEmpty || _allDeliveryCoords.isNotEmpty;
 
     return Container(
       decoration: _cardDecoration(),
@@ -798,7 +1189,7 @@ class _LoadDetailsScreenState extends State<LoadDetailsScreen> {
                   TextButton(
                     onPressed: _openRouteMap,
                     child: Text(
-                      'VIEW ROUTE',
+                      'VIEW MAP',
                       style: AppTextStyle.SFProDisplay_Regular.copyWith(
                         fontSize: 11,
                         color: AppColors.primaryColor,
@@ -839,7 +1230,7 @@ class _LoadDetailsScreenState extends State<LoadDetailsScreen> {
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: const Text(
-                            'Tap to view full route',
+                            'Tap to view all locations',
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: 12,
@@ -931,8 +1322,6 @@ class _LoadDetailsScreenState extends State<LoadDetailsScreen> {
       ),
     );
   }
-
-
 
   void _viewFullBolImage() {
     final localFile = _bolImage;
@@ -1036,7 +1425,7 @@ class _LoadDetailsScreenState extends State<LoadDetailsScreen> {
                   ],
                 ),
                 TextButton(
-                  onPressed: _viewFullBolImage, // ✅ VIEW FULL (not CHANGE)
+                  onPressed: _viewFullBolImage,
                   child: Text(
                     'VIEW FULL',
                     style: AppTextStyle.SFProDisplay_Regular.copyWith(
@@ -1053,7 +1442,7 @@ class _LoadDetailsScreenState extends State<LoadDetailsScreen> {
               bottomRight: Radius.circular(12),
             ),
             child: GestureDetector(
-              onTap: _viewFullBolImage, // optional: tap image also opens full view
+              onTap: _viewFullBolImage,
               child: _bolImage != null
                   ? Image.file(
                 _bolImage!,
@@ -1100,4 +1489,60 @@ class _LoadDetailsScreenState extends State<LoadDetailsScreen> {
       ],
     );
   }
+}
+
+// Custom painter for dotted line
+class DottedLinePainter extends CustomPainter {
+  final Color color;
+  final double dashWidth;
+  final double dashSpace;
+  final bool isHorizontal;
+
+  DottedLinePainter({
+    required this.color,
+    this.dashWidth = 6,
+    this.dashSpace = 4,
+    this.isHorizontal = true,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke;
+
+    if (isHorizontal) {
+      double startX = 0;
+      double endX = size.width;
+      double y = size.height / 2;
+
+      double currentX = startX;
+      while (currentX < endX) {
+        canvas.drawLine(
+          Offset(currentX, y),
+          Offset(currentX + dashWidth, y),
+          paint,
+        );
+        currentX += dashWidth + dashSpace;
+      }
+    } else {
+      double startY = 0;
+      double endY = size.height;
+      double x = size.width / 2;
+
+      double currentY = startY;
+      while (currentY < endY) {
+        canvas.drawLine(
+          Offset(x, currentY),
+          Offset(x, currentY + dashWidth),
+          paint,
+        );
+        currentY += dashWidth + dashSpace;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

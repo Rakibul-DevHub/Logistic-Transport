@@ -8,6 +8,7 @@ import 'package:tag/feature/bill_of_loading/scan_bill_of_loading.dart';
 import 'package:tag/feature/home/model/camera_scanner.dart';
 import 'package:tag/feature/load/view/bol_screen.dart';
 import 'package:tag/feature/load/view/expense/expense_screen.dart';
+import 'package:tag/feature/load/view/expense/model/load_expense_data.dart';
 import 'package:tag/feature/load/view/load_details_screen.dart';
 import 'package:tag/feature/load/view/load_screen.dart';
 import 'package:tag/feature/load/view/pod_screen.dart';
@@ -92,8 +93,18 @@ class AppRoutes {
       );
     },
     addExpense: (context) {
-      final args = ModalRoute.of(context)?.settings.arguments as String?;
-      return ExpenseScreen(loadId: args ?? '');
+      final args = ModalRoute.of(context)?.settings.arguments;
+      if (args is ExpenseScreenArgs) {
+        return ExpenseScreen(args: args);
+      }
+      // Backward compat: string argument treated as mongo id
+      final legacyId = args is String ? args : '';
+      return ExpenseScreen(
+        args: ExpenseScreenArgs(
+          loadMongoId: legacyId,
+          displayLoadId: legacyId,
+        ),
+      );
     },
     billOfLoad: (context) => const BOLScreen(),
     proofOfDelivery: (context) => const PODScreen(),

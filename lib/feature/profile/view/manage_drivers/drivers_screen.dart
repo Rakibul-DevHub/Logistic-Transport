@@ -58,7 +58,14 @@ class _DriversScreenState extends State<DriversScreen> {
   // ─────────────────────────────────────────────────────────────────────
 
   Future<void> _fetchDrivers({bool isRefresh = false}) async {
-    if (!isRefresh) {
+    // Instant UI from cache when available
+    if (!isRefresh && _driverService.hasCache) {
+      setState(() {
+        _drivers = _driverService.cachedDrivers;
+        _isLoading = false;
+        _errorMessage = '';
+      });
+    } else if (!isRefresh) {
       setState(() {
         _isLoading = true;
         _errorMessage = '';
@@ -66,7 +73,9 @@ class _DriversScreenState extends State<DriversScreen> {
     }
 
     try {
-      final drivers = await _driverService.fetchDrivers();
+      final drivers = await _driverService.fetchDrivers(
+        forceRefresh: isRefresh || !_driverService.hasCache,
+      );
       if (!mounted) return;
       setState(() {
         _drivers = drivers;
@@ -83,182 +92,6 @@ class _DriversScreenState extends State<DriversScreen> {
     }
   }
 
-  // Future<void> _submitAddDriverForm() async {
-  //   if (!(_formKey.currentState?.validate() ?? false)) return;
-  //
-  //   final name = _driverNameController.text.trim();
-  //   final email = _driverEmailController.text.trim();
-  //
-  //   // Quick client-side duplicate check for snappy feedback — the backend
-  //   // is still the source of truth and will reject duplicates too.
-  //   final existingDriver = _drivers.any(
-  //         (driver) => driver.email.toLowerCase() == email.toLowerCase(),
-  //   );
-  //   if (existingDriver) {
-  //     ScaffoldMessenger.of(context).showSnackBar(
-  //       const SnackBar(
-  //         content: Text('Driver with this email already exists'),
-  //         backgroundColor: Colors.orange,
-  //         duration: Duration(seconds: 2),
-  //       ),
-  //     );
-  //     return;
-  //   }
-  //
-  //   setState(() => _isSubmittingDriver = true);
-  //
-  //   try {
-  //     final newDriver = await _driverService.addDriver(name: name, email: email);
-  //
-  //     if (!mounted) return;
-  //     setState(() {
-  //       _drivers.insert(0, newDriver);
-  //     });
-  //
-  //     Navigator.pop(context); // close the modal
-  //
-  //     ScaffoldMessenger.of(context).showSnackBar(
-  //       const SnackBar(
-  //         content: Text('Driver invited successfully!'),
-  //         backgroundColor: Colors.green,
-  //         duration: Duration(seconds: 2),
-  //       ),
-  //     );
-  //
-  //     _driverNameController.clear();
-  //     _driverEmailController.clear();
-  //   } on DriverApiException catch (e) {
-  //     if (!mounted) return;
-  //     ScaffoldMessenger.of(context).showSnackBar(
-  //       SnackBar(
-  //         content: Text(e.message),
-  //         backgroundColor: Colors.red,
-  //         duration: const Duration(seconds: 3),
-  //       ),
-  //     );
-  //   } catch (e) {
-  //     if (!mounted) return;
-  //     ScaffoldMessenger.of(context).showSnackBar(
-  //       const SnackBar(
-  //         content: Text('Failed to add driver. Please try again.'),
-  //         backgroundColor: Colors.red,
-  //         duration: Duration(seconds: 3),
-  //       ),
-  //     );
-  //   } finally {
-  //     if (mounted) setState(() => _isSubmittingDriver = false);
-  //   }
-  // }
-
-
-
-  // drivers_screen.dart - Update the _submitAddDriverForm method
-
-  Future<void> _submitAddDriverForm() async {
-    if (!(_formKey.currentState?.validate() ?? false)) return;
-
-    final name = _driverNameController.text.trim();
-    final email = _driverEmailController.text.trim();
-
-    // Quick client-side duplicate check for snappy feedback
-    final existingDriver = _drivers.any(
-          (driver) => driver.email.toLowerCase() == email.toLowerCase(),
-    );
-    if (existingDriver) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Driver with this email already exists'),
-          backgroundColor: Colors.orange,
-          duration: Duration(seconds: 3),
-        ),
-      );
-      return;
-    }
-
-    setState(() => _isSubmittingDriver = true);
-
-    try {
-      final newDriver = await _driverService.addDriver(name: name, email: email);
-
-      if (!mounted) return;
-      setState(() {
-        _drivers.insert(0, newDriver);
-      });
-
-      // Close the modal
-      if (Navigator.canPop(context)) {
-        Navigator.pop(context);
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Driver invited successfully!'),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 3),
-        ),
-      );
-
-      _driverNameController.clear();
-      _driverEmailController.clear();
-    } on DriverApiException catch (e) {
-      if (!mounted) return;
-      // Show the error with more visibility
-      ScaffoldMessenger.of(context).clearSnackBars();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.error_outline, color: Colors.white),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  e.message,
-                  style: const TextStyle(fontSize: 14),
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 5),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          margin: const EdgeInsets.all(16),
-          elevation: 6,
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).clearSnackBars();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.error_outline, color: Colors.white),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Failed to add driver: ${e.toString()}',
-                  style: const TextStyle(fontSize: 14),
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 5),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          margin: const EdgeInsets.all(16),
-          elevation: 6,
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _isSubmittingDriver = false);
-    }
-  }
 
 // Update the delete method too
   Future<void> _deleteDriver(Driver driver) async {
@@ -339,360 +172,6 @@ class _DriversScreenState extends State<DriversScreen> {
   }
 
 
-  // Future<void> _deleteDriver(Driver driver) async {
-  //   setState(() => _deletingDriverIds.add(driver.id));
-  //
-  //   try {
-  //     await _driverService.deleteDriver(driver.id);
-  //
-  //     if (!mounted) return;
-  //     setState(() {
-  //       _drivers.removeWhere((d) => d.id == driver.id);
-  //     });
-  //
-  //     ScaffoldMessenger.of(context).showSnackBar(
-  //       SnackBar(
-  //         content: Text('${driver.name} has been removed'),
-  //         backgroundColor: Colors.red,
-  //         duration: const Duration(seconds: 2),
-  //       ),
-  //     );
-  //   } on DriverApiException catch (e) {
-  //     if (!mounted) return;
-  //     ScaffoldMessenger.of(context).showSnackBar(
-  //       SnackBar(
-  //         content: Text(e.message),
-  //         backgroundColor: Colors.red,
-  //         duration: const Duration(seconds: 3),
-  //       ),
-  //     );
-  //   } catch (e) {
-  //     if (!mounted) return;
-  //     ScaffoldMessenger.of(context).showSnackBar(
-  //       const SnackBar(
-  //         content: Text('Failed to remove driver. Please try again.'),
-  //         backgroundColor: Colors.red,
-  //         duration: Duration(seconds: 3),
-  //       ),
-  //     );
-  //   } finally {
-  //     if (mounted) setState(() => _deletingDriverIds.remove(driver.id));
-  //   }
-  // }
-
-  // ─────────────────────────────────────────────────────────────────────
-  // Add Driver modal
-  // ─────────────────────────────────────────────────────────────────────
-
-  void _showAddDriverModal() {
-    // Clear controllers and errors before showing
-    _driverNameController.clear();
-    _driverEmailController.clear();
-    _formKey.currentState?.reset();
-
-    // Dismiss keyboard if open
-    FocusScope.of(context).unfocus();
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(20),
-          topRight: Radius.circular(20),
-        ),
-      ),
-      builder: (BuildContext context) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            return Padding(
-              padding: EdgeInsets.only(
-                bottom: MediaQuery.of(context).viewInsets.bottom,
-              ),
-              child: Container(
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(20),
-                    topRight: Radius.circular(20),
-                  ),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Handle bar
-                    Container(
-                      margin: const EdgeInsets.only(top: 12),
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[300],
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // Header
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      child: Text(
-                        'Add Driver',
-                        style: AppTextStyle.SFProDisplay_Black.copyWith(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-
-                    // Subtitle
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      child: Text(
-                        'Invite a driver to manage loads',
-                        style: AppTextStyle.SFProDisplay_Regular.copyWith(
-                          fontSize: 14,
-                          color: const Color(0xFF888888),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-
-                    // Form Fields - Using ListView
-                    Expanded(
-                      child: ListView(
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
-                        shrinkWrap: true,
-                        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-                        children: [
-                          Form(
-                            key: _formKey,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // Driver Name Field
-                                Text(
-                                  'Driver Name',
-                                  style: AppTextStyle.SFProDisplay_Black.copyWith(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Container(
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFF5F7FA),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color: const Color(0xFFE1E8ED),
-                                      width: 1,
-                                    ),
-                                  ),
-                                  child: TextFormField(
-                                    controller: _driverNameController,
-                                    focusNode: _nameFocusNode,
-                                    style: AppTextStyle.SFProDisplay_Black.copyWith(
-                                      fontSize: 14,
-                                    ),
-                                    decoration: InputDecoration(
-                                      hintText: 'John Doe',
-                                      hintStyle: AppTextStyle.SFProDisplay_Regular.copyWith(
-                                        fontSize: 14,
-                                        color: const Color(0xFFB0B0B0),
-                                      ),
-                                      border: InputBorder.none,
-                                      contentPadding: const EdgeInsets.symmetric(
-                                        horizontal: 16,
-                                        vertical: 14,
-                                      ),
-                                    ),
-                                    textInputAction: TextInputAction.next,
-                                    onFieldSubmitted: (_) {
-                                      FocusScope.of(context).requestFocus(_emailFocusNode);
-                                    },
-                                    validator: (value) {
-                                      if (value == null || value.trim().isEmpty) {
-                                        return 'Please enter driver name';
-                                      }
-                                      if (value.trim().length < 2) {
-                                        return 'Name must be at least 2 characters';
-                                      }
-                                      return null;
-                                    },
-                                  ),
-                                ),
-                                const SizedBox(height: 16),
-
-                                // Driver Email Field
-                                Text(
-                                  'Driver Email',
-                                  style: AppTextStyle.SFProDisplay_Black.copyWith(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Container(
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFF5F7FA),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color: const Color(0xFFE1E8ED),
-                                      width: 1,
-                                    ),
-                                  ),
-                                  child: TextFormField(
-                                    controller: _driverEmailController,
-                                    focusNode: _emailFocusNode,
-                                    keyboardType: TextInputType.emailAddress,
-                                    style: AppTextStyle.SFProDisplay_Black.copyWith(
-                                      fontSize: 14,
-                                    ),
-                                    decoration: InputDecoration(
-                                      hintText: 'driver@example.com',
-                                      hintStyle: AppTextStyle.SFProDisplay_Regular.copyWith(
-                                        fontSize: 14,
-                                        color: const Color(0xFFB0B0B0),
-                                      ),
-                                      border: InputBorder.none,
-                                      contentPadding: const EdgeInsets.symmetric(
-                                        horizontal: 16,
-                                        vertical: 14,
-                                      ),
-                                    ),
-                                    textInputAction: TextInputAction.done,
-                                    onFieldSubmitted: (_) async {
-                                      setModalState(() {});
-                                      await _submitAddDriverForm();
-                                    },
-                                    validator: (value) {
-                                      if (value == null || value.trim().isEmpty) {
-                                        return 'Please enter driver email';
-                                      }
-                                      final emailRegex = RegExp(
-                                        r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
-                                      );
-                                      if (!emailRegex.hasMatch(value.trim())) {
-                                        return 'Please enter a valid email address';
-                                      }
-                                      return null;
-                                    },
-                                  ),
-                                ),
-                                const SizedBox(height: 16),
-
-                                // Info Text
-                                Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.lightBlueColor,
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Icon(
-                                        Icons.info_outline,
-                                        size: 16,
-                                        color: AppColors.primaryColor,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(
-                                          'The driver will receive an invitation to join your account.',
-                                          style: AppTextStyle.SFProDisplay_Regular.copyWith(
-                                            fontSize: 12,
-                                            color: const Color(0xFF555555),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 24),
-
-                                // Buttons
-                                Column(
-                                  children: [
-                                    // Send Invite Button
-                                    _isSubmittingDriver
-                                        ? const SizedBox(
-                                      height: 48,
-                                      child: Center(
-                                        child: SizedBox(
-                                          height: 22,
-                                          width: 22,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2.5,
-                                          ),
-                                        ),
-                                      ),
-                                    )
-                                        : CustomElevatedButton(
-                                      onPressed: () async {
-                                        setModalState(() {});
-                                        await _submitAddDriverForm();
-                                      },
-                                      buttonText: 'Send Invite',
-                                      backgroundColor: AppColors.primaryColor,
-                                      foregroundColor: Colors.white,
-                                      height: 48,
-                                      borderRadius: BorderRadius.circular(30),
-                                      isFullWidth: true,
-                                      hasShadow: false,
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                    const SizedBox(height: 12),
-
-                                    // Cancel Button
-                                    Center(
-                                      child: TextButton(
-                                        onPressed: _isSubmittingDriver
-                                            ? null
-                                            : () => Navigator.pop(context),
-                                        style: TextButton.styleFrom(
-                                          foregroundColor: Colors.red,
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 16,
-                                            vertical: 12,
-                                          ),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(30),
-                                          ),
-                                        ),
-                                        child: Text(
-                                          'Cancel',
-                                          style: AppTextStyle.SFProDisplay_Regular.copyWith(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w600,
-                                            color: Colors.red,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 32),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-    ).then((_) {
-      // Reset focus when modal is closed
-      _nameFocusNode.unfocus();
-      _emailFocusNode.unfocus();
-    });
-  }
 
   void _showAssignLoadDialog(Driver driver, int index) {
     // No "assign" endpoint exists yet — this stays local-only until one is
@@ -819,18 +298,8 @@ class _DriversScreenState extends State<DriversScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.backgroundColor,
-      appBar: _buildAppBar(),
-      body: _buildBody(),
-      // floatingActionButton: FloatingActionButton(
-      //   onPressed: _showAddDriverModal,
-      //   backgroundColor: AppColors.primaryColor,
-      //   child: const Icon(Icons.add, color: Colors.white, size: 28),
-      // ),
-      // drivers_screen.dart - Update the floating action button
-
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
-          // Navigate to Add Driver Screen and wait for result
           final result = await Navigator.push<Driver>(
             context,
             MaterialPageRoute(
@@ -839,7 +308,6 @@ class _DriversScreenState extends State<DriversScreen> {
             ),
           );
 
-          // If a driver was added, refresh the list
           if (result != null) {
             _fetchDrivers();
           }
@@ -847,7 +315,12 @@ class _DriversScreenState extends State<DriversScreen> {
         backgroundColor: AppColors.primaryColor,
         child: const Icon(Icons.add, color: Colors.white, size: 28),
       ),
-
+      body: Column(
+        children: [
+          _buildSafeTopAppBar(title: 'Drivers'),
+          Expanded(child: _buildBody()),
+        ],
+      ),
     );
   }
 
@@ -962,26 +435,48 @@ class _DriversScreenState extends State<DriversScreen> {
     );
   }
 
-  PreferredSizeWidget _buildAppBar() {
-    return AppBar(
-      backgroundColor: AppColors.backgroundColor,
-      surfaceTintColor: AppColors.backgroundColor,
-      elevation: 0,
-      leading: Padding(
-        padding: const EdgeInsets.only(left: 14),
-        child: InkWell(
-          onTap: () => Navigator.pop(context),
-          child: SvgPicture.asset('assets/icons/back_button_with_circle.svg'),
+  /// Immersive mode zeroes MediaQuery.padding — use physical display inset.
+  double _safeTopInset(BuildContext context) {
+    final view = View.of(context);
+    final physicalTop = view.padding.top / view.devicePixelRatio;
+    final viewPaddingTop = MediaQuery.viewPaddingOf(context).top;
+    final paddingTop = MediaQuery.paddingOf(context).top;
+    final resolved = [
+      physicalTop,
+      viewPaddingTop,
+      paddingTop,
+    ].reduce((a, b) => a > b ? a : b);
+    return resolved > 0 ? resolved : 36.0;
+  }
+
+  Widget _buildSafeTopAppBar({required String title}) {
+    final topInset = _safeTopInset(context);
+    return Container(
+      width: double.infinity,
+      color: AppColors.backgroundColor,
+      padding: EdgeInsets.only(top: topInset),
+      child: SizedBox(
+        height: kToolbarHeight,
+        child: NavigationToolbar(
+          leading: Padding(
+            padding: const EdgeInsets.only(left: 14),
+            child: InkWell(
+              onTap: () => Navigator.pop(context),
+              child: SvgPicture.asset(
+                'assets/icons/back_button_with_circle.svg',
+              ),
+            ),
+          ),
+          middle: Text(
+            title,
+            style: AppTextStyle.SFProDisplay_Black.copyWith(
+              fontSize: 17,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          centerMiddle: true,
         ),
       ),
-      title: Text(
-        'Drivers',
-        style: AppTextStyle.SFProDisplay_Black.copyWith(
-          fontSize: 17,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-      centerTitle: true,
     );
   }
 
@@ -1287,65 +782,82 @@ class _AddDriverScreenState extends State<AddDriverScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.backgroundColor,
-      appBar: _buildAppBar(),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header Section
-            _buildHeaderSection(),
-            const SizedBox(height: 32),
-
-            // Form Section
-            Form(
-              key: _formKey,
+      body: Column(
+        children: [
+          _buildSafeTopAppBar(),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Driver Name Field
-                  _buildDriverNameField(),
-                  const SizedBox(height: 20),
-
-                  // Driver Email Field
-                  _buildDriverEmailField(),
-                  const SizedBox(height: 24),
-
-                  // Info Card
-                  _buildInfoCard(),
+                  _buildHeaderSection(),
                   const SizedBox(height: 32),
-
-                  // Action Buttons
-                  _buildActionButtons(),
+                  Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildDriverNameField(),
+                        const SizedBox(height: 20),
+                        _buildDriverEmailField(),
+                        const SizedBox(height: 24),
+                        _buildInfoCard(),
+                        const SizedBox(height: 32),
+                        _buildActionButtons(),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  PreferredSizeWidget _buildAppBar() {
-    return AppBar(
-      backgroundColor: AppColors.backgroundColor,
-      surfaceTintColor: AppColors.backgroundColor,
-      elevation: 0,
-      leading: Padding(
-        padding: const EdgeInsets.only(left: 14),
-        child: InkWell(
-          onTap: () => Navigator.pop(context),
-          child: SvgPicture.asset('assets/icons/back_button_with_circle.svg'),
+  double _safeTopInset(BuildContext context) {
+    final view = View.of(context);
+    final physicalTop = view.padding.top / view.devicePixelRatio;
+    final viewPaddingTop = MediaQuery.viewPaddingOf(context).top;
+    final paddingTop = MediaQuery.paddingOf(context).top;
+    final resolved = [
+      physicalTop,
+      viewPaddingTop,
+      paddingTop,
+    ].reduce((a, b) => a > b ? a : b);
+    return resolved > 0 ? resolved : 36.0;
+  }
+
+  Widget _buildSafeTopAppBar() {
+    final topInset = _safeTopInset(context);
+    return Container(
+      width: double.infinity,
+      color: AppColors.backgroundColor,
+      padding: EdgeInsets.only(top: topInset),
+      child: SizedBox(
+        height: kToolbarHeight,
+        child: NavigationToolbar(
+          leading: Padding(
+            padding: const EdgeInsets.only(left: 14),
+            child: InkWell(
+              onTap: () => Navigator.pop(context),
+              child: SvgPicture.asset(
+                'assets/icons/back_button_with_circle.svg',
+              ),
+            ),
+          ),
+          middle: Text(
+            'Add Driver',
+            style: AppTextStyle.SFProDisplay_Black.copyWith(
+              fontSize: 17,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          centerMiddle: true,
         ),
       ),
-      title: Text(
-        'Add Driver',
-        style: AppTextStyle.SFProDisplay_Black.copyWith(
-          fontSize: 17,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-      centerTitle: true,
     );
   }
 

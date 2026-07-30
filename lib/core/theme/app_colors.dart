@@ -18,6 +18,12 @@ class AppColors {
   static const Color lightBlueColor = Color(0XFFE2E8F0);
   static const Color buttonColor = Color(0XFFEEDCCE);
 
+  ///report icons color
+  static const Color fuel = Color(0xffF59E0B);
+  static const Color maintenance = Color(0xff2563EB);
+  static const Color tolls = Color(0xff00A658);
+  static const Color others = Color(0xff4F46E5);
+
 
   /// Loader gradient colors (added from the animation)
   static const Color loaderTransparent = Color(0x00C8D3E0); // Fully transparent

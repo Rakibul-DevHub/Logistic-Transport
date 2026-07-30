@@ -5,6 +5,7 @@ import 'package:table_calendar/table_calendar.dart';
 import 'package:intl/intl.dart';
 import 'package:tag/core/theme/app_colors.dart';
 import 'package:tag/core/theme/app_text_style.dart';
+import 'package:tag/shared/widget/immersive_safe_area.dart';
 
 class ReportScreen extends StatefulWidget {
   const ReportScreen({super.key});
@@ -23,98 +24,6 @@ class _ReportScreenState extends State<ReportScreen> {
   // Current displayed week's start date (key for _allWeeklyData)
   DateTime _currentWeekStart = DateTime.now();
   DateTime _currentWeekEnd = DateTime.now();
-
-  // // SAMPLE DATA FOR DIFFERENT WEEKS - keys are Monday dates in yyyy-MM-dd format
-  // final Map<String, Map<String, dynamic>> _allWeeklyData = {
-  //   '2024-10-14': {
-  //     'totalProfit': 11800.0,
-  //     'growth': 8.2,
-  //     'incomeData': <double>[1.7, 1.9, 1.8, 2.0, 1.9, 1.7, 2.0],
-  //     'expenseData': <double>[0.8, 0.9, 0.8, 0.9, 0.8, 0.8, 0.9],
-  //     'weekDays': <String>[
-  //       'MON 14',
-  //       'TUE 15',
-  //       'WED 16',
-  //       'THU 17',
-  //       'FRI 18',
-  //       'SAT 19',
-  //       'SUN 20'
-  //     ],
-  //     'categories': {
-  //       'Fuel': {'amount': 4650.00, 'subtitle': '37% of total expenses'},
-  //       'Maintenance': {'amount': 1100.00, 'subtitle': 'Scheduled & ad-hoc repairs'},
-  //       'Tolls': {'amount': 580.00, 'subtitle': 'Electronic pass transponders'},
-  //       'Others': {'amount': 800.00, 'subtitle': 'Fleet & liability coverage'},
-  //     },
-  //   },
-  //   '2024-10-21': {
-  //     'totalProfit': 12450.0,
-  //     'growth': 12.5,
-  //     'incomeData': <double>[1.8, 2.0, 1.9, 2.1, 2.0, 1.8, 2.2],
-  //     'expenseData': <double>[0.8, 0.9, 0.8, 0.9, 0.8, 0.9, 0.9],
-  //     'weekDays': <String>[
-  //       'MON 21',
-  //       'TUE 22',
-  //       'WED 23',
-  //       'THU 24',
-  //       'FRI 25',
-  //       'SAT 26',
-  //       'SUN 27'
-  //     ],
-  //     'categories': {
-  //       'Fuel': {'amount': 4820.50, 'subtitle': '38% of total expenses'},
-  //       'Maintenance': {'amount': 1240.00, 'subtitle': 'Scheduled & ad-hoc repairs'},
-  //       'Tolls': {'amount': 612.20, 'subtitle': 'Electronic pass transponders'},
-  //       'Others': {'amount': 850.00, 'subtitle': 'Fleet & liability coverage'},
-  //     },
-  //   },
-  //   '2024-10-28': {
-  //     'totalProfit': 13200.0,
-  //     'growth': 15.2,
-  //     'incomeData': <double>[2.0, 2.2, 2.1, 2.3, 2.2, 2.0, 2.4],
-  //     'expenseData': <double>[0.9, 0.8, 0.9, 1.0, 0.9, 0.8, 0.9],
-  //     'weekDays': <String>[
-  //       'MON 28',
-  //       'TUE 29',
-  //       'WED 30',
-  //       'THU 31',
-  //       'FRI 01',
-  //       'SAT 02',
-  //       'SUN 03'
-  //     ],
-  //     'categories': {
-  //       'Fuel': {'amount': 5100.00, 'subtitle': '40% of total expenses'},
-  //       'Maintenance': {'amount': 980.00, 'subtitle': 'Scheduled & ad-hoc repairs'},
-  //       'Tolls': {'amount': 725.00, 'subtitle': 'Electronic pass transponders'},
-  //       'Others': {'amount': 920.00, 'subtitle': 'Fleet & liability coverage'},
-  //     },
-  //   },
-  //   '2024-11-04': {
-  //     'totalProfit': 11800.0,
-  //     'growth': 3.5,
-  //     'incomeData': <double>[1.7, 1.9, 1.8, 2.0, 1.9, 1.7, 2.1],
-  //     'expenseData': <double>[0.9, 1.0, 0.9, 1.0, 0.9, 1.0, 1.0],
-  //     'weekDays': <String>[
-  //       'MON 04',
-  //       'TUE 05',
-  //       'WED 06',
-  //       'THU 07',
-  //       'FRI 08',
-  //       'SAT 09',
-  //       'SUN 10'
-  //     ],
-  //     'categories': {
-  //       'Fuel': {'amount': 4950.00, 'subtitle': '39% of total expenses'},
-  //       'Maintenance': {'amount': 1500.00, 'subtitle': 'Scheduled & ad-hoc repairs'},
-  //       'Tolls': {'amount': 680.00, 'subtitle': 'Electronic pass transponders'},
-  //       'Others': {'amount': 790.00, 'subtitle': 'Fleet & liability coverage'},
-  //     },
-  //   },
-  // };
-
-
-
-
 
   final Map<String, Map<String, dynamic>> _allWeeklyData = {
     '2024-10-11': {
@@ -340,7 +249,7 @@ class _ReportScreenState extends State<ReportScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF4F7F9),
-      body: SafeArea(
+      body: ImmersiveSafeArea(
         child: Stack(
           children: [
             SingleChildScrollView(
@@ -477,288 +386,6 @@ class _ReportScreenState extends State<ReportScreen> {
       ),
     );
   }
-
-
-
-  // Widget _buildInsightCard({
-  //   required List<String> weekDays,
-  //   required List<double> incomeData,
-  //   required List<double> expenseData,
-  //   required double totalProfit,
-  //   required double growth,
-  // })
-  // {
-  //   return Container(
-  //     padding: const EdgeInsets.all(24),
-  //     decoration: BoxDecoration(
-  //       color: Colors.white,
-  //       borderRadius: BorderRadius.circular(24),
-  //       boxShadow: [
-  //         BoxShadow(
-  //           color: Colors.black.withValues(alpha: 0.04),
-  //           blurRadius: 10,
-  //           offset: const Offset(0, 4),
-  //         ),
-  //       ],
-  //     ),
-  //     child: Column(
-  //       crossAxisAlignment: CrossAxisAlignment.start,
-  //       children: [
-  //         // TITLE
-  //         const Text(
-  //           "WEEKLY PROFIT INSIGHT",
-  //           style: TextStyle(
-  //             fontSize: 14,
-  //             color: Colors.grey,
-  //             fontWeight: FontWeight.w600,
-  //             letterSpacing: 0.3,
-  //           ),
-  //         ),
-  //
-  //         const SizedBox(height: 16),
-  //
-  //         // PROFIT AND GROWTH
-  //         Row(
-  //           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-  //           crossAxisAlignment: CrossAxisAlignment.start,
-  //           children: [
-  //             Text(
-  //               "\$${NumberFormat('#,##0.00').format(totalProfit)}",
-  //               style: const TextStyle(
-  //                 fontSize: 32,
-  //                 fontWeight: FontWeight.bold,
-  //                 color: Colors.black87,
-  //                 letterSpacing: -0.5,
-  //               ),
-  //             ),
-  //             Container(
-  //               padding: const EdgeInsets.symmetric(
-  //                 horizontal: 12,
-  //                 vertical: 6,
-  //               ),
-  //               decoration: BoxDecoration(
-  //                 color: Colors.green.withValues(alpha: 0.1),
-  //                 borderRadius: BorderRadius.circular(8),
-  //               ),
-  //               child: Row(
-  //                 mainAxisSize: MainAxisSize.min,
-  //                 children: [
-  //                   Icon(
-  //                     Icons.trending_up,
-  //                     color: Colors.green.shade600,
-  //                     size: 16,
-  //                   ),
-  //                   const SizedBox(width: 4),
-  //                   Text(
-  //                     "+${growth.toStringAsFixed(1)}%",
-  //                     style: TextStyle(
-  //                       color: Colors.green.shade600,
-  //                       fontWeight: FontWeight.bold,
-  //                       fontSize: 14,
-  //                     ),
-  //                   ),
-  //                 ],
-  //               ),
-  //             ),
-  //           ],
-  //         ),
-  //
-  //
-  //         // LEGEND
-  //         Row(
-  //           children: [
-  //             Row(
-  //               children: [
-  //                 Container(
-  //                   width: 10,
-  //                   height: 10,
-  //                   decoration: const BoxDecoration(
-  //                     color: Color(0xFF3B82F6),
-  //                     shape: BoxShape.circle,
-  //                   ),
-  //                 ),
-  //                 const SizedBox(width: 8),
-  //                 const Text(
-  //                   "Income",
-  //                   style: TextStyle(
-  //                     fontSize: 13,
-  //                     color: Colors.grey,
-  //                     fontWeight: FontWeight.w500,
-  //                   ),
-  //                 ),
-  //               ],
-  //             ),
-  //             const SizedBox(width: 24),
-  //             Row(
-  //               children: [
-  //                 Container(
-  //                   width: 10,
-  //                   height: 10,
-  //                   decoration: const BoxDecoration(
-  //                     color: Color(0xFFF59E0B),
-  //                     shape: BoxShape.circle,
-  //                   ),
-  //                 ),
-  //                 const SizedBox(width: 8),
-  //                 const Text(
-  //                   "Expenses",
-  //                   style: TextStyle(
-  //                     fontSize: 13,
-  //                     color: Colors.grey,
-  //                     fontWeight: FontWeight.w500,
-  //                   ),
-  //                 ),
-  //               ],
-  //             ),
-  //           ],
-  //         ),
-  //
-  //         const SizedBox(height: 10),
-  //
-  //         // BAR CHART
-  //         Padding(
-  //           padding: const EdgeInsets.symmetric(horizontal: 20.0),
-  //           child: SizedBox(
-  //             height: 180,
-  //             child: BarChart(
-  //               BarChartData(
-  //                 maxY: 2.5,
-  //                 gridData: const FlGridData(show: false),
-  //                 borderData: FlBorderData(show: false),
-  //                 barTouchData: BarTouchData(enabled: false),
-  //                 titlesData: const FlTitlesData(
-  //                   leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-  //                   topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-  //                   rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-  //                   bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-  //                 ),
-  //                 barGroups: List.generate(
-  //                   weekDays.length,
-  //                       (index) {
-  //                     return BarChartGroupData(
-  //                       x: index,
-  //                       barsSpace: 3,
-  //                       barRods: [
-  //                         BarChartRodData(
-  //                           toY: index < incomeData.length ? incomeData[index] : 0,
-  //                           width: 7,
-  //                           color: const Color(0xFF3B82F6),
-  //                           borderRadius: const BorderRadius.only(
-  //                             topLeft: Radius.circular(4),
-  //                             topRight: Radius.circular(4),
-  //                           ),
-  //                         ),
-  //                         BarChartRodData(
-  //                           toY: index < expenseData.length ? expenseData[index] : 0,
-  //                           width: 7,
-  //                           color: const Color(0xFFF59E0B),
-  //                           borderRadius: const BorderRadius.only(
-  //                             topLeft: Radius.circular(4),
-  //                             topRight: Radius.circular(4),
-  //                           ),
-  //                         ),
-  //                       ],
-  //                     );
-  //                   },
-  //                 ),
-  //                 groupsSpace: 8,
-  //               ),
-  //             ),
-  //           ),
-  //         ),
-  //
-  //         const SizedBox(height: 16),
-  //
-  //         // NAVIGATION WITH DATES AT BOTTOM
-  //         Row(
-  //           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-  //           children: [
-  //             // LEFT ARROW
-  //             GestureDetector(
-  //               onTap: _previousWeek,
-  //               child: Container(
-  //                 width: 32,
-  //                 height: 32,
-  //                 decoration: BoxDecoration(
-  //                   shape: BoxShape.circle,
-  //                   border: Border.all(color: Colors.black, width: 1.5),
-  //                 ),
-  //                 child: const Icon(
-  //                   Icons.chevron_left,
-  //                   size: 18,
-  //                   color: Colors.black87,
-  //                 ),
-  //               ),
-  //             ),
-  //
-  //             // DAY LABELS - Aligned with bars
-  //             Expanded(
-  //               child: Padding(
-  //                 padding: const EdgeInsets.symmetric(horizontal: 8.0),
-  //                 child: Row(
-  //                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-  //                   children: List.generate(
-  //                     weekDays.length,
-  //                         (index) {
-  //                       final day = weekDays[index];
-  //                       final parts = day.split(' ');
-  //                       final dayName = parts[0];
-  //                       final dayNumber = parts.length > 1 ? parts[1] : '';
-  //
-  //                       return Column(
-  //                         mainAxisSize: MainAxisSize.min,
-  //                         children: [
-  //                           Text(
-  //                             dayName,
-  //                             style: const TextStyle(
-  //                               fontSize: 10,
-  //                               fontWeight: FontWeight.w600,
-  //                               color: Colors.black87,
-  //                             ),
-  //                           ),
-  //                           const SizedBox(height: 2),
-  //                           Text(
-  //                             dayNumber,
-  //                             style: const TextStyle(
-  //                               fontSize: 12,
-  //                               fontWeight: FontWeight.bold,
-  //                               color: Colors.black87,
-  //                             ),
-  //                           ),
-  //                         ],
-  //                       );
-  //                     },
-  //                   ),
-  //                 ),
-  //               ),
-  //             ),
-  //
-  //             // RIGHT ARROW
-  //             GestureDetector(
-  //               onTap: _nextWeek,
-  //               child: Container(
-  //                 width: 32,
-  //                 height: 32,
-  //                 decoration: BoxDecoration(
-  //                   shape: BoxShape.circle,
-  //                   border: Border.all(color: Colors.black, width: 1.5),
-  //                 ),
-  //                 child: const Icon(
-  //                   Icons.chevron_right,
-  //                   size: 18,
-  //                   color: Colors.black87,
-  //                 ),
-  //               ),
-  //             ),
-  //           ],
-  //         ),
-  //       ],
-  //     ),
-  //   );
-  // }
-
-
-
 
   Widget _buildInsightCard({
     required List<String> weekDays,
@@ -1067,50 +694,123 @@ class _ReportScreenState extends State<ReportScreen> {
 
 
 
-
-
-
-
   Widget _buildCategoryList(Map<String, dynamic> categories) {
     return Column(
       children: [
         _buildCategoryCard(
           title: "Fuel",
+          titleColor: AppColors.fuel,
           amount: "\$${categories['Fuel']['amount']}",
           subtitle: categories['Fuel']['subtitle'],
-          svgAsset: 'assets/icons/fuel.svg',
+          svgAsset: 'assets/icons/fuel_station.svg',
         ),
         const SizedBox(height: 12),
         _buildCategoryCard(
           title: "Maintenance",
+          titleColor: AppColors.maintenance,
           amount: "\$${categories['Maintenance']['amount']}",
           subtitle: categories['Maintenance']['subtitle'],
-          svgAsset: 'assets/icons/maintenance.svg',
+          svgAsset: 'assets/icons/maintenance_truck.svg',
         ),
         const SizedBox(height: 12),
         _buildCategoryCard(
           title: "Tolls",
+          titleColor: AppColors.tolls,
           amount: "\$${categories['Tolls']['amount']}",
           subtitle: categories['Tolls']['subtitle'],
-          svgAsset: 'assets/icons/tolls.svg',
+          svgAsset: 'assets/icons/truck_tolls.svg',
         ),
         const SizedBox(height: 12),
         _buildCategoryCard(
           title: "Others",
+          titleColor: AppColors.others,
           amount: "\$${categories['Others']['amount']}",
           subtitle: categories['Others']['subtitle'],
-          svgAsset: 'assets/icons/others.svg',
+          svgAsset: 'assets/icons/others_cost.svg',
         ),
       ],
     );
   }
+
+  // Widget _buildCategoryCard({
+  //   required String title,
+  //   required String amount,
+  //   required String subtitle,
+  //   required String svgAsset,
+  // })
+  // {
+  //   return Container(
+  //     padding: const EdgeInsets.all(16),
+  //     decoration: BoxDecoration(
+  //       color: Colors.white,
+  //       borderRadius: BorderRadius.circular(16),
+  //     ),
+  //     child: Row(
+  //       children: [
+  //         Container(
+  //           width: 50,
+  //           height: 50,
+  //           decoration: BoxDecoration(
+  //             borderRadius: BorderRadius.circular(12),
+  //           ),
+  //           child: Center(
+  //             child: SvgPicture.asset(
+  //               svgAsset,
+  //               width: 35,
+  //               height: 35,
+  //             ),
+  //           ),
+  //         ),
+  //         const SizedBox(width: 14),
+  //         Expanded(
+  //           child: Column(
+  //             crossAxisAlignment: CrossAxisAlignment.start,
+  //             children: [
+  //               Row(
+  //                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  //                 children: [
+  //                   Text(
+  //                     title,
+  //                     style: const TextStyle(
+  //                       fontWeight: FontWeight.w600,
+  //                       fontSize: 16,
+  //                     ),
+  //                   ),
+  //                   Text(
+  //                     amount,
+  //                     style: const TextStyle(
+  //                       fontWeight: FontWeight.bold,
+  //                     ),
+  //                   ),
+  //                 ],
+  //               ),
+  //               const SizedBox(height: 4),
+  //               Text(
+  //                 subtitle,
+  //                 style: const TextStyle(
+  //                   color: Colors.grey,
+  //                   fontSize: 12,
+  //                 ),
+  //               ),
+  //             ],
+  //           ),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
+
+
+
 
   Widget _buildCategoryCard({
     required String title,
     required String amount,
     required String subtitle,
     required String svgAsset,
-  }) {
+    Color titleColor = AppColors.primaryColor
+  })
+  {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -1143,9 +843,10 @@ class _ReportScreenState extends State<ReportScreen> {
                   children: [
                     Text(
                       title,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 16,
+                        color: titleColor, // Added color here
                       ),
                     ),
                     Text(
@@ -1171,4 +872,6 @@ class _ReportScreenState extends State<ReportScreen> {
       ),
     );
   }
+
+
 }

@@ -21,12 +21,27 @@ abstract class ScanBolState extends Equatable {
 class ScanBolInitial extends ScanBolState {}
 
 class ScanBolLoading extends ScanBolState {
-  final String? progressMessage;
+  /// User-facing status text, e.g. "Uploading image..."
+  final String progressMessage;
 
-  const ScanBolLoading({this.progressMessage});
+  /// Overall progress 0.0 – 1.0
+  final double progress;
+
+  /// preparing | uploading | extracting
+  final String stage;
+
+  const ScanBolLoading({
+    required this.progressMessage,
+    this.progress = 0.0,
+    this.stage = 'preparing',
+  });
 
   @override
-  List<Object?> get props => [progressMessage];
+  List<Object?> get props => [progressMessage, progress, stage];
+}
+
+class ScanBolCancelled extends ScanBolState {
+  const ScanBolCancelled();
 }
 
 class ScanBolSuccess extends ScanBolState {
@@ -57,95 +72,109 @@ class ScanBolFailure extends ScanBolState {
 class ScanBolCubit extends Cubit<ScanBolState> {
   final NetworkCallerDio _networkCaller = NetworkCallerDio();
   bool _isClosed = false;
+  bool _isCancelled = false;
+  CancelToken? _cancelToken;
 
   ScanBolCubit() : super(ScanBolInitial());
 
   @override
   Future<void> close() {
     _isClosed = true;
+    _cancelToken?.cancel('Cubit closed');
     return super.close();
   }
 
-  // ✅ Safe emit method
   void _safeEmit(ScanBolState state) {
-    if (!_isClosed && !isClosed) {
+    if (!_isClosed && !isClosed && !_isCancelled) {
       emit(state);
     }
   }
 
+  /// Cancel in-flight upload / OCR and stop emitting further results.
+  void cancel() {
+    developer.log('🛑 [OCR] Cancel requested');
+    _isCancelled = true;
+    _cancelToken?.cancel('User cancelled');
+    if (!_isClosed && !isClosed) {
+      emit(const ScanBolCancelled());
+    }
+  }
+
   Future<void> processOCR(String imagePath) async {
+    _isCancelled = false;
+    _cancelToken = CancelToken();
+
     try {
       developer.log('🚀 [OCR] ========== STARTING OCR PROCESS ==========');
       developer.log('📁 [OCR] Image path: $imagePath');
 
-      _safeEmit(const ScanBolLoading(progressMessage: 'Preparing image...'));
+      _safeEmit(const ScanBolLoading(
+        progressMessage: 'Preparing image...',
+        progress: 0.08,
+        stage: 'preparing',
+      ));
 
-      // Step 1: Get access token
-      developer.log('🔑 [OCR] Getting access token...');
       final token = await SecureStorageService.instance.getAccessToken();
+      if (_isCancelled) return;
 
       if (token == null || token.isEmpty) {
-        developer.log('❌ [OCR] No access token found');
-        _safeEmit(const ScanBolFailure(
-          errorMessage: 'Please login again',
-        ));
+        _safeEmit(const ScanBolFailure(errorMessage: 'Please login again'));
         return;
       }
-      developer.log('✅ [OCR] Access token obtained: ${token.substring(0, 20)}...');
 
-      // Step 2: Check if image file exists
-      developer.log('📁 [OCR] Checking if image file exists...');
       final imageFile = File(imagePath);
       if (!await imageFile.exists()) {
-        developer.log('❌ [OCR] Image file not found at path: $imagePath');
-        _safeEmit(const ScanBolFailure(
-          errorMessage: 'Image file not found',
-        ));
+        _safeEmit(const ScanBolFailure(errorMessage: 'Image file not found'));
         return;
       }
 
-      final fileSize = await imageFile.length();
-      developer.log('✅ [OCR] Image file exists. Size: $fileSize bytes');
-      developer.log('📄 [OCR] File name: ${imageFile.path.split('/').last}');
+      if (_isCancelled) return;
 
-      // Step 3: Upload the image
-      developer.log('📤 [OCR] ========== STARTING IMAGE UPLOAD ==========');
-      developer.log('📤 [OCR] Upload URL: ${AppUrl.singleImageUpload}');
-      developer.log('📤 [OCR] File field name: "file"');
-      developer.log('📤 [OCR] File path: ${imageFile.path}');
+      _safeEmit(const ScanBolLoading(
+        progressMessage: 'Uploading image...',
+        progress: 0.15,
+        stage: 'uploading',
+      ));
 
-      _safeEmit(const ScanBolLoading(progressMessage: 'Uploading image...'));
-
-      final uploadResponse = await _networkCaller.uploadImage(
+      final uploadResponse = await _networkCaller.uploadImageWithProgress(
         AppUrl.singleImageUpload,
         imageFile: imageFile,
         headers: {'Authorization': 'Bearer $token'},
         fileFieldName: 'file',
         method: 'POST',
+        cancelToken: _cancelToken,
+        onProgress: (sent, total) {
+          if (_isCancelled || total <= 0) return;
+          // Map upload bytes to 0.15 → 0.55 overall
+          final uploadFraction = (sent / total).clamp(0.0, 1.0);
+          final overall = 0.15 + (uploadFraction * 0.40);
+          final percent = (uploadFraction * 100).round();
+          _safeEmit(ScanBolLoading(
+            progressMessage: 'Uploading image... $percent%',
+            progress: overall,
+            stage: 'uploading',
+          ));
+        },
       );
 
-      developer.log('📡 [OCR] ========== UPLOAD RESPONSE ==========');
-      developer.log('📡 [OCR] Status Code: ${uploadResponse.statusCode}');
-      developer.log('📡 [OCR] Is Success: ${uploadResponse.isSuccess}');
-      developer.log('📡 [OCR] Error Message: ${uploadResponse.errorMessage}');
-      developer.log('📡 [OCR] Full Response: ${uploadResponse.jsonResponse}');
+      if (_isCancelled) return;
 
-      // Step 4: Check upload response
+      if (uploadResponse.errorMessage == 'cancelled') {
+        return;
+      }
+
       if (!uploadResponse.isSuccess) {
-        String errorMsg = uploadResponse.errorMessage ?? 'Failed to upload image';
+        String errorMsg =
+            uploadResponse.errorMessage ?? 'Failed to upload image';
 
-        if (uploadResponse.jsonResponse != null) {
-          final errorData = uploadResponse.jsonResponse;
-          if (errorData is Map) {
-            errorMsg = errorData?['message']?.toString() ??
-                errorData?['error']?.toString() ??
-                errorData?['msg']?.toString() ??
-                errorMsg;
-            developer.log('📡 [OCR] Extracted error from response: $errorMsg');
-          }
+        final errorData = uploadResponse.jsonResponse;
+        if (errorData != null) {
+          errorMsg = errorData['message']?.toString() ??
+              errorData['error']?.toString() ??
+              errorData['msg']?.toString() ??
+              errorMsg;
         }
 
-        developer.log('❌ [OCR] Image upload failed: $errorMsg');
         _safeEmit(ScanBolFailure(
           errorMessage: 'Failed to upload image',
           detailedError: errorMsg,
@@ -155,7 +184,6 @@ class ScanBolCubit extends Cubit<ScanBolState> {
       }
 
       if (uploadResponse.jsonResponse == null) {
-        developer.log('❌ [OCR] Upload response is null');
         _safeEmit(const ScanBolFailure(
           errorMessage: 'Invalid upload response',
           detailedError: 'Response body is null',
@@ -163,97 +191,79 @@ class ScanBolCubit extends Cubit<ScanBolState> {
         return;
       }
 
-      // Step 5: Extract filename from response
-      developer.log('🔍 [OCR] ========== EXTRACTING FILENAME ==========');
       final uploadData = uploadResponse.jsonResponse?['data'];
-      developer.log('📦 [OCR] Upload data: $uploadData');
-
       if (uploadData == null) {
-        developer.log('❌ [OCR] Upload data is null');
-        developer.log('📦 [OCR] Full response: ${uploadResponse.jsonResponse}');
-        _safeEmit(ScanBolFailure(
+        _safeEmit(const ScanBolFailure(
           errorMessage: 'Invalid upload response format',
           detailedError: 'Data field is missing in response',
         ));
         return;
       }
 
-      // Try to get filename from different possible fields
       String? filename;
       if (uploadData is Map) {
-        developer.log('🔍 [OCR] Upload data keys: ${uploadData.keys}');
-
         filename = uploadData['path']?.toString();
-        developer.log('🔍 [OCR] path field: $filename');
-
         if (filename == null || filename.isEmpty) {
           filename = uploadData['filename']?.toString();
-          developer.log('🔍 [OCR] filename field: $filename');
         }
-
         if (filename == null || filename.isEmpty) {
           final url = uploadData['url']?.toString();
-          developer.log('🔍 [OCR] url field: $url');
           if (url != null && url.isNotEmpty) {
             filename = url.split('/').last;
-            developer.log('🔍 [OCR] Extracted from URL: $filename');
           }
         }
       }
 
-      developer.log('📝 [OCR] Final extracted filename: $filename');
-
       if (filename == null || filename.isEmpty) {
-        developer.log('❌ [OCR] Could not extract filename from upload response');
-        developer.log('📦 [OCR] Full upload data: $uploadData');
-        _safeEmit(ScanBolFailure(
+        _safeEmit(const ScanBolFailure(
           errorMessage: 'Could not get image filename',
           detailedError: 'Filename not found in upload response',
         ));
         return;
       }
 
-      developer.log('✅ [OCR] Image uploaded successfully. Filename: $filename');
+      if (_isCancelled) return;
 
-      // Step 6: Call OCR API with increased timeout
-      developer.log('🤖 [OCR] ========== CALLING OCR API ==========');
-      developer.log('🤖 [OCR] OCR URL: ${AppUrl.scanDocOcr}');
-      developer.log('🤖 [OCR] Payload: {"bolImage": "$filename"}');
-      _safeEmit(const ScanBolLoading(progressMessage: 'Extracting data from document...'));
+      _safeEmit(const ScanBolLoading(
+        progressMessage: 'Extracting data from document...',
+        progress: 0.60,
+        stage: 'extracting',
+      ));
+
+      // Soft progress while OCR runs (indeterminate-ish)
+      _bumpExtractProgress();
 
       final ocrResponse = await _callOCRAPIWithTimeout(filename, token);
 
-      developer.log('📡 [OCR] ========== OCR RESPONSE ==========');
-      developer.log('📡 [OCR] Code: ${ocrResponse.code}');
-      developer.log('📡 [OCR] Message: ${ocrResponse.message}');
-      developer.log('📡 [OCR] Data: ${ocrResponse.data}');
+      if (_isCancelled) return;
 
-      // Step 7: Process OCR response
       if (ocrResponse.data != null) {
-        developer.log('✅ [OCR] ========== OCR SUCCESS ==========');
-        developer.log('📋 [OCR] Load ID: ${ocrResponse.data!.loadIdString}');
-        developer.log('📋 [OCR] Company: ${ocrResponse.data!.companyName}');
-        developer.log('📋 [OCR] Pickup: ${ocrResponse.data!.pickupAddress}');
-        developer.log('📋 [OCR] Delivery: ${ocrResponse.data!.deliveryAddress}');
-        developer.log('📋 [OCR] Date: ${ocrResponse.data!.pickupDate}');
-        developer.log('📋 [OCR] Bol Image: ${ocrResponse.data!.bolImage}');
-        developer.log('📋 [OCR] Is Modified: ${ocrResponse.data!.isModified}');
-        developer.log('✅ [OCR] =====================================');
-
+        _safeEmit(const ScanBolLoading(
+          progressMessage: 'Almost done...',
+          progress: 0.95,
+          stage: 'extracting',
+        ));
         _safeEmit(ScanBolSuccess(ocrData: ocrResponse.data!));
       } else {
-        developer.log('❌ [OCR] No data received from OCR');
-        developer.log('📡 [OCR] OCR Response: $ocrResponse');
         _safeEmit(ScanBolFailure(
           errorMessage: 'No data received from OCR',
-          detailedError: 'OCR response code: ${ocrResponse.code}, message: ${ocrResponse.message}',
+          detailedError:
+              'OCR response code: ${ocrResponse.code}, message: ${ocrResponse.message}',
         ));
       }
+    } on DioException catch (e) {
+      if (CancelToken.isCancel(e) || _isCancelled) {
+        developer.log('🛑 [OCR] Request cancelled');
+        return;
+      }
+      _safeEmit(ScanBolFailure(
+        errorMessage: 'An error occurred',
+        detailedError: e.message ?? e.toString(),
+      ));
     } catch (e, stackTrace) {
-      developer.log('❌ [OCR] ========== EXCEPTION OCCURRED ==========');
+      if (_isCancelled) return;
       developer.log('❌ [OCR] Exception: $e');
       developer.log('📚 [OCR] Stack trace: $stackTrace');
-      developer.log('❌ [OCR] =========================================');
       _safeEmit(ScanBolFailure(
         errorMessage: 'An error occurred',
         detailedError: e.toString(),
@@ -261,102 +271,66 @@ class ScanBolCubit extends Cubit<ScanBolState> {
     }
   }
 
+  void _bumpExtractProgress() {
+    // Fire-and-forget soft bumps while waiting for OCR
+    Future(() async {
+      const steps = [0.68, 0.75, 0.82, 0.88];
+      for (final value in steps) {
+        await Future.delayed(const Duration(seconds: 2));
+        if (_isCancelled || _isClosed || isClosed) return;
+        if (state is! ScanBolLoading) return;
+        final current = state as ScanBolLoading;
+        if (current.stage != 'extracting') return;
+        if (current.progress >= value) continue;
+        _safeEmit(ScanBolLoading(
+          progressMessage: current.progressMessage,
+          progress: value,
+          stage: 'extracting',
+        ));
+      }
+    });
+  }
+
   Future<OCRResponse> _callOCRAPIWithTimeout(String filename, String token) async {
-    try {
-      developer.log('📤 [OCR API] Sending request to OCR endpoint');
-      developer.log('📤 [OCR API] URL: ${AppUrl.scanDocOcr}');
-      developer.log('📤 [OCR API] Payload: {"bolImage": "$filename"}');
+    final dio = Dio(
+      BaseOptions(
+        connectTimeout: const Duration(minutes: 2),
+        receiveTimeout: const Duration(minutes: 2),
+        sendTimeout: const Duration(minutes: 2),
+        validateStatus: (status) => status != null && status >= 200 && status < 600,
+      ),
+    );
 
-      final dio = Dio(
-        BaseOptions(
-          connectTimeout: const Duration(minutes: 2),
-          receiveTimeout: const Duration(minutes: 2),
-          sendTimeout: const Duration(minutes: 2),
-          validateStatus: (status) => status != null && status >= 200 && status < 600,
-        ),
-      );
-
-      dio.interceptors.add(InterceptorsWrapper(
-        onRequest: (options, handler) {
-          developer.log('📤 [DIO] Request: ${options.method} ${options.path}');
-          developer.log('📤 [DIO] Headers: ${options.headers}');
-          developer.log('📤 [DIO] Data: ${options.data}');
-          return handler.next(options);
+    final response = await dio.post(
+      AppUrl.scanDocOcr,
+      data: {'bolImage': filename},
+      cancelToken: _cancelToken,
+      options: Options(
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
-        onResponse: (response, handler) {
-          developer.log('📥 [DIO] Response Status: ${response.statusCode}');
-          developer.log('📥 [DIO] Response Data: ${response.data}');
-          return handler.next(response);
-        },
-        onError: (error, handler) {
-          developer.log('❌ [DIO] Error: ${error.message}');
-          developer.log('❌ [DIO] Error Type: ${error.type}');
-          if (error.response != null) {
-            developer.log('❌ [DIO] Error Status: ${error.response?.statusCode}');
-            developer.log('❌ [DIO] Error Data: ${error.response?.data}');
-          }
-          return handler.next(error);
-        },
-      ));
+      ),
+    );
 
-      final stopwatch = Stopwatch()..start();
-      developer.log('⏱️ [OCR API] Request started at: ${DateTime.now()}');
-
-      final response = await dio.post(
-        AppUrl.scanDocOcr,
-        data: {
-          'bolImage': filename,
-        },
-        options: Options(
-          headers: {
-            'Authorization': 'Bearer $token',
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-          },
-        ),
-      );
-
-      stopwatch.stop();
-      developer.log('⏱️ [OCR API] Request completed in: ${stopwatch.elapsedMilliseconds}ms');
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        return OCRResponse.fromJson(response.data);
-      } else {
-        String errorMsg = 'Server returned status code: ${response.statusCode}';
-        if (response.data != null) {
-          final data = response.data as Map?;
-          if (data != null) {
-            errorMsg = data['message']?.toString() ?? data['error']?.toString() ?? errorMsg;
-          }
-        }
-        throw Exception(errorMsg);
-      }
-    } on DioException catch (e) {
-      developer.log('❌ [OCR API] ========== DIO ERROR DETAILS ==========');
-      developer.log('❌ [OCR API] Error Message: ${e.message}');
-      developer.log('❌ [OCR API] Error Type: ${e.type}');
-      developer.log('❌ [OCR API] Error Response: ${e.response}');
-
-      if (e.response != null) {
-        developer.log('❌ [OCR API] Status Code: ${e.response?.statusCode}');
-        developer.log('❌ [OCR API] Response Data: ${e.response?.data}');
-      }
-
-      if (e.requestOptions != null) {
-        developer.log('❌ [OCR API] Request URL: ${e.requestOptions.uri}');
-        developer.log('❌ [OCR API] Request Data: ${e.requestOptions.data}');
-      }
-      developer.log('❌ [OCR API] ==========================================');
-
-      throw Exception('OCR request failed: ${e.message}');
-    } catch (e) {
-      developer.log('❌ [OCR API] General Exception: $e');
-      rethrow;
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return OCRResponse.fromJson(response.data);
     }
+
+    String errorMsg = 'Server returned status code: ${response.statusCode}';
+    if (response.data is Map) {
+      final data = response.data as Map;
+      errorMsg =
+          data['message']?.toString() ?? data['error']?.toString() ?? errorMsg;
+    }
+    throw Exception(errorMsg);
   }
 
   void resetState() {
     developer.log('🔄 [OCR] Resetting state');
+    _isCancelled = false;
+    _cancelToken = null;
     if (!_isClosed && !isClosed) {
       emit(ScanBolInitial());
     }

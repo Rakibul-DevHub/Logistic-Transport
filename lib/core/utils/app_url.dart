@@ -50,11 +50,17 @@ class AppUrl {
 
 
   /// -------------- Load ---------------------
-  static const String addLoadExpense = "$baseUrl/load-expense";
-
   static String getMyLoad(String page, String limit) {
     return "$baseUrl/load/my-loads?page=$page&limit=$limit";
   }
+
+  static const String addLoadExpense = "$baseUrl/load-expense";
+
+  static String getLoadExpense(String id) {
+    return "$baseUrl/load-expense/load/$id";
+  }
+
+
 
 
 
