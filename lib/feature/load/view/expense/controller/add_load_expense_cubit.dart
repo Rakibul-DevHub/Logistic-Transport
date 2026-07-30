@@ -53,6 +53,31 @@ class AddLoadExpenseFailure extends AddLoadExpenseState {
   List<Object?> get props => [errorMessage];
 }
 
+class LoadExpenseListLoading extends AddLoadExpenseState {
+  const LoadExpenseListLoading();
+}
+
+class LoadExpenseListSuccess extends AddLoadExpenseState {
+  final List<LoadExpenseData> expenses;
+
+  const LoadExpenseListSuccess({required this.expenses});
+
+  double get totalAmount =>
+      expenses.fold<double>(0, (sum, e) => sum + (e.amount ?? 0));
+
+  @override
+  List<Object?> get props => [expenses];
+}
+
+class LoadExpenseListFailure extends AddLoadExpenseState {
+  final String errorMessage;
+
+  const LoadExpenseListFailure({required this.errorMessage});
+
+  @override
+  List<Object?> get props => [errorMessage];
+}
+
 class AddLoadExpenseCubit extends Cubit<AddLoadExpenseState> {
   final NetworkCallerDio _networkCaller;
 
@@ -61,6 +86,7 @@ class AddLoadExpenseCubit extends Cubit<AddLoadExpenseState> {
   })  : _networkCaller = networkCaller ?? NetworkCallerDio(),
         super(const AddLoadExpenseInitial());
 
+  /// [loadId] must be the load's Mongo `_id` (API contract).
   Future<void> createExpense({
     required String loadId,
     required String type,
@@ -99,7 +125,7 @@ class AddLoadExpenseCubit extends Cubit<AddLoadExpenseState> {
       );
 
       final token =
-      await SecureStorageService.instance.getAccessToken();
+          await SecureStorageService.instance.getAccessToken();
 
       if (token == null || token.isEmpty) {
         emit(
@@ -153,18 +179,15 @@ class AddLoadExpenseCubit extends Cubit<AddLoadExpenseState> {
         final uploadData = uploadResponse.jsonResponse?['data'];
 
         if (uploadData is Map) {
-          uploadedReceipt =
-              uploadData['filename']?.toString() ??
-                  uploadData['path']?.toString() ??
-                  uploadData['url']?.toString().split('/').last;
+          uploadedReceipt = uploadData['filename']?.toString() ??
+              uploadData['path']?.toString() ??
+              uploadData['url']?.toString().split('/').last;
         }
 
-        if (uploadedReceipt == null ||
-            uploadedReceipt.isEmpty) {
+        if (uploadedReceipt == null || uploadedReceipt.isEmpty) {
           emit(
             const AddLoadExpenseFailure(
-              errorMessage:
-              'Could not get the uploaded receipt name',
+              errorMessage: 'Could not get the uploaded receipt name',
             ),
           );
           return;
@@ -195,8 +218,7 @@ class AddLoadExpenseCubit extends Cubit<AddLoadExpenseState> {
         },
       );
 
-      if (response.isSuccess &&
-          response.jsonResponse != null) {
+      if (response.isSuccess && response.jsonResponse != null) {
         final parsed = LoadExpenseResponse.fromJson(
           response.jsonResponse!,
         );
@@ -205,9 +227,7 @@ class AddLoadExpenseCubit extends Cubit<AddLoadExpenseState> {
           emit(
             AddLoadExpenseSuccess(
               data: parsed.data!,
-              message:
-              parsed.message ??
-                  'Expense created successfully',
+              message: parsed.message ?? 'Expense created successfully',
             ),
           );
           return;
@@ -216,8 +236,7 @@ class AddLoadExpenseCubit extends Cubit<AddLoadExpenseState> {
 
       emit(
         AddLoadExpenseFailure(
-          errorMessage:
-          response.errorMessage ??
+          errorMessage: response.errorMessage ??
               response.jsonResponse?['message']?.toString() ??
               'Failed to create expense',
         ),
@@ -225,6 +244,65 @@ class AddLoadExpenseCubit extends Cubit<AddLoadExpenseState> {
     } catch (error) {
       emit(
         AddLoadExpenseFailure(
+          errorMessage: error.toString(),
+        ),
+      );
+    }
+  }
+
+  /// [loadMongoId] is the load's Mongo `_id`.
+  Future<void> fetchExpenses(String loadMongoId) async {
+    try {
+      final id = loadMongoId.trim();
+      if (id.isEmpty) {
+        emit(
+          const LoadExpenseListFailure(
+            errorMessage: 'Load ID is missing',
+          ),
+        );
+        return;
+      }
+
+      emit(const LoadExpenseListLoading());
+
+      final token =
+          await SecureStorageService.instance.getAccessToken();
+
+      if (token == null || token.isEmpty) {
+        emit(
+          const LoadExpenseListFailure(
+            errorMessage: 'Please login again',
+          ),
+        );
+        return;
+      }
+
+      final response = await _networkCaller.getRequest(
+        AppUrl.getLoadExpense(id),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+      );
+
+      if (response.isSuccess && response.jsonResponse != null) {
+        final parsed = LoadExpenseListResponse.fromJson(
+          response.jsonResponse!,
+        );
+        emit(LoadExpenseListSuccess(expenses: parsed.data));
+        return;
+      }
+
+      emit(
+        LoadExpenseListFailure(
+          errorMessage: response.errorMessage ??
+              response.jsonResponse?['message']?.toString() ??
+              'Failed to load expenses',
+        ),
+      );
+    } catch (error) {
+      emit(
+        LoadExpenseListFailure(
           errorMessage: error.toString(),
         ),
       );

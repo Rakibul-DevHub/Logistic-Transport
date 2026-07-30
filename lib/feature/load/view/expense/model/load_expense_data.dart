@@ -47,10 +47,45 @@ class LoadExpenseResponse {
       data: rawData is Map<String, dynamic>
           ? LoadExpenseData.fromJson(rawData)
           : rawData is Map
-          ? LoadExpenseData.fromJson(
-        Map<String, dynamic>.from(rawData),
-      )
-          : null,
+              ? LoadExpenseData.fromJson(
+                  Map<String, dynamic>.from(rawData),
+                )
+              : null,
+    );
+  }
+}
+
+class LoadExpenseListResponse {
+  final int? code;
+  final String? message;
+  final List<LoadExpenseData> data;
+
+  const LoadExpenseListResponse({
+    this.code,
+    this.message,
+    this.data = const [],
+  });
+
+  factory LoadExpenseListResponse.fromJson(Map<String, dynamic> json) {
+    final rawData = json['data'];
+    final items = <LoadExpenseData>[];
+
+    if (rawData is List) {
+      for (final item in rawData) {
+        if (item is Map<String, dynamic>) {
+          items.add(LoadExpenseData.fromJson(item));
+        } else if (item is Map) {
+          items.add(
+            LoadExpenseData.fromJson(Map<String, dynamic>.from(item)),
+          );
+        }
+      }
+    }
+
+    return LoadExpenseListResponse(
+      code: (json['code'] as num?)?.toInt(),
+      message: json['message']?.toString(),
+      data: items,
     );
   }
 }
@@ -113,4 +148,45 @@ class LoadExpenseData {
       'updatedAt': updatedAt,
     };
   }
+
+  String get typeLabel {
+    final raw = (type ?? '').trim();
+    if (raw.isEmpty) return 'Expense';
+    return raw[0].toUpperCase() + raw.substring(1);
+  }
+
+  String get formattedAmount {
+    final value = amount ?? 0;
+    return '\$${value.toStringAsFixed(2)}';
+  }
+
+  String get formattedDate {
+    final raw = date;
+    if (raw == null || raw.isEmpty) return '—';
+    try {
+      final parsed = DateTime.parse(raw).toLocal();
+      final m = parsed.month.toString().padLeft(2, '0');
+      final d = parsed.day.toString().padLeft(2, '0');
+      return '$m/$d/${parsed.year}';
+    } catch (_) {
+      return raw;
+    }
+  }
+}
+
+/// Navigation args: API needs mongo `_id`, UI shows human `loadId`
+class ExpenseScreenArgs {
+  /// Mongo ObjectId of the load (sent as `loadId` in create/get APIs)
+  final String loadMongoId;
+
+  /// Human-readable load id shown in the UI (e.g. 790980)
+  final String displayLoadId;
+
+  final double totalExpenses;
+
+  const ExpenseScreenArgs({
+    required this.loadMongoId,
+    required this.displayLoadId,
+    this.totalExpenses = 0.0,
+  });
 }

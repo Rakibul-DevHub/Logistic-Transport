@@ -9,37 +9,29 @@ import 'package:tag/core/theme/app_text_style.dart';
 import 'package:tag/shared/components/Custom_Elevated_Button.dart';
 
 import 'controller/add_load_expense_cubit.dart';
+import 'model/load_expense_data.dart';
 
 class ExpenseScreen extends StatelessWidget {
-  final String loadId;
-  final double totalExpenses;
+  final ExpenseScreenArgs args;
 
   const ExpenseScreen({
     super.key,
-    required this.loadId,
-    this.totalExpenses = 0.0,
+    required this.args,
   });
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (_) => AddLoadExpenseCubit(),
-      child: _ExpenseView(
-        loadId: loadId,
-        totalExpenses: totalExpenses,
-      ),
+      child: _ExpenseView(args: args),
     );
   }
 }
 
 class _ExpenseView extends StatefulWidget {
-  final String loadId;
-  final double totalExpenses;
+  final ExpenseScreenArgs args;
 
-  const _ExpenseView({
-    required this.loadId,
-    required this.totalExpenses,
-  });
+  const _ExpenseView({required this.args});
 
   @override
   State<_ExpenseView> createState() => _ExpenseViewState();
@@ -191,7 +183,7 @@ class _ExpenseViewState extends State<_ExpenseView> {
     final amountText = _amountController.text.trim();
     final amount = double.tryParse(amountText);
 
-    if (widget.loadId.trim().isEmpty) {
+    if (widget.args.loadMongoId.trim().isEmpty) {
       _showError('Load ID is missing');
       return;
     }
@@ -206,7 +198,7 @@ class _ExpenseViewState extends State<_ExpenseView> {
     ).format(_selectedDate);
 
     context.read<AddLoadExpenseCubit>().createExpense(
-      loadId: widget.loadId,
+      loadId: widget.args.loadMongoId,
       type: _selectedExpenseType,
       amount: amount,
       date: apiDate,
@@ -356,7 +348,7 @@ class _ExpenseViewState extends State<_ExpenseView> {
                   style: AppTextStyle.SFProDisplay_White,
                 ),
                 TextSpan(
-                  text: 'Id #${widget.loadId}',
+                  text: 'Id #${widget.args.displayLoadId}',
                   style:
                   AppTextStyle.SFProDisplay_White.copyWith(
                     fontWeight: FontWeight.bold,
@@ -375,7 +367,7 @@ class _ExpenseViewState extends State<_ExpenseView> {
           ),
           const SizedBox(height: 4),
           Text(
-            '\$${widget.totalExpenses.toStringAsFixed(2)}',
+            '\$${widget.args.totalExpenses.toStringAsFixed(2)}',
             style: const TextStyle(
               color: Colors.white,
               fontSize: 28,

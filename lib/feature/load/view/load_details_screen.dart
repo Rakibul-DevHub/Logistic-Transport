@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
@@ -8,6 +9,8 @@ import 'package:tag/core/constants/app_routes.dart';
 import 'package:tag/core/theme/app_colors.dart';
 import 'package:tag/core/utils/app_url.dart';
 import 'package:tag/feature/bill_of_loading/model/add_load_data.dart';
+import 'package:tag/feature/load/view/expense/controller/add_load_expense_cubit.dart';
+import 'package:tag/feature/load/view/expense/model/load_expense_data.dart';
 import 'package:tag/feature/map/map_screen.dart';
 import '../../../core/theme/app_text_style.dart';
 import '../../../shared/components/Custom_Elevated_Button.dart';
@@ -26,16 +29,35 @@ class _LoadDetailsScreenState extends State<LoadDetailsScreen> {
   bool _podUploaded = false;
   File? _bolImage;
   final ImagePicker _picker = ImagePicker();
+  late final AddLoadExpenseCubit _expenseCubit;
+  List<LoadExpenseData> _expenses = [];
+  double _expenseTotal = 0;
 
   AddLoadData? get _load => widget.load;
 
   @override
   void initState() {
     super.initState();
+    _expenseCubit = AddLoadExpenseCubit();
     if (_load?.bolImage != null && _load!.bolImage!.isNotEmpty) {
       _bolUploaded = true;
     }
+    _fetchExpenses();
   }
+
+  @override
+  void dispose() {
+    _expenseCubit.close();
+    super.dispose();
+  }
+
+  Future<void> _fetchExpenses() async {
+    final mongoId = _load?.id?.trim() ?? '';
+    if (mongoId.isEmpty) return;
+    await _expenseCubit.fetchExpenses(mongoId);
+  }
+
+  String get _expenseText => '\$${_expenseTotal.toStringAsFixed(2)}';
 
   String get _loadIdText {
     final id = _load?.loadId;
@@ -409,95 +431,136 @@ class _LoadDetailsScreenState extends State<LoadDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.backgroundColor,
-      appBar: _buildAppBar(),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (_load != null) ...[
-              _buildSuccessBanner(),
-              const SizedBox(height: 10),
-            ],
-            if (!_bolUploaded)
-              _buildWarningCard(
-                label: 'BOL: Missing',
-                subtitle: 'Bill of Lading required',
-                buttonLabel: 'Upload BOL',
-                onUpload: _showImageSourceDialogForBOL,
+    return BlocProvider.value(
+      value: _expenseCubit,
+      child: BlocListener<AddLoadExpenseCubit, AddLoadExpenseState>(
+        listener: (context, state) {
+          if (state is LoadExpenseListSuccess) {
+            setState(() {
+              _expenses = state.expenses;
+              _expenseTotal = state.totalAmount;
+            });
+          } else if (state is LoadExpenseListFailure) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(state.errorMessage),
+                backgroundColor: Colors.red,
               ),
-            if (!_bolUploaded) const SizedBox(height: 8),
-            if (!_podUploaded)
-              _buildWarningCard(
-                label: 'POD: Missing',
-                subtitle: 'Proof of Delivery required',
-                buttonLabel: 'Upload POD',
-                onUpload: () => setState(() => _podUploaded = true),
-              ),
-            if (!_podUploaded) const SizedBox(height: 12),
-            _buildLoadIdCard(),
-            const SizedBox(height: 12),
-            _buildIncomeExpenseRow(),
-            const SizedBox(height: 12),
-            _buildRouteCard(),
-            const SizedBox(height: 12),
-            _buildMapPreview(),
-            const SizedBox(height: 12),
-            _buildCarrierCard(),
-            if (_notes != null) ...[
-              const SizedBox(height: 12),
-              _buildNotesCard(),
-            ],
-            const SizedBox(height: 12),
-            _buildBolScanCard(),
-            const SizedBox(height: 60),
-            CustomElevatedButton(
-              onPressed: () {
-                Navigator.pushNamed(
-                  context,
-                  AppRoutes.addExpense,
-                  arguments: _load?.id ?? '',
-                );
-              },
-              buttonText: 'Add Expense',
-              isOutlined: true,
-              borderSide: const BorderSide(),
-              backgroundColor: AppColors.whiteColor,
-              foregroundColor: AppColors.primaryColor,
-              height: 44,
-              borderRadius: BorderRadius.circular(30),
-              isFullWidth: true,
-              hasShadow: false,
-              icon: const Icon(Icons.add_circle_outline, size: 20),
-              gap: 8,
-            ),
-            const SizedBox(height: 8),
-            CustomElevatedButton(
-              onPressed: () {
-                Navigator.pushNamed(context, AppRoutes.proofOfDelivery);
-              },
-              buttonText: 'Upload POD/Signed BOL',
-              backgroundColor: AppColors.primaryColor,
-              foregroundColor: AppColors.whiteColor,
-              height: 48,
-              borderRadius: BorderRadius.circular(30),
-              isFullWidth: true,
-              hasShadow: false,
-              icon: SvgPicture.asset(
-                'assets/icons/upload.svg',
-                colorFilter: const ColorFilter.mode(
-                  AppColors.whiteColor,
-                  BlendMode.srcIn,
+            );
+          }
+        },
+        child: Scaffold(
+          backgroundColor: AppColors.backgroundColor,
+          appBar: _buildAppBar(),
+          body: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (!_bolUploaded)
+                  _buildWarningCard(
+                    label: 'BOL: Missing',
+                    subtitle: 'Bill of Lading required',
+                    buttonLabel: 'Upload BOL',
+                    onUpload: _showImageSourceDialogForBOL,
+                  ),
+                if (!_bolUploaded) const SizedBox(height: 8),
+                if (!_podUploaded)
+                  _buildWarningCard(
+                    label: 'POD: Missing',
+                    subtitle: 'Proof of Delivery required',
+                    buttonLabel: 'Upload POD',
+                    onUpload: () => setState(() => _podUploaded = true),
+                  ),
+                if (!_podUploaded) const SizedBox(height: 12),
+                _buildLoadIdCard(),
+                const SizedBox(height: 12),
+                _buildIncomeExpenseRow(),
+                if (_expenses.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  _buildExpensesSection(),
+                ],
+                const SizedBox(height: 12),
+                _buildRouteCard(),
+                const SizedBox(height: 12),
+                _buildMapPreview(),
+                const SizedBox(height: 12),
+                _buildCarrierCard(),
+                if (_notes != null) ...[
+                  const SizedBox(height: 12),
+                  _buildNotesCard(),
+                ],
+                const SizedBox(height: 12),
+                _buildBolScanCard(),
+                const SizedBox(height: 60),
+                CustomElevatedButton(
+                  onPressed: () async {
+                    final mongoId = _load?.id?.trim() ?? '';
+                    final displayId = _load?.loadId?.trim() ?? '';
+                    if (mongoId.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Load ID is missing'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                      return;
+                    }
+
+                    await Navigator.pushNamed(
+                      context,
+                      AppRoutes.addExpense,
+                      arguments: ExpenseScreenArgs(
+                        loadMongoId: mongoId,
+                        displayLoadId:
+                            displayId.isNotEmpty ? displayId : mongoId,
+                        totalExpenses: _expenseTotal,
+                      ),
+                    );
+
+                    if (mounted) {
+                      await _fetchExpenses();
+                    }
+                  },
+                  buttonText: 'Add Expense',
+                  isOutlined: true,
+                  borderSide: const BorderSide(),
+                  backgroundColor: AppColors.whiteColor,
+                  foregroundColor: AppColors.primaryColor,
+                  height: 44,
+                  borderRadius: BorderRadius.circular(30),
+                  isFullWidth: true,
+                  hasShadow: false,
+                  icon: const Icon(Icons.add_circle_outline, size: 20),
+                  gap: 8,
                 ),
-              ),
-              gap: 8,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
+                const SizedBox(height: 8),
+                CustomElevatedButton(
+                  onPressed: () {
+                    Navigator.pushNamed(context, AppRoutes.proofOfDelivery);
+                  },
+                  buttonText: 'Upload POD/Signed BOL',
+                  backgroundColor: AppColors.primaryColor,
+                  foregroundColor: AppColors.whiteColor,
+                  height: 48,
+                  borderRadius: BorderRadius.circular(30),
+                  isFullWidth: true,
+                  hasShadow: false,
+                  icon: SvgPicture.asset(
+                    'assets/icons/upload.svg',
+                    colorFilter: const ColorFilter.mode(
+                      AppColors.whiteColor,
+                      BlendMode.srcIn,
+                    ),
+                  ),
+                  gap: 8,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+                const SizedBox(height: 100),
+              ],
             ),
-            const SizedBox(height: 100),
-          ],
+          ),
         ),
       ),
     );
@@ -523,29 +586,6 @@ class _LoadDetailsScreenState extends State<LoadDetailsScreen> {
         ),
       ),
       centerTitle: true,
-    );
-  }
-
-  Widget _buildSuccessBanner() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: AppColors.lightBlueColor,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.lightBlueColor),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.check_circle, color: AppColors.primaryColor, size: 18),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              'Load created successfully',
-              style: AppTextStyle.SFProDisplay_Regular,
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -748,9 +788,9 @@ class _LoadDetailsScreenState extends State<LoadDetailsScreen> {
                   ],
                 ),
                 const SizedBox(height: 6),
-                const Text(
-                  '\$0.00',
-                  style: TextStyle(
+                Text(
+                  _expenseText,
+                  style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w700,
                     color: Color(0xFF1A1A2E),
@@ -761,6 +801,125 @@ class _LoadDetailsScreenState extends State<LoadDetailsScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildExpensesSection() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: _cardDecoration(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.receipt_long_outlined,
+                  size: 16, color: AppColors.primaryColor),
+              const SizedBox(width: 6),
+              Text(
+                'Expenses',
+                style: AppTextStyle.SFProDisplay_Regular.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '${_expenses.length} item${_expenses.length == 1 ? '' : 's'}',
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Color(0xFF6B7280),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ...List.generate(_expenses.length, (index) {
+            final expense = _expenses[index];
+            final isLast = index == _expenses.length - 1;
+            return Padding(
+              padding: EdgeInsets.only(bottom: isLast ? 0 : 10),
+              child: _buildExpenseCard(expense),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildExpenseCard(LoadExpenseData expense) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: AppColors.primaryColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              Icons.local_gas_station_outlined,
+              color: AppColors.primaryColor,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  expense.typeLabel,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF1E293B),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  expense.formattedDate,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+                if (expense.notes != null &&
+                    expense.notes!.trim().isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    expense.notes!.trim(),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF64748B),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          Text(
+            expense.formattedAmount,
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF1E293B),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
