@@ -14,6 +14,7 @@ import 'package:tag/feature/load/view/expense/model/load_expense_data.dart';
 import 'package:tag/feature/map/map_screen.dart';
 import '../../../core/theme/app_text_style.dart';
 import '../../../shared/components/Custom_Elevated_Button.dart';
+import '../../../shared/widget/immersive_safe_area.dart';
 
 class LoadDetailsScreen extends StatefulWidget {
   final AddLoadData? load;
@@ -449,21 +450,23 @@ class _LoadDetailsScreenState extends State<LoadDetailsScreen> {
             );
           }
         },
-        child: Scaffold(
-          backgroundColor: AppColors.backgroundColor,
-          appBar: _buildAppBar(),
-          body: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (!_bolUploaded)
-                  _buildWarningCard(
-                    label: 'BOL: Missing',
-                    subtitle: 'Bill of Lading required',
-                    buttonLabel: 'Upload BOL',
-                    onUpload: _showImageSourceDialogForBOL,
-                  ),
+        child: MediaQuery(
+          data: withImmersiveSafePadding(context),
+          child: Scaffold(
+            backgroundColor: AppColors.backgroundColor,
+            appBar: _buildAppBar(),
+            body: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (!_bolUploaded)
+                    _buildWarningCard(
+                      label: 'BOL: Missing',
+                      subtitle: 'Bill of Lading required',
+                      buttonLabel: 'Upload BOL',
+                      onUpload: _showImageSourceDialogForBOL,
+                    ),
                 if (!_bolUploaded) const SizedBox(height: 8),
                 if (!_podUploaded)
                   _buildWarningCard(
@@ -561,6 +564,7 @@ class _LoadDetailsScreenState extends State<LoadDetailsScreen> {
               ],
             ),
           ),
+        ),
         ),
       ),
     );

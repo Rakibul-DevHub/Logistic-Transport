@@ -5,6 +5,7 @@ import 'package:table_calendar/table_calendar.dart';
 import 'package:intl/intl.dart';
 import 'package:tag/core/theme/app_colors.dart';
 import 'package:tag/core/theme/app_text_style.dart';
+import 'package:tag/shared/widget/immersive_safe_area.dart';
 
 class ReportScreen extends StatefulWidget {
   const ReportScreen({super.key});
@@ -248,7 +249,7 @@ class _ReportScreenState extends State<ReportScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF4F7F9),
-      body: SafeArea(
+      body: ImmersiveSafeArea(
         child: Stack(
           children: [
             SingleChildScrollView(

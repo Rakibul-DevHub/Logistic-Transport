@@ -147,6 +147,7 @@ class NavItem {
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../core/constants/app_routes.dart';
+import 'immersive_safe_area.dart';
 
 class BottomNav extends StatefulWidget {
   const BottomNav({super.key});
@@ -202,12 +203,16 @@ class BottomNavState extends State<BottomNav> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: IndexedStack(
-        index: _selectedIndex,
-        children: _screens,
+    // Restore notch/camera insets for tab screens (immersiveSticky zeroes padding).
+    return MediaQuery(
+      data: withImmersiveSafePadding(context),
+      child: Scaffold(
+        body: IndexedStack(
+          index: _selectedIndex,
+          children: _screens,
+        ),
+        bottomNavigationBar: _buildBottomNav(),
       ),
-      bottomNavigationBar: _buildBottomNav(),
     );
   }
 

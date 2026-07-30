@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:developer' as developer;
 import '../../../feature/bill_of_loading/cubit/bill_of_loading_scan_cubit.dart';
 import '../../../feature/bill_of_loading/scan_bill_of_loading.dart';
+import '../../../shared/widget/immersive_safe_area.dart';
 
 class CameraScanScreen extends StatefulWidget {
   const CameraScanScreen({super.key});
@@ -162,69 +163,72 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
+    return MediaQuery(
+      data: withImmersiveSafePadding(context),
+      child: Scaffold(
         backgroundColor: Colors.black,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () {
-            if (_isDialogShowing) {
+        appBar: AppBar(
+          backgroundColor: Colors.black,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.white),
+            onPressed: () {
+              if (_isDialogShowing) {
+                Navigator.pop(context);
+              }
               Navigator.pop(context);
-            }
-            Navigator.pop(context);
-          },
-        ),
-        title: const Text(
-          'Scan Document',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
+            },
           ),
+          title: const Text(
+            'Scan Document',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          centerTitle: true,
         ),
-        centerTitle: true,
-      ),
-      body: Center(
-        child: _isLoading
-            ? const Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(color: Colors.white),
-                  SizedBox(height: 16),
-                  Text(
-                    'Loading image...',
-                    style: TextStyle(color: Colors.white70, fontSize: 14),
-                  ),
-                ],
-              )
-            : Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.camera_alt, size: 80, color: Colors.white54),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Select an option to continue',
-                    style: TextStyle(color: Colors.white70, fontSize: 16),
-                  ),
-                  const SizedBox(height: 24),
-                  ElevatedButton.icon(
-                    onPressed: () => _showImageSourceDialog(),
-                    icon: const Icon(Icons.add_photo_alternate),
-                    label: const Text('Choose Image Source'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: Colors.black,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 32, vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30),
+        body: Center(
+          child: _isLoading
+              ? const Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(color: Colors.white),
+                    SizedBox(height: 16),
+                    Text(
+                      'Loading image...',
+                      style: TextStyle(color: Colors.white70, fontSize: 14),
+                    ),
+                  ],
+                )
+              : Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.camera_alt, size: 80, color: Colors.white54),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Select an option to continue',
+                      style: TextStyle(color: Colors.white70, fontSize: 16),
+                    ),
+                    const SizedBox(height: 24),
+                    ElevatedButton.icon(
+                      onPressed: () => _showImageSourceDialog(),
+                      icon: const Icon(Icons.add_photo_alternate),
+                      label: const Text('Choose Image Source'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 32, vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(30),
+                        ),
                       ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
+        ),
       ),
     );
   }
@@ -516,27 +520,29 @@ class _OCRLoadingScreenState extends State<OCRLoadingScreen> {
           Navigator.of(this.context).pop();
         }
       },
-      child: Scaffold(
-        backgroundColor: Colors.white,
-        appBar: AppBar(
+      child: MediaQuery(
+        data: withImmersiveSafePadding(context),
+        child: Scaffold(
           backgroundColor: Colors.white,
-          elevation: 0,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.black),
-            onPressed: _handleBackPress,
-            tooltip: 'Cancel processing',
-          ),
-          title: const Text(
-            'Processing Document',
-            style: TextStyle(
-              color: Colors.black,
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
+          appBar: AppBar(
+            backgroundColor: Colors.white,
+            elevation: 0,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back, color: Colors.black),
+              onPressed: _handleBackPress,
+              tooltip: 'Cancel processing',
             ),
+            title: const Text(
+              'Processing Document',
+              style: TextStyle(
+                color: Colors.black,
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            centerTitle: true,
           ),
-          centerTitle: true,
-        ),
-        body: BlocConsumer<ScanBolCubit, ScanBolState>(
+          body: BlocConsumer<ScanBolCubit, ScanBolState>(
           listener: (context, state) {
             if (_didCancel) return;
 
@@ -699,6 +705,7 @@ class _OCRLoadingScreenState extends State<OCRLoadingScreen> {
               ),
             );
           },
+        ),
         ),
       ),
     );

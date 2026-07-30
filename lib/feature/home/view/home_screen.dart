@@ -601,6 +601,7 @@ import '../../../shared/widget/bottom_nav.dart';
 import '../../../shared/widget/build_action_button.dart';
 import '../../../shared/widget/build_load_card.dart';
 import '../../../shared/widget/build_status_card.dart';
+import '../../../shared/widget/immersive_safe_area.dart';
 import '../../../shared/widget/subscription_modal_widget.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -696,7 +697,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FC),
-      body: const SafeArea(
+      body: const ImmersiveSafeArea(
         child: _HomeContent(),
       ),
     );

@@ -3,13 +3,26 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:tag/core/theme/app_colors.dart';
 import 'package:tag/core/theme/app_text_style.dart';
 import 'package:tag/shared/components/Custom_Elevated_Button.dart';
 
+import '../../../../shared/widget/immersive_safe_area.dart';
 import 'controller/add_load_expense_cubit.dart';
 import 'model/load_expense_data.dart';
+
+class _ExpenseTypeOption {
+  final String label;
+  final String iconAsset;
+
+  const _ExpenseTypeOption({
+    required this.label,
+    required this.iconAsset,
+  });
+}
 
 class ExpenseScreen extends StatelessWidget {
   final ExpenseScreenArgs args;
@@ -50,21 +63,30 @@ class _ExpenseViewState extends State<_ExpenseView> {
   DateTime _selectedDate = DateTime.now();
   File? _receiptFile;
 
-  static const List<String> _expenseTypes = [
-    'Fuel',
-    'Toll',
-    'Maintenance',
-    'Repair',
-    'Food',
-    'Accommodation',
-    'Other',
+  static const List<_ExpenseTypeOption> _expenseTypes = [
+    _ExpenseTypeOption(
+      label: 'Fuel',
+      iconAsset: 'assets/icons/fuel_station.svg',
+    ),
+    _ExpenseTypeOption(
+      label: 'Toll',
+      iconAsset: 'assets/icons/truck_tolls.svg',
+    ),
+    _ExpenseTypeOption(
+      label: 'Maintenance',
+      iconAsset: 'assets/icons/maintenance_truck.svg',
+    ),
+    _ExpenseTypeOption(
+      label: 'Other',
+      iconAsset: 'assets/icons/others_cost.svg',
+    ),
   ];
 
-  static const Color primaryDark = Color(0xFF1F3555);
+
   static const Color screenBg = Color(0xFFE7ECF2);
   static const Color fieldFill = Color(0xFFF3F3F3);
   static const Color labelGray = Color(0xFF95A0AF);
-  static const Color textDark = Color(0xFF1F3555);
+
   static const Color receiptBorder = Color(0xFFD1D9E6);
   static const Color receiptFill = Color(0xFFEDF0F5);
 
@@ -85,9 +107,9 @@ class _ExpenseViewState extends State<_ExpenseView> {
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: const ColorScheme.light(
-              primary: primaryDark,
+              primary: AppColors.primaryColor,
               onPrimary: Colors.white,
-              onSurface: primaryDark,
+              onSurface: AppColors.primaryColor,
             ),
           ),
           child: child!,
@@ -120,7 +142,7 @@ class _ExpenseViewState extends State<_ExpenseView> {
                   ListTile(
                     leading: const Icon(
                       Icons.camera_alt_outlined,
-                      color: primaryDark,
+                      color: AppColors.primaryColor,
                     ),
                     title: const Text('Take a photo'),
                     onTap: () {
@@ -133,7 +155,7 @@ class _ExpenseViewState extends State<_ExpenseView> {
                   ListTile(
                     leading: const Icon(
                       Icons.photo_library_outlined,
-                      color: primaryDark,
+                      color: AppColors.primaryColor,
                     ),
                     title: const Text('Choose from gallery'),
                     onTap: () {
@@ -255,41 +277,44 @@ class _ExpenseViewState extends State<_ExpenseView> {
         final isLoading =
         state is AddLoadExpenseLoading;
 
-        return Scaffold(
-          backgroundColor: screenBg,
-          appBar: _buildAppBar(isLoading),
-          body: AbsorbPointer(
-            absorbing: isLoading,
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment:
-                CrossAxisAlignment.start,
-                children: [
-                  _buildCurrentTripCard(),
-                  const SizedBox(height: 24),
-                  _buildExpenseTypeSection(),
-                  const SizedBox(height: 20),
-                  Row(
-                    crossAxisAlignment:
-                    CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: _buildAmountSection(),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: _buildDateSection(),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  _buildReceiptUploadSection(),
-                  const SizedBox(height: 24),
-                  _buildNotesSection(),
-                  const SizedBox(height: 32),
-                  _buildSaveButton(state),
-                ],
+        return MediaQuery(
+          data: withImmersiveSafePadding(context),
+          child: Scaffold(
+            backgroundColor: screenBg,
+            appBar: _buildAppBar(isLoading),
+            body: AbsorbPointer(
+              absorbing: isLoading,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment:
+                  CrossAxisAlignment.start,
+                  children: [
+                    _buildCurrentTripCard(),
+                    const SizedBox(height: 24),
+                    _buildExpenseTypeSection(),
+                    const SizedBox(height: 20),
+                    Row(
+                      crossAxisAlignment:
+                      CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: _buildAmountSection(),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: _buildDateSection(),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    _buildReceiptUploadSection(),
+                    const SizedBox(height: 24),
+                    _buildNotesSection(),
+                    const SizedBox(height: 32),
+                    _buildSaveButton(state),
+                  ],
+                ),
               ),
             ),
           ),
@@ -300,20 +325,20 @@ class _ExpenseViewState extends State<_ExpenseView> {
 
   PreferredSizeWidget _buildAppBar(bool isLoading) {
     return AppBar(
-      backgroundColor: Colors.white,
+      backgroundColor: screenBg,
       elevation: 0,
       leading: IconButton(
         onPressed:
         isLoading ? null : () => Navigator.pop(context),
         icon: const Icon(
           Icons.arrow_back,
-          color: primaryDark,
+          color: AppColors.primaryColor,
         ),
       ),
       title: const Text(
         'Add Expense',
         style: TextStyle(
-          color: primaryDark,
+          color: AppColors.primaryColor,
           fontSize: 20,
           fontWeight: FontWeight.bold,
         ),
@@ -334,7 +359,7 @@ class _ExpenseViewState extends State<_ExpenseView> {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: primaryDark,
+        color: AppColors.primaryColor,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -393,8 +418,7 @@ class _ExpenseViewState extends State<_ExpenseView> {
         ),
         const SizedBox(height: 8),
         Container(
-          padding:
-          const EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
           decoration: BoxDecoration(
             color: fieldFill,
             borderRadius: BorderRadius.circular(8),
@@ -410,13 +434,21 @@ class _ExpenseViewState extends State<_ExpenseView> {
               style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
-                color: textDark,
+                color: AppColors.primaryColor,
               ),
               dropdownColor: Colors.white,
-              items: _expenseTypes.map((type) {
+              selectedItemBuilder: (context) {
+                return _expenseTypes.map((option) {
+                  return Align(
+                    alignment: Alignment.centerLeft,
+                    child: _buildExpenseTypeRow(option),
+                  );
+                }).toList();
+              },
+              items: _expenseTypes.map((option) {
                 return DropdownMenuItem(
-                  value: type,
-                  child: Text(type),
+                  value: option.label,
+                  child: _buildExpenseTypeRow(option),
                 );
               }).toList(),
               onChanged: (value) {
@@ -427,6 +459,31 @@ class _ExpenseViewState extends State<_ExpenseView> {
                 }
               },
             ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildExpenseTypeRow(_ExpenseTypeOption option) {
+    return Row(
+      children: [
+        SvgPicture.asset(
+          option.iconAsset,
+          width: 22,
+          height: 22,
+          colorFilter: const ColorFilter.mode(
+            AppColors.primaryColor,
+            BlendMode.srcIn,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Text(
+          option.label,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+            color: AppColors.primaryColor,
           ),
         ),
       ],
@@ -478,7 +535,7 @@ class _ExpenseViewState extends State<_ExpenseView> {
                   ],
                   style: const TextStyle(
                     fontSize: 16,
-                    color: textDark,
+                    color: AppColors.primaryColor,
                   ),
                   decoration: const InputDecoration(
                     hintText: '0.00',
@@ -533,7 +590,7 @@ class _ExpenseViewState extends State<_ExpenseView> {
                     maxLines: 1,
                     style: const TextStyle(
                       fontSize: 14,
-                      color: textDark,
+                      color: AppColors.primaryColor,
                     ),
                   ),
                 ),
@@ -621,7 +678,7 @@ class _ExpenseViewState extends State<_ExpenseView> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      color: textDark,
+                      color: AppColors.primaryColor,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -664,7 +721,7 @@ class _ExpenseViewState extends State<_ExpenseView> {
             maxLines: 3,
             style: const TextStyle(
               fontSize: 14,
-              color: textDark,
+              color: AppColors.primaryColor,
             ),
             decoration: const InputDecoration(
               hintText:
@@ -691,10 +748,10 @@ class _ExpenseViewState extends State<_ExpenseView> {
     return CustomElevatedButton(
       onPressed: isLoading ? null : _saveExpense,
       buttonText: buttonText,
-      backgroundColor: primaryDark,
+      backgroundColor: AppColors.primaryColor,
       foregroundColor: Colors.white,
       disabledBackgroundColor:
-      primaryDark.withOpacity(0.6),
+      AppColors.primaryColor.withOpacity(0.6),
       width: double.infinity,
       height: 56,
       elevation: 0,
