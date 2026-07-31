@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:tag/core/constants/app_routes.dart';
+import 'package:tag/core/network/auth_session.dart';
+import 'package:tag/core/network/secure_storage_service.dart';
 import 'package:tag/core/theme/app_colors.dart';
 import 'package:tag/core/utils/app_url.dart';
 import 'package:tag/feature/profile/view/account_settings/model/account_settings_data.dart';
@@ -66,10 +68,35 @@ class _ProfileContent extends StatefulWidget {
 
 class _ProfileContentState extends State<_ProfileContent>
     with WidgetsBindingObserver {
+  /// true = owner → show Manage Drivers + Accountant
+  /// false = not owner → hide them
+  bool _isParentDriver = false;
+  bool _roleLoaded = false;
+
+  bool get _showOwnerMenuItems =>
+      _roleLoaded && _isParentDriver == true;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _resolveParentDriverFlag();
+  }
+
+  Future<void> _resolveParentDriverFlag() async {
+    bool isParent;
+    if (AuthSession.isParentDriver != null) {
+      isParent = AuthSession.isParentDriver!;
+    } else {
+      isParent = await SecureStorageService.instance.getIsParentDriver();
+      AuthSession.isParentDriver = isParent;
+      AuthSession.isOwner = isParent;
+    }
+    if (!mounted) return;
+    setState(() {
+      _isParentDriver = isParent;
+      _roleLoaded = true;
+    });
   }
 
   @override
@@ -144,22 +171,24 @@ class _ProfileContentState extends State<_ProfileContent>
                 });
               },
             ),
-            _buildMenuItem(
-              iconPath: 'assets/icons/manage_drivers.svg',
-              title: 'Manage Drivers',
-              subtitle: 'Add, remove Drivers',
-              onTap: () {
-                Navigator.pushNamed(context, AppRoutes.drivers);
-              },
-            ),
-            _buildMenuItem(
-              iconPath: 'assets/icons/accountant.svg',
-              title: 'Accountant',
-              subtitle: 'Contact Accountant',
-              onTap: () {
-                Navigator.pushNamed(context, AppRoutes.sendToAccountantScreen);
-              },
-            ),
+            if (_showOwnerMenuItems) ...[
+              _buildMenuItem(
+                iconPath: 'assets/icons/manage_drivers.svg',
+                title: 'Manage Drivers',
+                subtitle: 'Add, remove Drivers',
+                onTap: () {
+                  Navigator.pushNamed(context, AppRoutes.drivers);
+                },
+              ),
+              _buildMenuItem(
+                iconPath: 'assets/icons/accountant.svg',
+                title: 'Accountant',
+                subtitle: 'Contact Accountant',
+                onTap: () {
+                  Navigator.pushNamed(context, AppRoutes.sendToAccountantScreen);
+                },
+              ),
+            ],
             _buildMenuItem(
               iconPath: 'assets/icons/subscription.svg',
               title: 'Subscription',

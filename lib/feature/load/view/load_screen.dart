@@ -1,6 +1,8 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:tag/core/network/auth_session.dart';
+import 'package:tag/core/network/secure_storage_service.dart';
 import 'package:tag/core/theme/app_colors.dart';
 import 'package:tag/feature/profile/view/manage_drivers/cubit/driver_screen_cubit.dart';
 
@@ -105,6 +107,11 @@ class _LoadScreenState extends State<LoadScreen> {
   /// Dropdown shown only when search is fully collapsed (avoids overflow)
   bool _showDropdown = true;
 
+  /// true = owner → show search + driver dropdown
+  /// false = not owner → hide them
+  bool _isParentDriver = false;
+  bool _roleLoaded = false;
+
   late final List<LoadModel> _allLoads;
   late List<LoadModel> _filteredLoads;
   List<String> _driverList = const ['All Drivers'];
@@ -123,22 +130,47 @@ class _LoadScreenState extends State<LoadScreen> {
 
   static const Duration _animDuration = Duration(milliseconds: 280);
 
+  bool get _showOwnerFilters => _roleLoaded && _isParentDriver == true;
+
   @override
   void initState() {
     super.initState();
     _allLoads = LoadData.getLoads();
     _filteredLoads = _allLoads;
+    _resolveParentDriverFlag();
+  }
 
-    // Prefer cached API drivers; fall back to names from sample loads
-    if (_driverService.hasCache) {
-      _driverList = ['All Drivers', ..._driverService.cachedDriverNames];
+  Future<void> _resolveParentDriverFlag() async {
+    bool isParent;
+    if (AuthSession.isParentDriver != null) {
+      isParent = AuthSession.isParentDriver!;
     } else {
-      final fromLoads =
-          _allLoads.map((load) => load.driverName).toSet().toList()..sort();
-      _driverList = ['All Drivers', ...fromLoads];
+      isParent = await SecureStorageService.instance.getIsParentDriver();
+      AuthSession.isParentDriver = isParent;
+      AuthSession.isOwner = isParent;
     }
 
-    _loadDriverNamesFromService();
+    if (!mounted) return;
+    setState(() {
+      _isParentDriver = isParent;
+      _roleLoaded = true;
+    });
+
+    // Driver search / dropdown only needed for owners.
+    if (isParent) {
+      if (_driverService.hasCache) {
+        setState(() {
+          _driverList = ['All Drivers', ..._driverService.cachedDriverNames];
+        });
+      } else {
+        final fromLoads =
+            _allLoads.map((load) => load.driverName).toSet().toList()..sort();
+        setState(() {
+          _driverList = ['All Drivers', ...fromLoads];
+        });
+      }
+      _loadDriverNamesFromService();
+    }
   }
 
   Future<void> _loadDriverNamesFromService() async {
@@ -385,11 +417,13 @@ class _LoadScreenState extends State<LoadScreen> {
         padding: const EdgeInsets.only(top: 60.0, bottom: 20),
         child: Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: _buildSearchAndDropdownRow(),
-            ),
-            const SizedBox(height: 16),
+            if (_showOwnerFilters) ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: _buildSearchAndDropdownRow(),
+              ),
+              const SizedBox(height: 16),
+            ],
             RepaintBoundary(
               child: Container(
                 margin: const EdgeInsets.symmetric(horizontal: 16),
