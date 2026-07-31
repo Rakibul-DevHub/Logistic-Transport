@@ -113,7 +113,7 @@ Widget buildLoadCard({
                     amount,
                     style: const TextStyle(
                       fontSize: 18,
-                      fontWeight: FontWeight.normal,
+                      fontWeight: FontWeight.bold,
                       color: AppColors.primaryTextColor,
                     ),
                   ),
