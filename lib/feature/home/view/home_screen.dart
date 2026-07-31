@@ -1,10 +1,14 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:tag/core/constants/app_routes.dart';
 import 'package:tag/core/network/auth_session.dart';
 import 'package:tag/core/network/secure_storage_service.dart';
 import 'package:tag/core/theme/app_colors.dart';
+import 'package:tag/feature/bill_of_loading/model/add_load_data.dart';
+import 'package:tag/feature/load/cubit/load_list_cubit.dart';
+import 'package:tag/feature/load/view/load_details_screen.dart';
 import '../../../shared/widget/bottom_nav.dart';
 import '../../../shared/widget/build_action_button.dart';
 import '../../../shared/widget/build_load_card.dart';
@@ -28,6 +32,8 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isParentDriver = false;
   bool _roleLoaded = false;
 
+  late final HomeLoadsCubit _homeLoadsCubit;
+
   /// Pre-calculate status data to avoid recreation on every build
   static final List<_StatusData> _statusData = [
     _StatusData(
@@ -50,48 +56,10 @@ class _HomeScreenState extends State<HomeScreen> {
     ),
   ];
 
-  // Static sample data - move to BLoC/Cubit in production
-  static const List<_LoadData> _assignedLoads = [
-    _LoadData(
-      loadNumber: '#LD-8829',
-      company: 'Amazon Logistics',
-      date: 'Oct 24, 2023',
-      status: 'Missing POD',
-      statusColor: AppColors.waiting,
-      amount: '+\$850',
-    ),
-    _LoadData(
-      loadNumber: '#LD-8829',
-      company: 'Amazon Logistics',
-      date: 'Oct 24, 2023',
-      status: 'Delivered',
-      statusColor: AppColors.assigned,
-      amount: '+\$850',
-    ),
-  ];
-
-  static const List<_LoadData> _myLoads = [
-    _LoadData(
-      loadNumber: '#LD-8829',
-      company: 'Amazon Logistics',
-      date: 'Oct 24, 2023',
-      status: 'Delivered',
-      statusColor: AppColors.assigned,
-      amount: '+\$850',
-    ),
-    _LoadData(
-      loadNumber: '#LD-8829',
-      company: 'Amazon Logistics',
-      date: 'Oct 24, 2023',
-      status: 'Delivered',
-      statusColor: AppColors.assigned,
-      amount: '+\$850',
-    ),
-  ];
-
   @override
   void initState() {
     super.initState();
+    _homeLoadsCubit = HomeLoadsCubit();
     _resolveParentDriverFlag();
     _subscriptionTimer = Timer(const Duration(seconds: 2), () {
       if (mounted && !_hasShownSubscription) {
@@ -103,30 +71,29 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _resolveParentDriverFlag() async {
     // 1) Prefer in-memory value set at login (most reliable).
+    bool isParent;
     if (AuthSession.isParentDriver != null) {
-      if (!mounted) return;
-      setState(() {
-        _isParentDriver = AuthSession.isParentDriver!;
-        _roleLoaded = true;
-      });
-      return;
+      isParent = AuthSession.isParentDriver!;
+    } else {
+      // 2) Fallback to secure storage (app restart / splash path).
+      isParent = await SecureStorageService.instance.getIsParentDriver();
+      AuthSession.isParentDriver = isParent;
+      AuthSession.isOwner = isParent;
     }
 
-    // 2) Fallback to secure storage (app restart / splash path).
-    final isParent =
-        await SecureStorageService.instance.getIsParentDriver();
-    AuthSession.isParentDriver = isParent;
-    AuthSession.isOwner = isParent;
     if (!mounted) return;
     setState(() {
       _isParentDriver = isParent;
       _roleLoaded = true;
     });
+
+    _homeLoadsCubit.fetchPreviews(includeAssigned: isParent);
   }
 
   @override
   void dispose() {
     _subscriptionTimer?.cancel();
+    _homeLoadsCubit.close();
     super.dispose();
   }
 
@@ -136,16 +103,19 @@ class _HomeScreenState extends State<HomeScreen> {
     // isParentDriver == false → not owner → HIDE Assigned Load
     final showAssignedLoad = _roleLoaded && _isParentDriver == true;
 
-    return Scaffold(
-      backgroundColor: AppColors.backgroundColor,
-      body: ImmersiveSafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return _HomeContent(
-              showAssignedLoad: showAssignedLoad,
-              maxWidth: constraints.maxWidth,
-            );
-          },
+    return BlocProvider.value(
+      value: _homeLoadsCubit,
+      child: Scaffold(
+        backgroundColor: AppColors.backgroundColor,
+        body: ImmersiveSafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return _HomeContent(
+                showAssignedLoad: showAssignedLoad,
+                maxWidth: constraints.maxWidth,
+              );
+            },
+          ),
         ),
       ),
     );
@@ -520,23 +490,31 @@ class _AssignedLoadSection extends StatelessWidget {
         _SectionHeader(
           title: 'Assigned Load',
           onSeeAll: () {
-            // Switch to the Load tab (index 1) via bottom nav
             context.findAncestorStateOfType<BottomNavState>()?.switchTab(1);
           },
         ),
         const SizedBox(height: 12),
-        ..._HomeScreenState._assignedLoads.map(
-              (load) => Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: buildLoadCard(
-              loadNumber: load.loadNumber,
-              company: load.company,
-              date: load.date,
-              status: load.status,
-              statusColor: load.statusColor,
-              amount: load.amount,
-            ),
-          ),
+        BlocBuilder<HomeLoadsCubit, HomeLoadsState>(
+          builder: (context, state) {
+            if (state is HomeLoadsLoading || state is HomeLoadsInitial) {
+              return const _HomeLoadsShimmer();
+            }
+            if (state is HomeLoadsFailure) {
+              return _HomeLoadsError(message: state.errorMessage);
+            }
+            if (state is HomeLoadsSuccess) {
+              if (state.assignedLoads.isEmpty) {
+                return const _HomeLoadsEmpty(label: 'No assigned loads');
+              }
+              return Column(
+                children: state.assignedLoads
+                    .take(2)
+                    .map((load) => _HomeLoadCardItem(load: load))
+                    .toList(),
+              );
+            }
+            return const SizedBox.shrink();
+          },
         ),
       ],
     );
@@ -558,25 +536,134 @@ class _MyLoadsSection extends StatelessWidget {
         _SectionHeader(
           title: 'My Loads',
           onSeeAll: () {
-            // Switch to the Load tab (index 1) via bottom nav
             context.findAncestorStateOfType<BottomNavState>()?.switchTab(1);
           },
         ),
         const SizedBox(height: 12),
-        ..._HomeScreenState._myLoads.map(
-              (load) => Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: buildLoadCard(
-              loadNumber: load.loadNumber,
-              company: load.company,
-              date: load.date,
-              status: load.status,
-              statusColor: load.statusColor,
-              amount: load.amount,
-            ),
-          ),
+        BlocBuilder<HomeLoadsCubit, HomeLoadsState>(
+          builder: (context, state) {
+            if (state is HomeLoadsLoading || state is HomeLoadsInitial) {
+              return const _HomeLoadsShimmer();
+            }
+            if (state is HomeLoadsFailure) {
+              return _HomeLoadsError(message: state.errorMessage);
+            }
+            if (state is HomeLoadsSuccess) {
+              if (state.myLoads.isEmpty) {
+                return const _HomeLoadsEmpty(label: 'No loads yet');
+              }
+              return Column(
+                children: state.myLoads
+                    .take(2)
+                    .map((load) => _HomeLoadCardItem(load: load))
+                    .toList(),
+              );
+            }
+            return const SizedBox.shrink();
+          },
         ),
       ],
+    );
+  }
+}
+
+class _HomeLoadCardItem extends StatelessWidget {
+  const _HomeLoadCardItem({required this.load});
+
+  final AddLoadData load;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: GestureDetector(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => LoadDetailsScreen(load: load),
+            ),
+          );
+        },
+        child: buildLoadCard(
+          loadNumber: LoadDisplayHelper.loadNumber(load),
+          company: LoadDisplayHelper.company(load),
+          date: LoadDisplayHelper.formattedDate(load),
+          status: LoadDisplayHelper.statusLabel(load),
+          statusColor: LoadDisplayHelper.statusColor(load),
+          amount: LoadDisplayHelper.amount(load),
+        ),
+      ),
+    );
+  }
+}
+
+class _HomeLoadsShimmer extends StatelessWidget {
+  const _HomeLoadsShimmer();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 24),
+      child: Center(
+        child: SizedBox(
+          width: 24,
+          height: 24,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      ),
+    );
+  }
+}
+
+class _HomeLoadsEmpty extends StatelessWidget {
+  const _HomeLoadsEmpty({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontSize: 13,
+          color: AppColors.secondaryTextColor,
+        ),
+      ),
+    );
+  }
+}
+
+class _HomeLoadsError extends StatelessWidget {
+  const _HomeLoadsError({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(fontSize: 12, color: Colors.red),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              final isParent = AuthSession.isParentDriver == true;
+              context.read<HomeLoadsCubit>().fetchPreviews(
+                    includeAssigned: isParent,
+                  );
+            },
+            child: const Text('Retry'),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -645,23 +732,5 @@ class _StatusData {
     required this.count,
     required this.icon,
     required this.color,
-  });
-}
-
-class _LoadData {
-  final String loadNumber;
-  final String company;
-  final String date;
-  final String status;
-  final Color statusColor;
-  final String amount;
-
-  const _LoadData({
-    required this.loadNumber,
-    required this.company,
-    required this.date,
-    required this.status,
-    required this.statusColor,
-    required this.amount,
   });
 }

@@ -36,6 +36,22 @@ class SubscriptionFailure extends SubscriptionState {
   List<Object?> get props => [errorMessage];
 }
 
+/// Result of starting a Stripe checkout purchase.
+class PurchaseCheckoutResult {
+  final String? checkoutUrl;
+  final String? errorMessage;
+  final bool alreadyHasActivePlan;
+
+  const PurchaseCheckoutResult({
+    this.checkoutUrl,
+    this.errorMessage,
+    this.alreadyHasActivePlan = false,
+  });
+
+  bool get isSuccess =>
+      checkoutUrl != null && checkoutUrl!.isNotEmpty;
+}
+
 /// ==================== CUBIT ====================
 class SubscriptionCubit extends Cubit<SubscriptionState> {
   final NetworkCallerDio _networkCaller = NetworkCallerDio();
@@ -326,6 +342,22 @@ class SubscriptionFailure extends SubscriptionState {
   List<Object?> get props => [errorMessage];
 }
 
+/// Result of starting a Stripe checkout purchase.
+class PurchaseCheckoutResult {
+  final String? checkoutUrl;
+  final String? errorMessage;
+  final bool alreadyHasActivePlan;
+
+  const PurchaseCheckoutResult({
+    this.checkoutUrl,
+    this.errorMessage,
+    this.alreadyHasActivePlan = false,
+  });
+
+  bool get isSuccess =>
+      checkoutUrl != null && checkoutUrl!.isNotEmpty;
+}
+
 // ✅ My Active Plan States
 abstract class MyActivePlanState extends Equatable {
   const MyActivePlanState();
@@ -457,35 +489,67 @@ class SubscriptionCubit extends Cubit<SubscriptionState> {
 
 
   // ✅ Purchase Subscription
-  Future<String?> purchaseSubscription(String planId, bool autoRenewal) async {
+  Future<PurchaseCheckoutResult> purchaseSubscription(
+    String planId,
+    bool autoRenewal,
+  ) async {
     try {
       final accessToken = await _storage.getAccessToken();
 
       if (accessToken == null || accessToken.isEmpty) {
-        return null;
+        return const PurchaseCheckoutResult(
+          errorMessage: 'Please login again',
+        );
       }
-
-      final Map<String, dynamic> requestBody = {
-        'planId': planId,
-        'autoRenewal': autoRenewal,
-      };
 
       final response = await _networkCaller.postRequest(
         AppUrl.subscriptionPurchase,
-        body: requestBody,
+        body: {
+          'planId': planId,
+          'autoRenewal': autoRenewal,
+        },
         headers: {
           'Authorization': 'Bearer $accessToken',
         },
       );
 
       if (response.isSuccess) {
-        final checkoutUrl = response.jsonResponse?['data']?['checkoutUrl'];
-        return checkoutUrl;
+        final checkoutUrl =
+            response.jsonResponse?['data']?['checkoutUrl']?.toString();
+        if (checkoutUrl != null && checkoutUrl.isNotEmpty) {
+          return PurchaseCheckoutResult(checkoutUrl: checkoutUrl);
+        }
+        return const PurchaseCheckoutResult(
+          errorMessage: 'Checkout URL missing from server response',
+        );
       }
-      return null;
+
+      String errorMsg =
+          response.errorMessage ?? 'Failed to create checkout session';
+      final json = response.jsonResponse;
+      if (json != null) {
+        errorMsg = (json['message'] ?? json['error'] ?? errorMsg).toString();
+        final errors = json['error'];
+        if (errors is List && errors.isNotEmpty) {
+          final first = errors.first;
+          if (first is Map && first['message'] != null) {
+            errorMsg = first['message'].toString();
+          }
+        }
+      }
+
+      final alreadyHasPlan = response.statusCode == 409 ||
+          errorMsg.toLowerCase().contains('already has an active plan');
+
+      return PurchaseCheckoutResult(
+        errorMessage: errorMsg,
+        alreadyHasActivePlan: alreadyHasPlan,
+      );
     } catch (e) {
       debugPrint('❌ Purchase error: $e');
-      return null;
+      return PurchaseCheckoutResult(
+        errorMessage: 'Error: ${e.toString()}',
+      );
     }
   }
 

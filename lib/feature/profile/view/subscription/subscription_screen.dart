@@ -2461,10 +2461,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:tag/core/theme/app_colors.dart';
 import 'package:tag/core/theme/app_text_style.dart';
 import 'package:tag/feature/profile/view/subscription/webview_checkout_screen.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'model/subscription_data.dart';
 import 'cubit/subscription_cubit.dart';
-import '../../../../shared/widget/subscription_modal_widget.dart';
 
 class SubscriptionScreen extends StatefulWidget {
   const SubscriptionScreen({super.key});
@@ -2571,32 +2569,6 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                         ),
                       ),
                     ),
-                  const SizedBox(height: 20),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: OutlinedButton(
-                      onPressed: () => showSubscriptionModal(context),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF213A63),
-                        side: const BorderSide(
-                          color: Color(0xFF213A63),
-                          width: 1.5,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(32),
-                        ),
-                      ),
-                      child: Text(
-                        'View All Plans',
-                        style: AppTextStyle.SFProDisplay_Regular.copyWith(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xFF213A63),
-                        ),
-                      ),
-                    ),
-                  ),
                   const SizedBox(height: 40),
                 ],
               ),
@@ -3774,27 +3746,47 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   }
 
   void _startSubscriptionPurchase(
-      BuildContext context,
-      String planId,
-      bool autoRenewal,
-      ) async {
+    BuildContext context,
+    String planId,
+    bool autoRenewal,
+  ) async {
     try {
-      final cubit = context.read<SubscriptionCubit>();
-      final checkoutUrl = await cubit.purchaseSubscription(planId, autoRenewal);
+      // Capture cubits/messenger before leaving this screen — WebView
+      // route is above MultiBlocProvider, so State.context cannot read them.
+      final subscriptionCubit = context.read<SubscriptionCubit>();
+      final activePlanCubit = context.read<MyActivePlanCubit>();
+      final messenger = ScaffoldMessenger.of(context);
+
+      final result =
+          await subscriptionCubit.purchaseSubscription(planId, autoRenewal);
 
       if (!mounted) return;
 
+      if (result.alreadyHasActivePlan) {
+        await activePlanCubit.getMyActivePlan();
+        if (!mounted) return;
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              result.errorMessage ?? 'You already have an active plan',
+            ),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+
+      final checkoutUrl = result.checkoutUrl;
       if (checkoutUrl != null && checkoutUrl.isNotEmpty) {
-        // ✅ Open WebView instead of external browser
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => WebViewCheckoutScreen(
+            builder: (_) => WebViewCheckoutScreen(
               url: checkoutUrl,
               onPaymentSuccess: () {
-                // ✅ Refresh after successful payment
-                _refreshSubscriptionData();
-                ScaffoldMessenger.of(context).showSnackBar(
+                subscriptionCubit.getSubscriptionPlans();
+                activePlanCubit.getMyActivePlan();
+                messenger.showSnackBar(
                   const SnackBar(
                     content: Text('Subscription activated successfully!'),
                     backgroundColor: Colors.green,
@@ -3803,7 +3795,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                 );
               },
               onPaymentCancel: () {
-                ScaffoldMessenger.of(context).showSnackBar(
+                messenger.showSnackBar(
                   const SnackBar(
                     content: Text('Payment cancelled'),
                     backgroundColor: Colors.orange,
@@ -3815,10 +3807,12 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
           ),
         );
       } else {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to create checkout session. Please try again.'),
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              result.errorMessage ??
+                  'Failed to create checkout session. Please try again.',
+            ),
             backgroundColor: Colors.red,
           ),
         );
@@ -3832,12 +3826,6 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         ),
       );
     }
-  }
-
-// ✅ Helper method to refresh subscription data
-  void _refreshSubscriptionData() {
-    context.read<SubscriptionCubit>().getSubscriptionPlans();
-    context.read<MyActivePlanCubit>().getMyActivePlan();
   }
 
 

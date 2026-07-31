@@ -1,93 +1,15 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:tag/core/network/auth_session.dart';
 import 'package:tag/core/network/secure_storage_service.dart';
 import 'package:tag/core/theme/app_colors.dart';
+import 'package:tag/feature/bill_of_loading/model/add_load_data.dart';
+import 'package:tag/feature/load/cubit/load_list_cubit.dart';
+import 'package:tag/feature/load/model/load_list_data.dart';
+import 'package:tag/feature/load/view/load_details_screen.dart';
 import 'package:tag/feature/profile/view/manage_drivers/cubit/driver_screen_cubit.dart';
-
-// Data Model for Load
-class LoadModel {
-  final String id;
-  final String driverName;
-  final LoadStatus status;
-  final String pickupLocation;
-  final DateTime pickupDateTime;
-  final String deliveryLocation;
-  final DateTime deliveryDateTime;
-  final double rate;
-
-  LoadModel({
-    required this.id,
-    required this.driverName,
-    required this.status,
-    required this.pickupLocation,
-    required this.pickupDateTime,
-    required this.deliveryLocation,
-    required this.deliveryDateTime,
-    required this.rate,
-  });
-}
-
-enum LoadStatus { inProgress, completed, missingPOD }
-
-// Sample Data
-class LoadData {
-  static List<LoadModel> getLoads() {
-    return [
-      LoadModel(
-        id: '#LD-8821',
-        driverName: 'John',
-        status: LoadStatus.inProgress,
-        pickupLocation: 'Chicago, IL',
-        pickupDateTime: DateTime(2024, 10, 24, 8, 0),
-        deliveryLocation: 'Dallas, TX',
-        deliveryDateTime: DateTime(2024, 10, 26, 14, 30),
-        rate: 1250.00,
-      ),
-      LoadModel(
-        id: '#LD-8822',
-        driverName: 'Hanna',
-        status: LoadStatus.inProgress,
-        pickupLocation: 'Chicago, IL',
-        pickupDateTime: DateTime(2024, 10, 24, 8, 0),
-        deliveryLocation: 'Dallas, TX',
-        deliveryDateTime: DateTime(2024, 10, 26, 14, 30),
-        rate: 1250.00,
-      ),
-      LoadModel(
-        id: '#LD-8823',
-        driverName: 'Dhon',
-        status: LoadStatus.completed,
-        pickupLocation: 'Chicago, IL',
-        pickupDateTime: DateTime(2024, 10, 24, 8, 0),
-        deliveryLocation: 'Dallas, TX',
-        deliveryDateTime: DateTime(2024, 10, 26, 14, 30),
-        rate: 1250.00,
-      ),
-      LoadModel(
-        id: '#LD-8824',
-        driverName: 'John',
-        status: LoadStatus.missingPOD,
-        pickupLocation: 'Los Angeles, CA',
-        pickupDateTime: DateTime(2024, 10, 25, 9, 0),
-        deliveryLocation: 'Phoenix, AZ',
-        deliveryDateTime: DateTime(2024, 10, 26, 16, 0),
-        rate: 980.00,
-      ),
-      LoadModel(
-        id: '#LD-8825',
-        driverName: 'Keli',
-        status: LoadStatus.completed,
-        pickupLocation: 'Miami, FL',
-        pickupDateTime: DateTime(2024, 10, 23, 7, 30),
-        deliveryLocation: 'Atlanta, GA',
-        deliveryDateTime: DateTime(2024, 10, 24, 12, 0),
-        rate: 750.00,
-      ),
-    ];
-  }
-}
+import 'package:tag/shared/widget/immersive_safe_area.dart';
 
 class LoadScreen extends StatefulWidget {
   const LoadScreen({super.key});
@@ -100,26 +22,23 @@ class _LoadScreenState extends State<LoadScreen> {
   String _selectedFilter = 'All';
   String _selectedDriver = 'All Drivers';
   String _searchQuery = '';
+  String _listType = LoadListType.self;
 
-  /// Search container expanded (field visible)
   bool _isSearchExpanded = false;
-
-  /// Dropdown shown only when search is fully collapsed (avoids overflow)
   bool _showDropdown = true;
 
-  /// true = owner → show search + driver dropdown
-  /// false = not owner → hide them
+  /// true = owner → show search + driver dropdown + Assigned type
   bool _isParentDriver = false;
   bool _roleLoaded = false;
 
-  late final List<LoadModel> _allLoads;
-  late List<LoadModel> _filteredLoads;
   List<String> _driverList = const ['All Drivers'];
 
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   final GlobalKey _driverFilterKey = GlobalKey();
   final DriverService _driverService = DriverService();
+  final ScrollController _scrollController = ScrollController();
+  late final LoadListCubit _loadListCubit;
 
   final List<String> _filters = [
     'All',
@@ -135,8 +54,8 @@ class _LoadScreenState extends State<LoadScreen> {
   @override
   void initState() {
     super.initState();
-    _allLoads = LoadData.getLoads();
-    _filteredLoads = _allLoads;
+    _loadListCubit = LoadListCubit();
+    _scrollController.addListener(_onScroll);
     _resolveParentDriverFlag();
   }
 
@@ -154,19 +73,15 @@ class _LoadScreenState extends State<LoadScreen> {
     setState(() {
       _isParentDriver = isParent;
       _roleLoaded = true;
+      _listType = LoadListType.self;
     });
 
-    // Driver search / dropdown only needed for owners.
+    _loadListCubit.fetchLoads(type: _listType);
+
     if (isParent) {
       if (_driverService.hasCache) {
         setState(() {
           _driverList = ['All Drivers', ..._driverService.cachedDriverNames];
-        });
-      } else {
-        final fromLoads =
-            _allLoads.map((load) => load.driverName).toSet().toList()..sort();
-        setState(() {
-          _driverList = ['All Drivers', ...fromLoads];
         });
       }
       _loadDriverNamesFromService();
@@ -184,134 +99,104 @@ class _LoadScreenState extends State<LoadScreen> {
         _driverList = names;
         if (!_driverList.contains(_selectedDriver)) {
           _selectedDriver = 'All Drivers';
-          _updateFilteredLoads();
         }
       });
-    } catch (_) {
-      // Keep existing fallback list if drivers API fails
+    } catch (_) {}
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final pos = _scrollController.position;
+    if (pos.pixels >= pos.maxScrollExtent - 200) {
+      _loadListCubit.loadMore();
     }
   }
 
-  void _updateFilteredLoads() {
-    _filteredLoads = _filterLoads(
-      filter: _selectedFilter,
-      driver: _selectedDriver,
-      searchQuery: _searchQuery,
-    );
+  void _switchListType(String type) {
+    if (_listType == type) return;
+    setState(() {
+      _listType = type;
+      _selectedFilter = 'All';
+      _searchQuery = '';
+      _searchController.clear();
+      _selectedDriver = 'All Drivers';
+    });
+    _loadListCubit.fetchLoads(type: type);
   }
 
-  @override
-  void dispose() {
-    _searchController.dispose();
-    _searchFocusNode.dispose();
-    super.dispose();
-  }
+  List<AddLoadData> _applyLocalFilters(List<AddLoadData> loads) {
+    var result = loads;
 
-  List<LoadModel> _filterLoads({
-    required String filter,
-    required String driver,
-    required String searchQuery,
-  }) {
-    List<LoadModel> result = _allLoads;
-
-    switch (filter) {
-      case 'In Progress':
-        result = result
-            .where((load) => load.status == LoadStatus.inProgress)
-            .toList();
-        break;
-      case 'Completed':
-        result = result
-            .where((load) => load.status == LoadStatus.completed)
-            .toList();
-        break;
-      case 'Missing POD':
-        result = result
-            .where((load) => load.status == LoadStatus.missingPOD)
-            .toList();
-        break;
-      default:
-        break;
-    }
-
-    if (driver != 'All Drivers') {
-      result = result.where((load) => load.driverName == driver).toList();
-    }
-
-    final query = searchQuery.trim().toLowerCase();
-    if (query.isNotEmpty) {
+    if (_selectedFilter != 'All') {
       result = result
-          .where((load) => load.driverName.toLowerCase().contains(query))
+          .where((load) => LoadDisplayHelper.filterBucket(load) == _selectedFilter)
           .toList();
+    }
+
+    final query = _searchQuery.trim().toLowerCase();
+    if (query.isNotEmpty) {
+      result = result.where((load) {
+        final company = LoadDisplayHelper.company(load).toLowerCase();
+        final loadId = (load.loadId ?? '').toLowerCase();
+        return company.contains(query) || loadId.contains(query);
+      }).toList();
+    }
+
+    // Driver dropdown kept for owners; API has no driver name on load —
+    // filter by company as best-effort when a driver is selected.
+    if (_selectedDriver != 'All Drivers') {
+      final driver = _selectedDriver.toLowerCase();
+      result = result.where((load) {
+        return LoadDisplayHelper.company(load).toLowerCase().contains(driver);
+      }).toList();
     }
 
     return result;
   }
 
-  void _refreshList() {
-    setState(() {
-      _filteredLoads = _filterLoads(
-        filter: _selectedFilter,
-        driver: _selectedDriver,
-        searchQuery: _searchQuery,
-      );
-    });
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    _searchController.dispose();
+    _searchFocusNode.dispose();
+    _loadListCubit.close();
+    super.dispose();
   }
 
   void _applyFilter(String filter) {
-    _selectedFilter = filter;
-    _refreshList();
+    setState(() => _selectedFilter = filter);
   }
 
   void _applyDriverFilter(String driver) {
-    _selectedDriver = driver;
-    _refreshList();
+    setState(() => _selectedDriver = driver);
   }
 
   void _onSearchChanged(String value) {
-    _searchQuery = value;
-    _refreshList();
+    setState(() => _searchQuery = value);
   }
 
   Future<void> _openSearch() async {
     if (_isSearchExpanded) return;
-
-    // 1) Hide dropdown first so row has full width
     setState(() => _showDropdown = false);
-
     await Future.delayed(const Duration(milliseconds: 16));
     if (!mounted) return;
-
-    // 2) Expand search container to full width
     setState(() => _isSearchExpanded = true);
-
     await Future.delayed(_animDuration);
     if (!mounted) return;
-
     _searchFocusNode.requestFocus();
   }
 
   Future<void> _closeSearch() async {
     if (!_isSearchExpanded && _showDropdown) return;
-
     _searchFocusNode.unfocus();
-
-    // 1) Collapse search container first (dropdown still hidden)
     setState(() {
       _isSearchExpanded = false;
       _searchController.clear();
       _searchQuery = '';
-      _filteredLoads = _filterLoads(
-        filter: _selectedFilter,
-        driver: _selectedDriver,
-        searchQuery: '',
-      );
     });
-
     await Future.delayed(_animDuration);
     if (!mounted) return;
-
-    // 2) Show dropdown again after collapse finishes
     setState(() => _showDropdown = true);
   }
 
@@ -319,16 +204,10 @@ class _LoadScreenState extends State<LoadScreen> {
     setState(() {
       _searchController.clear();
       _searchQuery = '';
-      _filteredLoads = _filterLoads(
-        filter: _selectedFilter,
-        driver: _selectedDriver,
-        searchQuery: '',
-      );
     });
     _searchFocusNode.requestFocus();
   }
 
-  /// Toggle search - opens if closed, closes if open
   Future<void> _toggleSearch() async {
     if (_isSearchExpanded) {
       await _closeSearch();
@@ -387,7 +266,7 @@ class _LoadScreenState extends State<LoadScreen> {
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight:
-                    isSelected ? FontWeight.w600 : FontWeight.w500,
+                        isSelected ? FontWeight.w600 : FontWeight.w500,
                     color: const Color(0xFF1E3A5F),
                   ),
                 ),
@@ -411,125 +290,255 @@ class _LoadScreenState extends State<LoadScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.backgroundColor,
-      body: Padding(
-        padding: const EdgeInsets.only(top: 60.0, bottom: 20),
-        child: Column(
-          children: [
-            if (_showOwnerFilters) ...[
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: _buildSearchAndDropdownRow(),
-              ),
-              const SizedBox(height: 16),
-            ],
-            RepaintBoundary(
-              child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16),
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE8ECF1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: _filters.map((filter) {
-                    final isSelected = _selectedFilter == filter;
+    final topInset = immersiveSafeTopInset(context);
 
-                    return Expanded(
-                      child: GestureDetector(
-                        onTap: () => _applyFilter(filter),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            vertical: 10,
-                            horizontal: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? Colors.white
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(10),
-                            boxShadow: isSelected
-                                ? [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.05),
-                                blurRadius: 4,
-                                offset: const Offset(0, 2),
-                              ),
-                            ]
-                                : null,
-                          ),
-                          child: Text(
-                            filter,
-                            maxLines: 1,
-                            softWrap: false,
-                            overflow: TextOverflow.ellipsis,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
+    return BlocProvider.value(
+      value: _loadListCubit,
+      child: Scaffold(
+        backgroundColor: AppColors.backgroundColor,
+        body: Padding(
+          padding: EdgeInsets.only(top: topInset + 12, bottom: 20),
+          child: Column(
+            children: [
+              if (_showOwnerFilters) ...[
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: _buildTypeToggle(),
+                ),
+                const SizedBox(height: 12),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: _buildSearchAndDropdownRow(),
+                ),
+                const SizedBox(height: 16),
+              ],
+              RepaintBoundary(
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE8ECF1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: _filters.map((filter) {
+                      final isSelected = _selectedFilter == filter;
+                      return Expanded(
+                        child: GestureDetector(
+                          onTap: () => _applyFilter(filter),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 10,
+                              horizontal: 4,
+                            ),
+                            decoration: BoxDecoration(
                               color: isSelected
-                                  ? const Color(0xFF1E3A5F)
-                                  : const Color(0xFF6B7280),
-                              fontWeight: isSelected
-                                  ? FontWeight.w600
-                                  : FontWeight.w500,
-                              fontSize: 12,
+                                  ? Colors.white
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(10),
+                              boxShadow: isSelected
+                                  ? [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(
+                                          alpha: 0.05,
+                                        ),
+                                        blurRadius: 4,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ]
+                                  : null,
+                            ),
+                            child: Text(
+                              filter,
+                              maxLines: 1,
+                              softWrap: false,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: isSelected
+                                    ? const Color(0xFF1E3A5F)
+                                    : const Color(0xFF6B7280),
+                                fontWeight: isSelected
+                                    ? FontWeight.w600
+                                    : FontWeight.w500,
+                                fontSize: 12,
+                              ),
                             ),
                           ),
                         ),
-                      ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Expanded(
+                child: BlocBuilder<LoadListCubit, LoadListState>(
+                  builder: (context, state) {
+                    if (state is LoadListLoading || state is LoadListInitial) {
+                      return const Center(
+                        child: CircularProgressIndicator(
+                          color: AppColors.primaryColor,
+                        ),
+                      );
+                    }
+
+                    if (state is LoadListFailure) {
+                      return Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                state.errorMessage,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: Colors.grey[600],
+                                  fontSize: 14,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              TextButton(
+                                onPressed: () =>
+                                    _loadListCubit.fetchLoads(type: _listType),
+                                child: const Text('Retry'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }
+
+                    if (state is! LoadListSuccess) {
+                      return const SizedBox.shrink();
+                    }
+
+                    final filtered = _applyLocalFilters(state.loads);
+
+                    return RefreshIndicator(
+                      color: AppColors.primaryColor,
+                      onRefresh: () =>
+                          _loadListCubit.fetchLoads(type: _listType),
+                      child: filtered.isEmpty
+                          ? ListView(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              children: [
+                                SizedBox(
+                                  height:
+                                      MediaQuery.of(context).size.height * 0.4,
+                                  child: Center(
+                                    child: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.local_shipping_outlined,
+                                          size: 80,
+                                          color: Colors.grey[400],
+                                        ),
+                                        const SizedBox(height: 16),
+                                        Text(
+                                          'No loads found',
+                                          style: TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.grey[600],
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          _searchQuery.isNotEmpty
+                                              ? 'No matches for "$_searchQuery"'
+                                              : 'Try changing your filters',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            color: Colors.grey[500],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            )
+                          : ListView.separated(
+                              controller: _scrollController,
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 16),
+                              itemCount:
+                                  filtered.length + (state.isLoadingMore ? 1 : 0),
+                              separatorBuilder: (_, __) =>
+                                  const SizedBox(height: 16),
+                              itemBuilder: (context, index) {
+                                if (index >= filtered.length) {
+                                  return const Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 16),
+                                    child: Center(
+                                      child: SizedBox(
+                                        width: 24,
+                                        height: 24,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                }
+                                return RepaintBoundary(
+                                  child: LoadCard(load: filtered[index]),
+                                );
+                              },
+                            ),
                     );
-                  }).toList(),
+                  },
                 ),
               ),
-            ),
-            const SizedBox(height: 20),
-            Expanded(
-              child: _filteredLoads.isEmpty
-                  ? Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.local_shipping_outlined,
-                      size: 80,
-                      color: Colors.grey[400],
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'No loads found',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      _searchQuery.isNotEmpty
-                          ? 'No driver matches "$_searchQuery"'
-                          : 'Try changing your filters',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey[500],
-                      ),
-                    ),
-                  ],
-                ),
-              )
-                  : ListView.separated(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                itemCount: _filteredLoads.length,
-                separatorBuilder: (_, __) =>
-                const SizedBox(height: 16),
-                itemBuilder: (context, index) {
-                  return RepaintBoundary(
-                    child: LoadCard(load: _filteredLoads[index]),
-                  );
-                },
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildTypeToggle() {
+    Widget chip(String label, String type) {
+      final selected = _listType == type;
+      return Expanded(
+        child: GestureDetector(
+          onTap: () => _switchListType(type),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            decoration: BoxDecoration(
+              color: selected ? AppColors.primaryColor : Colors.transparent,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: selected ? Colors.white : const Color(0xFF6B7280),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE8ECF1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          chip('My Loads', LoadListType.self),
+          chip('Assigned', LoadListType.assigned),
+        ],
       ),
     );
   }
@@ -544,7 +553,6 @@ class _LoadScreenState extends State<LoadScreen> {
           width: maxWidth,
           child: Row(
             children: [
-              // OUTER: only this width animates (48 → full)
               AnimatedContainer(
                 duration: _animDuration,
                 curve: Curves.easeOutCubic,
@@ -555,8 +563,6 @@ class _LoadScreenState extends State<LoadScreen> {
                   color: const Color(0xFFE8ECF1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                // INNER: always full-width layout; clipped by outer
-                // OverflowBox prevents layout overflow while outer is still 48
                 child: OverflowBox(
                   minWidth: maxWidth,
                   maxWidth: maxWidth,
@@ -568,8 +574,6 @@ class _LoadScreenState extends State<LoadScreen> {
                   ),
                 ),
               ),
-
-              // Dropdown on the RIGHT (only when search is collapsed)
               if (_showDropdown) ...[
                 const SizedBox(width: 10),
                 Expanded(child: _buildDriverFilterButton()),
@@ -584,81 +588,42 @@ class _LoadScreenState extends State<LoadScreen> {
   Widget _buildSearchFieldInsideContainer() {
     return Row(
       children: [
-        // Icon stays in a fixed 48 slot — toggles search on tap
         SizedBox(
           width: 48,
           height: 48,
           child: Material(
             color: Colors.transparent,
             child: InkWell(
-              onTap: _toggleSearch, // ← Now toggles open/close
+              onTap: _toggleSearch,
               borderRadius: BorderRadius.circular(12),
-              // Remove splash and highlight effects
               splashColor: Colors.transparent,
               highlightColor: Colors.transparent,
               child: Center(
                 child: Icon(
-                  Icons.search_rounded,
-                  size: 22,
-                  color: _isSearchExpanded
-                      ? const Color(0xFF1E3A5F)
-                      : const Color(0xFF6B7280),
+                  _isSearchExpanded ? Icons.close : Icons.search,
+                  color: const Color(0xFF6B7280),
                 ),
               ),
             ),
           ),
         ),
         Expanded(
-          child: IgnorePointer(
-            ignoring: !_isSearchExpanded,
-            child: TextField(
-              controller: _searchController,
-              focusNode: _searchFocusNode,
-              onChanged: _onSearchChanged,
-              textInputAction: TextInputAction.search,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: Color(0xFF1E3A5F),
-              ),
-              decoration: const InputDecoration(
-                hintText: 'Search by driver name...',
-                hintStyle: TextStyle(
-                  fontSize: 14,
-                  color: Color(0xFF9CA3AF),
-                  fontWeight: FontWeight.w400,
-                ),
-                border: InputBorder.none,
-                isDense: true,
-                contentPadding: EdgeInsets.symmetric(vertical: 12),
-              ),
+          child: TextField(
+            controller: _searchController,
+            focusNode: _searchFocusNode,
+            onChanged: _onSearchChanged,
+            decoration: InputDecoration(
+              hintText: 'Search by company or load ID',
+              border: InputBorder.none,
+              hintStyle: TextStyle(color: Colors.grey[500], fontSize: 14),
+              suffixIcon: _searchQuery.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear, size: 18),
+                      onPressed: _clearSearchText,
+                    )
+                  : null,
             ),
           ),
-        ),
-        if (_searchQuery.isNotEmpty)
-          IconButton(
-            tooltip: 'Clear',
-            onPressed: _clearSearchText,
-            icon: const Icon(
-              Icons.close_rounded,
-              size: 18,
-              color: Color(0xFF6B7280),
-            ),
-            // Remove splash effect from clear button
-            splashColor: Colors.transparent,
-            highlightColor: Colors.transparent,
-          ),
-        IconButton(
-          tooltip: 'Close search',
-          onPressed: _closeSearch,
-          icon: Icon(
-            CupertinoIcons.arrow_uturn_left,
-            size: 20,
-            color: const Color(0xFF1E3A5F),
-          ),
-          // Remove splash effect from close button
-          splashColor: Colors.transparent,
-          highlightColor: Colors.transparent,
         ),
       ],
     );
@@ -667,17 +632,14 @@ class _LoadScreenState extends State<LoadScreen> {
   Widget _buildDriverFilterButton() {
     return Material(
       key: _driverFilterKey,
-      color: Colors.transparent,
+      color: const Color(0xFFE8ECF1),
+      borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: _openDriverDropdown,
         borderRadius: BorderRadius.circular(12),
         child: Container(
           height: 48,
           padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            color: const Color(0xFFE8ECF1),
-            borderRadius: BorderRadius.circular(12),
-          ),
           child: Row(
             children: [
               Icon(
@@ -713,46 +675,37 @@ class _LoadScreenState extends State<LoadScreen> {
 }
 
 class LoadCard extends StatelessWidget {
-  final LoadModel load;
+  final AddLoadData load;
 
   const LoadCard({super.key, required this.load});
 
-  String _getStatusText() {
-    switch (load.status) {
-      case LoadStatus.inProgress:
-        return 'IN PROGRESS';
-      case LoadStatus.completed:
-        return 'Completed';
-      case LoadStatus.missingPOD:
-        return 'Missing POD';
-    }
-  }
+  String _getStatusText() => LoadDisplayHelper.statusLabel(load).toUpperCase();
 
   Color _getStatusBgColor() {
-    switch (load.status) {
-      case LoadStatus.inProgress:
-        return const Color(0xFFEFF6FF);
-      case LoadStatus.completed:
+    final label = LoadDisplayHelper.statusLabel(load);
+    switch (label) {
+      case 'Completed':
         return const Color(0xFFF0FDF4);
-      case LoadStatus.missingPOD:
+      case 'Missing POD':
+        return const Color(0xFFFFF7ED);
+      case 'In Progress':
+        return const Color(0xFFEFF6FF);
+      default:
         return const Color(0xFFFFF7ED);
     }
   }
 
   Color _getStatusTextColor() {
-    switch (load.status) {
-      case LoadStatus.inProgress:
-        return const Color(0xFF2563EB);
-      case LoadStatus.completed:
-        return const Color(0xFF16A34A);
-      case LoadStatus.missingPOD:
-        return const Color(0xFFEA580C);
-    }
+    return LoadDisplayHelper.statusColor(load);
   }
 
   @override
   Widget build(BuildContext context) {
+    final pickupDate = LoadDisplayHelper.pickupDate(load);
     final dateFormat = DateFormat('MMM dd, HH:mm');
+    final pickupText =
+        pickupDate != null ? dateFormat.format(pickupDate) : '—';
+    final rate = load.rate?.toDouble() ?? 0;
 
     return Container(
       padding: const EdgeInsets.all(24),
@@ -761,7 +714,7 @@ class LoadCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -774,7 +727,7 @@ class LoadCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                load.id,
+                LoadDisplayHelper.loadNumber(load),
                 style: const TextStyle(
                   color: Color(0xFF6B7280),
                   fontSize: 14,
@@ -804,14 +757,18 @@ class LoadCard extends StatelessWidget {
           const SizedBox(height: 12),
           Row(
             children: [
-              const Icon(Icons.person, size: 20, color: Color(0xFF6B7280)),
+              const Icon(Icons.business, size: 20, color: Color(0xFF6B7280)),
               const SizedBox(width: 8),
-              Text(
-                load.driverName,
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF111827),
+              Expanded(
+                child: Text(
+                  LoadDisplayHelper.company(load),
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF111827),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
@@ -865,7 +822,7 @@ class LoadCard extends StatelessWidget {
                       children: [
                         Expanded(
                           child: Text(
-                            load.pickupLocation,
+                            LoadDisplayHelper.pickupAddress(load),
                             style: const TextStyle(
                               fontSize: 16,
                               color: Color(0xFF6B7280),
@@ -876,7 +833,7 @@ class LoadCard extends StatelessWidget {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          dateFormat.format(load.pickupDateTime),
+                          pickupText,
                           style: const TextStyle(
                             fontSize: 16,
                             color: Color(0xFF6B7280),
@@ -890,7 +847,7 @@ class LoadCard extends StatelessWidget {
                       children: [
                         Expanded(
                           child: Text(
-                            load.deliveryLocation,
+                            LoadDisplayHelper.deliveryAddress(load),
                             style: const TextStyle(
                               fontSize: 16,
                               color: Color(0xFF6B7280),
@@ -901,7 +858,7 @@ class LoadCard extends StatelessWidget {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          dateFormat.format(load.deliveryDateTime),
+                          pickupText,
                           style: const TextStyle(
                             fontSize: 16,
                             color: Color(0xFF6B7280),
@@ -933,7 +890,7 @@ class LoadCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '\$${load.rate.toStringAsFixed(2)}',
+                    '\$${rate.toStringAsFixed(2)}',
                     style: const TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
@@ -950,7 +907,14 @@ class LoadCard extends StatelessWidget {
                 child: Material(
                   color: Colors.transparent,
                   child: InkWell(
-                    onTap: () {},
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => LoadDetailsScreen(load: load),
+                        ),
+                      );
+                    },
                     borderRadius: BorderRadius.circular(12),
                     child: const Padding(
                       padding: EdgeInsets.symmetric(
