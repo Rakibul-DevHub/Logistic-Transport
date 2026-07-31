@@ -22,18 +22,18 @@ class LoadScreen extends StatefulWidget {
 
 class _LoadScreenState extends State<LoadScreen> {
   String _selectedFilter = 'All';
-  String _selectedDriver = 'All Drivers';
+  String _selectedScope = 'All';
   String _searchQuery = '';
-  String _listType = LoadListType.self;
+  String _listType = LoadListType.all;
 
   bool _isSearchExpanded = false;
   bool _showDropdown = true;
 
-  /// true = owner → show search + driver dropdown + Assigned type
+  /// true = owner → show search + scope dropdown
   bool _isParentDriver = false;
   bool _roleLoaded = false;
 
-  List<String> _driverList = const ['All Drivers'];
+  List<String> _scopeList = const ['All', 'My Loads', 'All Drivers'];
   final Map<String, String> _driverNamesById = {};
   String? _currentUserId;
   String? _currentUserName;
@@ -54,7 +54,17 @@ class _LoadScreenState extends State<LoadScreen> {
 
   static const Duration _animDuration = Duration(milliseconds: 280);
 
+  static const String _scopeAll = 'All';
+  static const String _scopeMyLoads = 'My Loads';
+  static const String _scopeAllDrivers = 'All Drivers';
+
   bool get _showOwnerFilters => _roleLoaded && _isParentDriver == true;
+
+  bool get _isDriverScope {
+    return _selectedScope != _scopeAll &&
+        _selectedScope != _scopeMyLoads &&
+        _selectedScope != _scopeAllDrivers;
+  }
 
   @override
   void initState() {
@@ -78,7 +88,8 @@ class _LoadScreenState extends State<LoadScreen> {
     setState(() {
       _isParentDriver = isParent;
       _roleLoaded = true;
-      _listType = LoadListType.self;
+      _listType = isParent ? LoadListType.all : LoadListType.self;
+      _selectedScope = isParent ? _scopeAll : _scopeMyLoads;
     });
 
     await _resolveCurrentUser();
@@ -118,8 +129,10 @@ class _LoadScreenState extends State<LoadScreen> {
       }
     }
     setState(() {
-      _driverList = [
-        'All Drivers',
+      _scopeList = [
+        _scopeAll,
+        _scopeMyLoads,
+        _scopeAllDrivers,
         ..._driverService.cachedDriverNames,
       ];
     });
@@ -132,8 +145,8 @@ class _LoadScreenState extends State<LoadScreen> {
       );
       if (!mounted) return;
       _applyDriverCache(drivers);
-      if (!_driverList.contains(_selectedDriver)) {
-        setState(() => _selectedDriver = 'All Drivers');
+      if (!_scopeList.contains(_selectedScope)) {
+        setState(() => _selectedScope = _scopeAll);
       }
     } catch (_) {}
   }
@@ -155,24 +168,13 @@ class _LoadScreenState extends State<LoadScreen> {
     }
   }
 
-  void _switchListType(String type) {
-    if (_listType == type) return;
-    setState(() {
-      _listType = type;
-      _selectedFilter = 'All';
-      _searchQuery = '';
-      _searchController.clear();
-      _selectedDriver = 'All Drivers';
-    });
-    _loadListCubit.fetchLoads(type: type);
-  }
-
   List<AddLoadData> _applyLocalFilters(List<AddLoadData> loads) {
     var result = loads;
 
     if (_selectedFilter != 'All') {
       result = result
-          .where((load) => LoadDisplayHelper.filterBucket(load) == _selectedFilter)
+          .where((load) =>
+              LoadDisplayHelper.filterBucket(load) == _selectedFilter)
           .toList();
     }
 
@@ -180,12 +182,13 @@ class _LoadScreenState extends State<LoadScreen> {
     if (query.isNotEmpty) {
       result = result.where((load) {
         final driver = _driverNameFor(load).toLowerCase();
-        return driver.contains(query);
+        final loadId = (load.loadId ?? '').toLowerCase();
+        return driver.contains(query) || loadId.contains(query);
       }).toList();
     }
 
-    if (_selectedDriver != 'All Drivers') {
-      final driverFilter = _selectedDriver.toLowerCase();
+    if (_isDriverScope) {
+      final driverFilter = _selectedScope.toLowerCase();
       result = result.where((load) {
         return _driverNameFor(load).toLowerCase() == driverFilter;
       }).toList();
@@ -208,20 +211,26 @@ class _LoadScreenState extends State<LoadScreen> {
     setState(() => _selectedFilter = filter);
   }
 
-  void _applyDriverFilter(String driver) {
-    final shouldOpenAssigned =
-        driver != 'All Drivers' && _listType != LoadListType.assigned;
+  void _applyScopeFilter(String scope) {
+    String nextType;
+    if (scope == _scopeAll) {
+      nextType = LoadListType.all;
+    } else if (scope == _scopeMyLoads) {
+      nextType = LoadListType.self;
+    } else {
+      // All Drivers + any single driver → assigned API
+      nextType = LoadListType.assigned;
+    }
+
+    final shouldRefetch = nextType != _listType;
 
     setState(() {
-      _selectedDriver = driver;
-      if (driver != 'All Drivers') {
-        // Selecting a driver always scopes to Assigned loads.
-        _listType = LoadListType.assigned;
-      }
+      _selectedScope = scope;
+      _listType = nextType;
     });
 
-    if (shouldOpenAssigned) {
-      _loadListCubit.fetchLoads(type: LoadListType.assigned);
+    if (shouldRefetch) {
+      _loadListCubit.fetchLoads(type: nextType);
     }
   }
 
@@ -298,24 +307,29 @@ class _LoadScreenState extends State<LoadScreen> {
         maxWidth: fullMenuWidth,
       ),
       position: RelativeRect.fromLTRB(16, top, 16, 0),
-      items: _driverList.map((driver) {
-        final isSelected = driver == _selectedDriver;
+      items: _scopeList.map((scope) {
+        final isSelected = scope == _selectedScope;
+        final isSpecial = scope == _scopeAll ||
+            scope == _scopeMyLoads ||
+            scope == _scopeAllDrivers;
         return PopupMenuItem<String>(
-          value: driver,
+          value: scope,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           child: Row(
             children: [
               Icon(
-                Icons.person_outline,
+                scope == _scopeMyLoads
+                    ? Icons.inventory_2_outlined
+                    : Icons.person_outline,
                 size: 18,
-                color: driver == 'All Drivers'
+                color: isSpecial
                     ? const Color(0xFF6B7280)
                     : const Color(0xFF3B82F6),
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  driver,
+                  scope,
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight:
@@ -337,7 +351,7 @@ class _LoadScreenState extends State<LoadScreen> {
     );
 
     if (selected != null) {
-      _applyDriverFilter(selected);
+      _applyScopeFilter(selected);
     }
   }
 
@@ -354,11 +368,6 @@ class _LoadScreenState extends State<LoadScreen> {
           child: Column(
             children: [
               if (_showOwnerFilters) ...[
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: _buildTypeToggle(),
-                ),
-                const SizedBox(height: 6),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: _buildSearchAndDropdownRow(),
@@ -558,47 +567,6 @@ class _LoadScreenState extends State<LoadScreen> {
     );
   }
 
-  Widget _buildTypeToggle() {
-    Widget chip(String label, String type) {
-      final selected = _listType == type;
-      return Expanded(
-        child: GestureDetector(
-          onTap: () => _switchListType(type),
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            decoration: BoxDecoration(
-              color: selected ? AppColors.primaryColor : Colors.transparent,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Text(
-              label,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: selected ? Colors.white : const Color(0xFF6B7280),
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: const Color(0xFFE8ECF1),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          chip('My Loads', LoadListType.self),
-          chip('Assigned', LoadListType.assigned),
-        ],
-      ),
-    );
-  }
-
   Widget _buildSearchAndDropdownRow() {
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -681,7 +649,7 @@ class _LoadScreenState extends State<LoadScreen> {
                 color: Color(0xFF1E3A5F),
               ),
               decoration: const InputDecoration(
-                hintText: 'Search by driver name...',
+                hintText: 'Search by driver or load ID...',
                 hintStyle: TextStyle(
                   fontSize: 14,
                   color: Color(0xFF9CA3AF),
@@ -735,16 +703,18 @@ class _LoadScreenState extends State<LoadScreen> {
           child: Row(
             children: [
               Icon(
-                Icons.person_outline,
+                _selectedScope == _scopeMyLoads
+                    ? Icons.inventory_2_outlined
+                    : Icons.person_outline,
                 size: 18,
-                color: _selectedDriver == 'All Drivers'
-                    ? const Color(0xFF6B7280)
-                    : const Color(0xFF3B82F6),
+                color: _isDriverScope
+                    ? const Color(0xFF3B82F6)
+                    : const Color(0xFF6B7280),
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  _selectedDriver,
+                  _selectedScope,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(

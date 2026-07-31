@@ -70,4 +70,7 @@ class LoadListResponse {
 abstract final class LoadListType {
   static const String self = 'self';
   static const String assigned = 'assigned';
+
+  /// Client-only: merges self + assigned (not sent to API as-is).
+  static const String all = 'all';
 }

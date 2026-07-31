@@ -174,6 +174,12 @@ class LoadListCubit extends Cubit<LoadListState> {
   String _type = LoadListType.self;
   bool _isFetchingMore = false;
 
+  // Used only when type == all
+  int _selfPage = 1;
+  int _assignedPage = 1;
+  bool _selfHasMore = false;
+  bool _assignedHasMore = false;
+
   LoadListCubit() : super(LoadListInitial());
 
   String get currentType => _type;
@@ -194,9 +200,62 @@ class LoadListCubit extends Cubit<LoadListState> {
         return;
       }
 
+      final headers = {'Authorization': 'Bearer $token'};
+
+      if (type == LoadListType.all) {
+        final selfFuture = _networkCaller.getRequest(
+          AppUrl.getLoad('1', '$pageSize', LoadListType.self),
+          headers: headers,
+        );
+        final assignedFuture = _networkCaller.getRequest(
+          AppUrl.getLoad('1', '$pageSize', LoadListType.assigned),
+          headers: headers,
+        );
+
+        final selfResponse = await selfFuture;
+        final assignedResponse = await assignedFuture;
+
+        if (!selfResponse.isSuccess && !assignedResponse.isSuccess) {
+          emit(LoadListFailure(
+            errorMessage:
+                selfResponse.errorMessage ?? 'Failed to load loads',
+          ));
+          return;
+        }
+
+        final selfParsed = selfResponse.isSuccess
+            ? LoadListResponse.fromJson(selfResponse.jsonResponse ?? {})
+            : null;
+        final assignedParsed = assignedResponse.isSuccess
+            ? LoadListResponse.fromJson(assignedResponse.jsonResponse ?? {})
+            : null;
+
+        _selfPage = selfParsed?.pagination.currentPage ?? 1;
+        _assignedPage = assignedParsed?.pagination.currentPage ?? 1;
+        _selfHasMore = selfParsed?.pagination.hasMore ?? false;
+        _assignedHasMore = assignedParsed?.pagination.hasMore ?? false;
+
+        final merged = _mergeUnique([
+          ...?selfParsed?.data,
+          ...?assignedParsed?.data,
+        ]);
+
+        emit(LoadListSuccess(
+          loads: merged,
+          pagination: LoadListPagination(
+            totalCount: merged.length,
+            totalPages: (_selfHasMore || _assignedHasMore) ? 2 : 1,
+            currentPage: 1,
+            itemsPerPage: pageSize,
+          ),
+          type: type,
+        ));
+        return;
+      }
+
       final response = await _networkCaller.getRequest(
         AppUrl.getLoad('1', '$pageSize', type),
-        headers: {'Authorization': 'Bearer $token'},
+        headers: headers,
       );
 
       if (!response.isSuccess) {
@@ -234,10 +293,64 @@ class LoadListCubit extends Cubit<LoadListState> {
         return;
       }
 
+      final headers = {'Authorization': 'Bearer $token'};
+
+      if (current.type == LoadListType.all) {
+        final nextLoads = <AddLoadData>[];
+
+        if (_selfHasMore) {
+          final next = _selfPage + 1;
+          final res = await _networkCaller.getRequest(
+            AppUrl.getLoad('$next', '$pageSize', LoadListType.self),
+            headers: headers,
+          );
+          if (res.isSuccess) {
+            final parsed =
+                LoadListResponse.fromJson(res.jsonResponse ?? {});
+            nextLoads.addAll(parsed.data);
+            _selfPage = parsed.pagination.currentPage;
+            _selfHasMore = parsed.pagination.hasMore;
+          } else {
+            _selfHasMore = false;
+          }
+        }
+
+        if (_assignedHasMore) {
+          final next = _assignedPage + 1;
+          final res = await _networkCaller.getRequest(
+            AppUrl.getLoad('$next', '$pageSize', LoadListType.assigned),
+            headers: headers,
+          );
+          if (res.isSuccess) {
+            final parsed =
+                LoadListResponse.fromJson(res.jsonResponse ?? {});
+            nextLoads.addAll(parsed.data);
+            _assignedPage = parsed.pagination.currentPage;
+            _assignedHasMore = parsed.pagination.hasMore;
+          } else {
+            _assignedHasMore = false;
+          }
+        }
+
+        final merged = _mergeUnique([...current.loads, ...nextLoads]);
+        emit(LoadListSuccess(
+          loads: merged,
+          pagination: LoadListPagination(
+            totalCount: merged.length,
+            totalPages: (_selfHasMore || _assignedHasMore) ? 2 : 1,
+            currentPage: 1,
+            itemsPerPage: pageSize,
+          ),
+          type: LoadListType.all,
+          isLoadingMore: false,
+        ));
+        return;
+      }
+
       final nextPage = current.pagination.currentPage + 1;
       final response = await _networkCaller.getRequest(
         AppUrl.getLoad('$nextPage', '$pageSize', current.type),
-        headers: {'Authorization': 'Bearer $token'},
+        headers: headers,
       );
 
       if (!response.isSuccess) {
@@ -259,6 +372,20 @@ class LoadListCubit extends Cubit<LoadListState> {
     } finally {
       _isFetchingMore = false;
     }
+  }
+
+  List<AddLoadData> _mergeUnique(List<AddLoadData> loads) {
+    final seen = <String>{};
+    final result = <AddLoadData>[];
+    for (final load in loads) {
+      final key = (load.id ?? load.loadId ?? '').trim();
+      if (key.isEmpty) {
+        result.add(load);
+        continue;
+      }
+      if (seen.add(key)) result.add(load);
+    }
+    return result;
   }
 }
 
