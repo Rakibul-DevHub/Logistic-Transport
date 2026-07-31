@@ -295,6 +295,55 @@ class _LoadScreenState extends State<LoadScreen> {
       }
     }
 
+    final specialScopes = [_scopeAll, _scopeMyLoads, _scopeAllDrivers];
+    final driverNames = _scopeList
+        .where((s) => !specialScopes.contains(s))
+        .toList();
+
+    PopupMenuItem<String> scopeItem(String scope, {required bool isSpecial}) {
+      final isSelected = scope == _selectedScope;
+      return PopupMenuItem<String>(
+        value: scope,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        child: Row(
+          children: [
+            Icon(
+              scope == _scopeMyLoads
+                  ? Icons.inventory_2_outlined
+                  : Icons.person_outline,
+              size: 18,
+              color: isSpecial
+                  ? const Color(0xFF6B7280)
+                  : const Color(0xFF3B82F6),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                scope,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                  color: const Color(0xFF1E3A5F),
+                ),
+              ),
+            ),
+            if (isSelected)
+              const Icon(
+                Icons.check_rounded,
+                size: 18,
+                color: Color(0xFF1E3A5F),
+              ),
+          ],
+        ),
+      );
+    }
+
+    final menuItems = <PopupMenuEntry<String>>[
+      ...specialScopes.map((s) => scopeItem(s, isSpecial: true)),
+      if (driverNames.isNotEmpty) PopupMenuDivider(height: 8),
+      ...driverNames.map((s) => scopeItem(s, isSpecial: false)),
+    ];
+
     final selected = await showMenu<String>(
       context: context,
       color: Colors.white,
@@ -307,47 +356,7 @@ class _LoadScreenState extends State<LoadScreen> {
         maxWidth: fullMenuWidth,
       ),
       position: RelativeRect.fromLTRB(16, top, 16, 0),
-      items: _scopeList.map((scope) {
-        final isSelected = scope == _selectedScope;
-        final isSpecial = scope == _scopeAll ||
-            scope == _scopeMyLoads ||
-            scope == _scopeAllDrivers;
-        return PopupMenuItem<String>(
-          value: scope,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-          child: Row(
-            children: [
-              Icon(
-                scope == _scopeMyLoads
-                    ? Icons.inventory_2_outlined
-                    : Icons.person_outline,
-                size: 18,
-                color: isSpecial
-                    ? const Color(0xFF6B7280)
-                    : const Color(0xFF3B82F6),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  scope,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight:
-                        isSelected ? FontWeight.w600 : FontWeight.w500,
-                    color: const Color(0xFF1E3A5F),
-                  ),
-                ),
-              ),
-              if (isSelected)
-                const Icon(
-                  Icons.check_rounded,
-                  size: 18,
-                  color: Color(0xFF1E3A5F),
-                ),
-            ],
-          ),
-        );
-      }).toList(),
+      items: menuItems,
     );
 
     if (selected != null) {
