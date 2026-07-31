@@ -2964,6 +2964,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
           );
         }
 
+        // No active plan — show 7-day free trial CTA (same as subscription modal)
         return Container(
           width: double.infinity,
           padding: const EdgeInsets.all(20),
@@ -2972,28 +2973,38 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             borderRadius: BorderRadius.circular(14),
             border: Border.all(color: const Color(0xFFE3E7EE)),
           ),
-          child: Row(
+          child: Column(
             children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.grey.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.info_outline,
-                  color: Colors.grey,
-                  size: 24,
+              SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: OutlinedButton(
+                  onPressed: () => _startFreeTrial(context),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF213A63),
+                    side: const BorderSide(
+                      color: Color(0xFF213A63),
+                      width: 1.5,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(32),
+                    ),
+                  ),
+                  child: const Text(
+                    'Start 7 Days Free Trial',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'No active subscription plan',
-                  style: AppTextStyle.SFProDisplay_Regular.copyWith(
-                    fontSize: 16,
-                    color: Colors.grey[600],
-                  ),
+              const SizedBox(height: 12),
+              const Text(
+                'No charge during trial. Cancel anytime.',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Color(0xFF73809A),
                 ),
               ),
             ],
@@ -3627,6 +3638,102 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     );
   }
 
+  void _startFreeTrial(BuildContext blocContext) {
+    showDialog(
+      context: blocContext,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: const BoxDecoration(
+                color: Color(0xFFE8F5E9),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.rocket_launch_rounded,
+                color: Color(0xFF27AE60),
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Text('Start Free Trial'),
+          ],
+        ),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Get started with a 7-day free trial!',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF161B2F),
+              ),
+            ),
+            SizedBox(height: 8),
+            Text(
+              '• Access all Basic Plan features\n'
+              '• No payment required\n'
+              '• Cancel anytime during trial\n'
+              '• Automatic upgrade after 7 days',
+              style: TextStyle(
+                fontSize: 13,
+                color: Color(0xFF5F6980),
+                height: 1.5,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(dialogContext);
+              _confirmAndStartFreeTrial(blocContext);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF213A63),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text('Start Free Trial'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmAndStartFreeTrial(BuildContext blocContext) {
+    // Prefer a monthly plan for trial; fall back to first available plan.
+    final plans = _allPlans ?? const <SubscriptionPlan>[];
+    if (plans.isEmpty) {
+      ScaffoldMessenger.of(blocContext).showSnackBar(
+        const SnackBar(
+          content: Text('No plans available to start a trial.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final trialPlan = plans.firstWhere(
+      (plan) => plan.durationInMonths < 12,
+      orElse: () => plans.first,
+    );
+
+    _startSubscriptionTrial(blocContext, trialPlan.id, true);
+  }
+
   void _startSubscriptionTrial(
       BuildContext context,
       String planId,
@@ -3645,6 +3752,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             backgroundColor: Colors.green,
           ),
         );
+        // Refresh active plan card so trial UI appears.
+        context.read<MyActivePlanCubit>().getMyActivePlan();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
