@@ -1,5 +1,4 @@
-// lib/feature/auth/cubit/login_cubit.dart
-
+/**
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:tag/core/network/network_caller_dio.dart';
@@ -129,6 +128,201 @@ class LoginCubit extends Cubit<LoginState> {
   // ==================== GETTERS ====================
   bool get isLoading => state is LoginLoading;
   bool get isSuccess => state is LoginSuccess;
+  String? get errorMessage {
+    if (state is LoginFailure) {
+      return (state as LoginFailure).errorMessage;
+    }
+    return null;
+  }
+
+  LoginSuccess? get successData {
+    if (state is LoginSuccess) {
+      return state as LoginSuccess;
+    }
+    return null;
+  }
+}*/
+
+
+
+
+
+
+
+
+
+///
+///
+///
+///
+/// todo:: updating to track the user role
+///
+///
+///
+///
+///
+
+
+
+
+
+
+
+
+
+// lib/feature/auth/cubit/login_cubit.dart
+
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:equatable/equatable.dart';
+import 'package:tag/core/network/network_caller_dio.dart';
+import 'package:tag/core/utils/app_url.dart';
+import '../../../core/network/auth_session.dart';
+import '../../../core/network/secure_storage_service.dart';
+import '../model_data/login_data.dart';
+
+abstract class LoginState extends Equatable {
+  const LoginState();
+
+  @override
+  List<Object?> get props => [];
+}
+
+class LoginInitial extends LoginState {}
+
+class LoginLoading extends LoginState {}
+
+class LoginSuccess extends LoginState {
+  final String accessToken;
+  final String refreshToken;
+  final User user;
+  final bool isOwner;
+  final String? parentDriverId;
+
+  const LoginSuccess({
+    required this.accessToken,
+    required this.refreshToken,
+    required this.user,
+    required this.isOwner,
+    this.parentDriverId,
+  });
+
+  @override
+  List<Object?> get props => [
+    accessToken,
+    refreshToken,
+    user,
+    isOwner,
+    parentDriverId,
+  ];
+}
+
+class LoginFailure extends LoginState {
+  final String errorMessage;
+
+  const LoginFailure({required this.errorMessage});
+
+  @override
+  List<Object?> get props => [errorMessage];
+}
+
+class LoginCubit extends Cubit<LoginState> {
+  final NetworkCallerDio _networkCaller = NetworkCallerDio();
+  final SecureStorageService _storage = SecureStorageService.instance;
+
+  LoginCubit() : super(LoginInitial());
+
+  Future<void> login({
+    required String email,
+    required String password,
+  }) async {
+    try {
+      emit(LoginLoading());
+
+      final requestBody = LoginRequest(
+        email: email.trim(),
+        password: password,
+      );
+
+      final response = await _networkCaller.postRequest(
+        AppUrl.logIn,
+        body: requestBody.toJson(),
+        isLogin: true,
+      );
+
+      if (response.isSuccess) {
+        final loginResponse = LoginResponse.fromJson(
+          response.jsonResponse ?? {},
+        );
+
+        if (loginResponse.data?.tokens != null &&
+            loginResponse.data?.user != null) {
+          final tokens = loginResponse.data!.tokens!;
+          final user = loginResponse.data!.user!;
+
+          // isParentDriver true  → owner
+          // isParentDriver false → not owner; keep parentDriverId
+          final isOwner = user.isParentDriver;
+          final parentDriverId =
+          isOwner ? null : user.parentDriverId;
+
+          await _storage.saveLoginSession(
+            accessToken: tokens.accessToken,
+            refreshToken: tokens.refreshToken,
+            userId: user.id,
+            email: user.email,
+            name: user.name,
+            role: user.role,
+            isParentDriver: user.isParentDriver,
+            parentDriverId: parentDriverId,
+          );
+
+          AuthSession.setFromLogin(
+            isParentDriverValue: user.isParentDriver,
+            parentDriverIdValue: parentDriverId,
+            userIdValue: user.id,
+          );
+
+          emit(LoginSuccess(
+            accessToken: tokens.accessToken,
+            refreshToken: tokens.refreshToken,
+            user: user,
+            isOwner: isOwner,
+            parentDriverId: parentDriverId,
+          ));
+        } else {
+          emit(const LoginFailure(
+            errorMessage: 'Invalid response from server',
+          ));
+        }
+      } else {
+        String errorMsg = response.errorMessage ?? 'Login failed';
+        if (response.jsonResponse != null) {
+          errorMsg = response.jsonResponse?['message'] ??
+              response.jsonResponse?['error'] ??
+              errorMsg;
+        }
+        emit(LoginFailure(errorMessage: errorMsg));
+      }
+    } catch (e) {
+      emit(LoginFailure(
+        errorMessage: 'An error occurred: ${e.toString()}',
+      ));
+    }
+  }
+
+  void clearError() {
+    if (state is LoginFailure) {
+      emit(LoginInitial());
+    }
+  }
+
+  void resetState() {
+    emit(LoginInitial());
+  }
+
+  bool get isLoading => state is LoginLoading;
+  bool get isSuccess => state is LoginSuccess;
+
   String? get errorMessage {
     if (state is LoginFailure) {
       return (state as LoginFailure).errorMessage;

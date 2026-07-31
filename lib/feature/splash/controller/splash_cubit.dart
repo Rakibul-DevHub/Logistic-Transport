@@ -1,6 +1,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import '../../../core/constants/app_routes.dart';
+import '../../../core/network/auth_session.dart';
 import '../../../core/network/secure_storage_service.dart';
 import '../../../core/network/network_caller_dio.dart';
 import '../../../core/utils/app_url.dart';
@@ -73,7 +74,8 @@ class SplashCubit extends Cubit<SplashState> {
         final isValid = await _validateAccessToken(accessToken);
 
         if (isValid) {
-          // Token is valid, navigate to home
+          // Restore role flags for Home (Assigned Load visibility).
+          await _restoreAuthSession();
           emit(SplashNavigate(routeName: AppRoutes.bottomNav));
           return;
         }
@@ -90,6 +92,7 @@ class SplashCubit extends Cubit<SplashState> {
         if (newAccessToken != null && newAccessToken.isNotEmpty) {
           // Refresh successful, save new token and navigate to home
           await _storage.saveAccessToken(newAccessToken);
+          await _restoreAuthSession();
           emit(SplashNavigate(routeName: AppRoutes.bottomNav));
           return;
         }
@@ -97,14 +100,27 @@ class SplashCubit extends Cubit<SplashState> {
 
       // 3. Both tokens are invalid/expired, navigate to login
       await _storage.deleteAllTokens(); // Clean up invalid tokens
+      AuthSession.clear();
       emit(SplashNavigate(routeName: AppRoutes.login));
 
     } catch (e) {
       // Error occurred, navigate to login as fallback
       print('❌ Auth check error: $e');
       await _storage.deleteAllTokens();
+      AuthSession.clear();
       emit(SplashNavigate(routeName: AppRoutes.login));
     }
+  }
+
+  Future<void> _restoreAuthSession() async {
+    final isParentDriver = await _storage.getIsParentDriver();
+    final parentDriverId = await _storage.getParentDriverId();
+    final userId = await _storage.getUserId();
+    AuthSession.setFromLogin(
+      isParentDriverValue: isParentDriver,
+      parentDriverIdValue: parentDriverId,
+      userIdValue: userId,
+    );
   }
 
   // Validate access token by making a request to user profile

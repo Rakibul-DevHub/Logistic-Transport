@@ -12,7 +12,9 @@ class AppColors {
   static const Color border = Color(0XFF64748B);
   static const Color borderTwo = Color(0XFFDBEAFE);
   static const Color incomeColor = Color(0XFF2563EB);
+  static const Color totalIncomeColor = Color(0XFF34d399);
   static const Color expenseColor = Color(0XFFF59E0B);
+  static const Color totalExpenseColor = Color(0XFFFB7185);
   static const Color tabBarColor = Color(0XFFE2E8F0);
   static const Color textGreyColor = Color(0XFF64748B);
   static const Color lightBlueColor = Color(0XFFE2E8F0);
