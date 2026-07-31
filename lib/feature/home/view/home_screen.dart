@@ -139,8 +139,13 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: AppColors.backgroundColor,
       body: ImmersiveSafeArea(
-        child: _HomeContent(
-          showAssignedLoad: showAssignedLoad,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return _HomeContent(
+              showAssignedLoad: showAssignedLoad,
+              maxWidth: constraints.maxWidth,
+            );
+          },
         ),
       ),
     );
@@ -152,45 +157,63 @@ class _HomeScreenState extends State<HomeScreen> {
 /// ---------------------------------------------------------------------------
 
 class _HomeContent extends StatelessWidget {
-  const _HomeContent({required this.showAssignedLoad});
+  const _HomeContent({
+    required this.showAssignedLoad,
+    required this.maxWidth,
+  });
 
   final bool showAssignedLoad;
+  final double maxWidth;
+
+  /// Design reference width (typical phone). Scale stays near 1 on phones.
+  static const double _designWidth = 390;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Fixed top bar (location + notification) — does not scroll
-        const Padding(
-          padding: EdgeInsets.fromLTRB(20, 16, 20, 0),
-          child: _HeaderSection(),
+    final scale = (maxWidth / _designWidth).clamp(0.85, 1.2);
+    final horizontal = (20.0 * scale).clamp(12.0, 32.0);
+    final sectionGap = (24.0 * scale).clamp(16.0, 28.0);
+    final topPad = (16.0 * scale).clamp(12.0, 20.0);
+
+    return Align(
+      alignment: Alignment.topCenter,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: maxWidth > 600 ? 600 : maxWidth,
         ),
-        const SizedBox(height: 24),
-        // Scrollable content starting from Net Profit
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const _NetProfitCard(),
-                const SizedBox(height: 24),
-                const _ActionButtons(),
-                const SizedBox(height: 24),
-                const _StatusOverviewSection(),
-                if (showAssignedLoad) ...[
-                  const SizedBox(height: 24),
-                  const _AssignedLoadSection(),
-                ],
-                const SizedBox(height: 24),
-                const _MyLoadsSection(),
-                const SizedBox(height: 20),
-              ],
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: EdgeInsets.fromLTRB(horizontal, topPad, horizontal, 0),
+              child: const _HeaderSection(),
             ),
-          ),
+            SizedBox(height: sectionGap),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.symmetric(horizontal: horizontal),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const _NetProfitCard(),
+                    SizedBox(height: sectionGap),
+                    const _ActionButtons(),
+                    SizedBox(height: sectionGap),
+                    const _StatusOverviewSection(),
+                    if (showAssignedLoad) ...[
+                      SizedBox(height: sectionGap),
+                      const _AssignedLoadSection(),
+                    ],
+                    SizedBox(height: sectionGap),
+                    const _MyLoadsSection(),
+                    SizedBox(height: (20.0 * scale).clamp(12.0, 24.0)),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }
