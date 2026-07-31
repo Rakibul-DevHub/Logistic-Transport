@@ -118,6 +118,7 @@ class AddLoadData {
   final String? parentDriverId;
   final String? loadId;
   final String? companyName;
+  final String? driverName;
   final List<List<double>>? pickupCoordinates;
   final List<List<double>>? deliveryCoordinates;
   final List<String>? pickupAddresses;
@@ -138,6 +139,7 @@ class AddLoadData {
     this.parentDriverId,
     this.loadId,
     this.companyName,
+    this.driverName,
     this.pickupCoordinates,
     this.deliveryCoordinates,
     this.pickupAddresses,
@@ -258,12 +260,31 @@ class AddLoadData {
       deliveryAddrs = [json['deliveryAddress'].toString()];
     }
 
+    String? nestedName(dynamic value) {
+      if (value is Map) {
+        final name = value['name'] ?? value['fullName'] ?? value['userName'];
+        if (name != null && name.toString().trim().isNotEmpty) {
+          return name.toString().trim();
+        }
+      }
+      return null;
+    }
+
+    final parsedDriverName = json['driverName']?.toString().trim().isNotEmpty == true
+            ? json['driverName'].toString().trim()
+            : json['userName']?.toString().trim().isNotEmpty == true
+                ? json['userName'].toString().trim()
+                : nestedName(json['driver']) ??
+                    nestedName(json['user']) ??
+                    nestedName(json['assignedDriver']);
+
     return AddLoadData(
       id: json['id']?.toString() ?? json['_id']?.toString(),
       userId: json['userId']?.toString(),
       parentDriverId: json['parentDriverId']?.toString(),
       loadId: json['loadId']?.toString(),
       companyName: json['companyName']?.toString(),
+      driverName: parsedDriverName,
       pickupCoordinates: pickupCoords,
       deliveryCoordinates: deliveryCoords,
       pickupAddresses: pickupAddrs,

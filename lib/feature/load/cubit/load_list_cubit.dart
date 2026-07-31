@@ -279,6 +279,31 @@ abstract final class LoadDisplayHelper {
     return 'Unknown company';
   }
 
+  static String driverName(
+    AddLoadData load, {
+    Map<String, String>? namesByUserId,
+    String? currentUserId,
+    String? currentUserName,
+  }) {
+    final fromApi = load.driverName?.trim();
+    if (fromApi != null && fromApi.isNotEmpty) return fromApi;
+
+    final userId = load.userId?.trim();
+    if (userId != null && userId.isNotEmpty) {
+      final mapped = namesByUserId?[userId]?.trim();
+      if (mapped != null && mapped.isNotEmpty) return mapped;
+
+      if (currentUserId != null &&
+          userId == currentUserId &&
+          currentUserName != null &&
+          currentUserName.trim().isNotEmpty) {
+        return currentUserName.trim();
+      }
+    }
+
+    return 'Unknown driver';
+  }
+
   static String pickupAddress(AddLoadData load) {
     final list = load.pickupAddresses;
     if (list != null && list.isNotEmpty) return list.first;

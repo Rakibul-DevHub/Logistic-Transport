@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
@@ -9,6 +10,7 @@ import 'package:tag/feature/load/cubit/load_list_cubit.dart';
 import 'package:tag/feature/load/model/load_list_data.dart';
 import 'package:tag/feature/load/view/load_details_screen.dart';
 import 'package:tag/feature/profile/view/manage_drivers/cubit/driver_screen_cubit.dart';
+import 'package:tag/feature/profile/view/manage_drivers/model/driver_data.dart';
 import 'package:tag/shared/widget/immersive_safe_area.dart';
 
 class LoadScreen extends StatefulWidget {
@@ -32,6 +34,9 @@ class _LoadScreenState extends State<LoadScreen> {
   bool _roleLoaded = false;
 
   List<String> _driverList = const ['All Drivers'];
+  final Map<String, String> _driverNamesById = {};
+  String? _currentUserId;
+  String? _currentUserName;
 
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
@@ -76,32 +81,70 @@ class _LoadScreenState extends State<LoadScreen> {
       _listType = LoadListType.self;
     });
 
+    await _resolveCurrentUser();
     _loadListCubit.fetchLoads(type: _listType);
 
     if (isParent) {
       if (_driverService.hasCache) {
-        setState(() {
-          _driverList = ['All Drivers', ..._driverService.cachedDriverNames];
-        });
+        _applyDriverCache(_driverService.cachedDrivers);
       }
       _loadDriverNamesFromService();
     }
   }
 
+  Future<void> _resolveCurrentUser() async {
+    final storage = SecureStorageService.instance;
+    final id = await storage.getUserId();
+    final name = await storage.getUserName();
+    if (!mounted) return;
+    setState(() {
+      _currentUserId = id;
+      _currentUserName = name;
+      if (id != null &&
+          id.isNotEmpty &&
+          name != null &&
+          name.trim().isNotEmpty) {
+        _driverNamesById[id] = name.trim();
+      }
+    });
+  }
+
+  void _applyDriverCache(List<Driver> drivers) {
+    for (final driver in drivers) {
+      final id = driver.id.trim();
+      final name = driver.name.trim();
+      if (id.isNotEmpty && name.isNotEmpty) {
+        _driverNamesById[id] = name;
+      }
+    }
+    setState(() {
+      _driverList = [
+        'All Drivers',
+        ..._driverService.cachedDriverNames,
+      ];
+    });
+  }
+
   Future<void> _loadDriverNamesFromService() async {
     try {
-      final names = await _driverService.getDriverNames(
+      final drivers = await _driverService.fetchDrivers(
         forceRefresh: !_driverService.hasCache,
-        includeAll: true,
       );
       if (!mounted) return;
-      setState(() {
-        _driverList = names;
-        if (!_driverList.contains(_selectedDriver)) {
-          _selectedDriver = 'All Drivers';
-        }
-      });
+      _applyDriverCache(drivers);
+      if (!_driverList.contains(_selectedDriver)) {
+        setState(() => _selectedDriver = 'All Drivers');
+      }
     } catch (_) {}
+  }
+
+  String _driverNameFor(AddLoadData load) {
+    return LoadDisplayHelper.driverName(
+      load,
+      namesByUserId: _driverNamesById,
+      currentUserId: _currentUserId,
+      currentUserName: _currentUserName,
+    );
   }
 
   void _onScroll() {
@@ -136,18 +179,15 @@ class _LoadScreenState extends State<LoadScreen> {
     final query = _searchQuery.trim().toLowerCase();
     if (query.isNotEmpty) {
       result = result.where((load) {
-        final company = LoadDisplayHelper.company(load).toLowerCase();
-        final loadId = (load.loadId ?? '').toLowerCase();
-        return company.contains(query) || loadId.contains(query);
+        final driver = _driverNameFor(load).toLowerCase();
+        return driver.contains(query);
       }).toList();
     }
 
-    // Driver dropdown kept for owners; API has no driver name on load —
-    // filter by company as best-effort when a driver is selected.
     if (_selectedDriver != 'All Drivers') {
-      final driver = _selectedDriver.toLowerCase();
+      final driverFilter = _selectedDriver.toLowerCase();
       result = result.where((load) {
-        return LoadDisplayHelper.company(load).toLowerCase().contains(driver);
+        return _driverNameFor(load).toLowerCase() == driverFilter;
       }).toList();
     }
 
@@ -169,7 +209,20 @@ class _LoadScreenState extends State<LoadScreen> {
   }
 
   void _applyDriverFilter(String driver) {
-    setState(() => _selectedDriver = driver);
+    final shouldOpenAssigned =
+        driver != 'All Drivers' && _listType != LoadListType.assigned;
+
+    setState(() {
+      _selectedDriver = driver;
+      if (driver != 'All Drivers') {
+        // Selecting a driver always scopes to Assigned loads.
+        _listType = LoadListType.assigned;
+      }
+    });
+
+    if (shouldOpenAssigned) {
+      _loadListCubit.fetchLoads(type: LoadListType.assigned);
+    }
   }
 
   void _onSearchChanged(String value) {
@@ -297,7 +350,7 @@ class _LoadScreenState extends State<LoadScreen> {
       child: Scaffold(
         backgroundColor: AppColors.backgroundColor,
         body: Padding(
-          padding: EdgeInsets.only(top: topInset + 12, bottom: 20),
+          padding: EdgeInsets.only(top: topInset + 12),
           child: Column(
             children: [
               if (_showOwnerFilters) ...[
@@ -305,12 +358,12 @@ class _LoadScreenState extends State<LoadScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: _buildTypeToggle(),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 6),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: _buildSearchAndDropdownRow(),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 6),
               ],
               RepaintBoundary(
                 child: Container(
@@ -371,7 +424,7 @@ class _LoadScreenState extends State<LoadScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 8),
               Expanded(
                 child: BlocBuilder<LoadListCubit, LoadListState>(
                   builder: (context, state) {
@@ -487,7 +540,10 @@ class _LoadScreenState extends State<LoadScreen> {
                                   );
                                 }
                                 return RepaintBoundary(
-                                  child: LoadCard(load: filtered[index]),
+                                  child: LoadCard(
+                                    load: filtered[index],
+                                    driverName: _driverNameFor(filtered[index]),
+                                  ),
                                 );
                               },
                             ),
@@ -588,6 +644,7 @@ class _LoadScreenState extends State<LoadScreen> {
   Widget _buildSearchFieldInsideContainer() {
     return Row(
       children: [
+        // Icon stays in a fixed 48 slot — toggles search on tap
         SizedBox(
           width: 48,
           height: 48,
@@ -600,30 +657,65 @@ class _LoadScreenState extends State<LoadScreen> {
               highlightColor: Colors.transparent,
               child: Center(
                 child: Icon(
-                  _isSearchExpanded ? Icons.close : Icons.search,
-                  color: const Color(0xFF6B7280),
+                  Icons.search_rounded,
+                  size: 22,
+                  color: _isSearchExpanded
+                      ? const Color(0xFF1E3A5F)
+                      : const Color(0xFF6B7280),
                 ),
               ),
             ),
           ),
         ),
         Expanded(
-          child: TextField(
-            controller: _searchController,
-            focusNode: _searchFocusNode,
-            onChanged: _onSearchChanged,
-            decoration: InputDecoration(
-              hintText: 'Search by company or load ID',
-              border: InputBorder.none,
-              hintStyle: TextStyle(color: Colors.grey[500], fontSize: 14),
-              suffixIcon: _searchQuery.isNotEmpty
-                  ? IconButton(
-                      icon: const Icon(Icons.clear, size: 18),
-                      onPressed: _clearSearchText,
-                    )
-                  : null,
+          child: IgnorePointer(
+            ignoring: !_isSearchExpanded,
+            child: TextField(
+              controller: _searchController,
+              focusNode: _searchFocusNode,
+              onChanged: _onSearchChanged,
+              textInputAction: TextInputAction.search,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF1E3A5F),
+              ),
+              decoration: const InputDecoration(
+                hintText: 'Search by driver name...',
+                hintStyle: TextStyle(
+                  fontSize: 14,
+                  color: Color(0xFF9CA3AF),
+                  fontWeight: FontWeight.w400,
+                ),
+                border: InputBorder.none,
+                isDense: true,
+                contentPadding: EdgeInsets.symmetric(vertical: 12),
+              ),
             ),
           ),
+        ),
+        if (_searchQuery.isNotEmpty)
+          IconButton(
+            tooltip: 'Clear',
+            onPressed: _clearSearchText,
+            icon: const Icon(
+              Icons.close_rounded,
+              size: 18,
+              color: Color(0xFF6B7280),
+            ),
+            splashColor: Colors.transparent,
+            highlightColor: Colors.transparent,
+          ),
+        IconButton(
+          tooltip: 'Close search',
+          onPressed: _closeSearch,
+          icon: const Icon(
+            CupertinoIcons.arrow_uturn_left,
+            size: 20,
+            color: Color(0xFF1E3A5F),
+          ),
+          splashColor: Colors.transparent,
+          highlightColor: Colors.transparent,
         ),
       ],
     );
@@ -674,10 +766,314 @@ class _LoadScreenState extends State<LoadScreen> {
   }
 }
 
+// class LoadCard extends StatelessWidget {
+//   final AddLoadData load;
+//   final String driverName;
+//
+//   const LoadCard({
+//     super.key,
+//     required this.load,
+//     required this.driverName,
+//   });
+//
+//   String _getStatusText() => LoadDisplayHelper.statusLabel(load).toUpperCase();
+//
+//   Color _getStatusBgColor() {
+//     final label = LoadDisplayHelper.statusLabel(load);
+//     switch (label) {
+//       case 'Completed':
+//         return const Color(0xFFF0FDF4);
+//       case 'Missing POD':
+//         return const Color(0xFFFFF7ED);
+//       case 'In Progress':
+//         return const Color(0xFFEFF6FF);
+//       default:
+//         return const Color(0xFFFFF7ED);
+//     }
+//   }
+//
+//   Color _getStatusTextColor() {
+//     return LoadDisplayHelper.statusColor(load);
+//   }
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     final pickupDate = LoadDisplayHelper.pickupDate(load);
+//     final dateFormat = DateFormat('MMM dd, HH:mm');
+//     final pickupText =
+//         pickupDate != null ? dateFormat.format(pickupDate) : '—';
+//     final rate = load.rate?.toDouble() ?? 0;
+//
+//     return Container(
+//       padding: const EdgeInsets.all(24),
+//       decoration: BoxDecoration(
+//         color: Colors.white,
+//         borderRadius: BorderRadius.circular(20),
+//         boxShadow: [
+//           BoxShadow(
+//             color: Colors.black.withValues(alpha: 0.04),
+//             blurRadius: 10,
+//             offset: const Offset(0, 4),
+//           ),
+//         ],
+//       ),
+//       child: Column(
+//         crossAxisAlignment: CrossAxisAlignment.start,
+//         children: [
+//           Row(
+//             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+//             children: [
+//               Text(
+//                 LoadDisplayHelper.loadNumber(load),
+//                 style: const TextStyle(
+//                   color: Color(0xFF6B7280),
+//                   fontSize: 14,
+//                   fontWeight: FontWeight.w500,
+//                 ),
+//               ),
+//               Container(
+//                 padding: const EdgeInsets.symmetric(
+//                   horizontal: 16,
+//                   vertical: 8,
+//                 ),
+//                 decoration: BoxDecoration(
+//                   color: _getStatusBgColor(),
+//                   borderRadius: BorderRadius.circular(20),
+//                 ),
+//                 child: Text(
+//                   _getStatusText(),
+//                   style: TextStyle(
+//                     color: _getStatusTextColor(),
+//                     fontSize: 12,
+//                     fontWeight: FontWeight.bold,
+//                   ),
+//                 ),
+//               ),
+//             ],
+//           ),
+//           const SizedBox(height: 12),
+//           Row(
+//             children: [
+//               const Icon(Icons.person, size: 20, color: Color(0xFF6B7280)),
+//               const SizedBox(width: 8),
+//               Expanded(
+//                 child: Text(
+//                   driverName,
+//                   style: const TextStyle(
+//                     fontSize: 22,
+//                     fontWeight: FontWeight.bold,
+//                     color: Color(0xFF111827),
+//                   ),
+//                   maxLines: 1,
+//                   overflow: TextOverflow.ellipsis,
+//                 ),
+//               ),
+//             ],
+//           ),
+//           const SizedBox(height: 6),
+//           Padding(
+//             padding: const EdgeInsets.only(left: 28),
+//             child: Text(
+//               LoadDisplayHelper.company(load),
+//               style: const TextStyle(
+//                 fontSize: 14,
+//                 fontWeight: FontWeight.w500,
+//                 color: Color(0xFF6B7280),
+//               ),
+//               maxLines: 1,
+//               overflow: TextOverflow.ellipsis,
+//             ),
+//           ),
+//           const SizedBox(height: 24),
+//           Row(
+//             crossAxisAlignment: CrossAxisAlignment.start,
+//             children: [
+//               Column(
+//                 children: [
+//                   Container(
+//                     width: 12,
+//                     height: 12,
+//                     decoration: const BoxDecoration(
+//                       color: Color(0xFF3B82F6),
+//                       shape: BoxShape.circle,
+//                     ),
+//                   ),
+//                   Container(
+//                     width: 2,
+//                     height: 40,
+//                     margin: const EdgeInsets.symmetric(vertical: 4),
+//                     child: CustomPaint(
+//                       painter: DottedLinePainter(
+//                         color: const Color(0xFFD1D5DB),
+//                         strokeWidth: 2,
+//                       ),
+//                     ),
+//                   ),
+//                   Container(
+//                     width: 12,
+//                     height: 12,
+//                     decoration: BoxDecoration(
+//                       color: Colors.white,
+//                       shape: BoxShape.circle,
+//                       border: Border.all(
+//                         color: const Color(0xFF3B82F6),
+//                         width: 2,
+//                       ),
+//                     ),
+//                   ),
+//                 ],
+//               ),
+//               const SizedBox(width: 16),
+//               Expanded(
+//                 child: Column(
+//                   crossAxisAlignment: CrossAxisAlignment.start,
+//                   children: [
+//                     Row(
+//                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+//                       children: [
+//                         Expanded(
+//                           child: Text(
+//                             LoadDisplayHelper.pickupAddress(load),
+//                             style: const TextStyle(
+//                               fontSize: 16,
+//                               color: Color(0xFF6B7280),
+//                             ),
+//                             maxLines: 1,
+//                             overflow: TextOverflow.ellipsis,
+//                           ),
+//                         ),
+//                         const SizedBox(width: 8),
+//                         Text(
+//                           pickupText,
+//                           style: const TextStyle(
+//                             fontSize: 16,
+//                             color: Color(0xFF6B7280),
+//                           ),
+//                         ),
+//                       ],
+//                     ),
+//                     const SizedBox(height: 24),
+//                     Row(
+//                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+//                       children: [
+//                         Expanded(
+//                           child: Text(
+//                             LoadDisplayHelper.deliveryAddress(load),
+//                             style: const TextStyle(
+//                               fontSize: 16,
+//                               color: Color(0xFF6B7280),
+//                             ),
+//                             maxLines: 1,
+//                             overflow: TextOverflow.ellipsis,
+//                           ),
+//                         ),
+//                         const SizedBox(width: 8),
+//                         Text(
+//                           pickupText,
+//                           style: const TextStyle(
+//                             fontSize: 16,
+//                             color: Color(0xFF6B7280),
+//                           ),
+//                         ),
+//                       ],
+//                     ),
+//                   ],
+//                 ),
+//               ),
+//             ],
+//           ),
+//           const SizedBox(height: 24),
+//           Container(height: 1, color: const Color(0xFFF3F4F6)),
+//           const SizedBox(height: 20),
+//           Row(
+//             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+//             children: [
+//               Column(
+//                 crossAxisAlignment: CrossAxisAlignment.start,
+//                 children: [
+//                   const Text(
+//                     'RATE',
+//                     style: TextStyle(
+//                       fontSize: 12,
+//                       color: Color(0xFF6B7280),
+//                       fontWeight: FontWeight.w500,
+//                     ),
+//                   ),
+//                   const SizedBox(height: 4),
+//                   Text(
+//                     '\$${rate.toStringAsFixed(2)}',
+//                     style: const TextStyle(
+//                       fontSize: 24,
+//                       fontWeight: FontWeight.bold,
+//                       color: Color(0xFF111827),
+//                     ),
+//                   ),
+//                 ],
+//               ),
+//               Container(
+//                 decoration: BoxDecoration(
+//                   color: const Color(0xFF1E3A5F),
+//                   borderRadius: BorderRadius.circular(12),
+//                 ),
+//                 child: Material(
+//                   color: Colors.transparent,
+//                   child: InkWell(
+//                     onTap: () {
+//                       Navigator.push(
+//                         context,
+//                         MaterialPageRoute(
+//                           builder: (_) => LoadDetailsScreen(load: load),
+//                         ),
+//                       );
+//                     },
+//                     borderRadius: BorderRadius.circular(12),
+//                     child: const Padding(
+//                       padding: EdgeInsets.symmetric(
+//                         horizontal: 24,
+//                         vertical: 14,
+//                       ),
+//                       child: Row(
+//                         children: [
+//                           Text(
+//                             'Details',
+//                             style: TextStyle(
+//                               color: Colors.white,
+//                               fontSize: 16,
+//                               fontWeight: FontWeight.w600,
+//                             ),
+//                           ),
+//                           SizedBox(width: 4),
+//                           Icon(
+//                             Icons.chevron_right,
+//                             color: Colors.white,
+//                             size: 20,
+//                           ),
+//                         ],
+//                       ),
+//                     ),
+//                   ),
+//                 ),
+//               ),
+//             ],
+//           ),
+//         ],
+//       ),
+//     );
+//   }
+// }
+
+
+
+
 class LoadCard extends StatelessWidget {
   final AddLoadData load;
+  final String driverName;
 
-  const LoadCard({super.key, required this.load});
+  const LoadCard({
+    super.key,
+    required this.load,
+    required this.driverName,
+  });
 
   String _getStatusText() => LoadDisplayHelper.statusLabel(load).toUpperCase();
 
@@ -704,25 +1100,26 @@ class LoadCard extends StatelessWidget {
     final pickupDate = LoadDisplayHelper.pickupDate(load);
     final dateFormat = DateFormat('MMM dd, HH:mm');
     final pickupText =
-        pickupDate != null ? dateFormat.format(pickupDate) : '—';
+    pickupDate != null ? dateFormat.format(pickupDate) : '—';
     final rate = load.rate?.toDouble() ?? 0;
 
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(16), // Reduced from 24 to 16
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16), // Reduced from 20 to 16
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            blurRadius: 8, // Reduced from 10 to 8
+            offset: const Offset(0, 3), // Reduced from 4 to 3
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Row 1: Load Number + Status
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -730,40 +1127,42 @@ class LoadCard extends StatelessWidget {
                 LoadDisplayHelper.loadNumber(load),
                 style: const TextStyle(
                   color: Color(0xFF6B7280),
-                  fontSize: 14,
+                  fontSize: 12, // Reduced from 14 to 12
                   fontWeight: FontWeight.w500,
                 ),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
+                  horizontal: 12, // Reduced from 16 to 12
+                  vertical: 4,   // Reduced from 8 to 4
                 ),
                 decoration: BoxDecoration(
                   color: _getStatusBgColor(),
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(16), // Reduced from 20 to 16
                 ),
                 child: Text(
                   _getStatusText(),
                   style: TextStyle(
                     color: _getStatusTextColor(),
-                    fontSize: 12,
+                    fontSize: 10, // Reduced from 12 to 10
                     fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8), // Reduced from 12 to 8
+
+          // Row 2: Driver Name
           Row(
             children: [
-              const Icon(Icons.business, size: 20, color: Color(0xFF6B7280)),
-              const SizedBox(width: 8),
+              const Icon(Icons.person, size: 16, color: Color(0xFF6B7280)), // Reduced from 20 to 16
+              const SizedBox(width: 6), // Reduced from 8 to 6
               Expanded(
                 child: Text(
-                  LoadDisplayHelper.company(load),
+                  driverName,
                   style: const TextStyle(
-                    fontSize: 20,
+                    fontSize: 18, // Reduced from 22 to 18
                     fontWeight: FontWeight.bold,
                     color: Color(0xFF111827),
                   ),
@@ -773,15 +1172,33 @@ class LoadCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 4), // Reduced from 6 to 4
+
+          // Company Name
+          Padding(
+            padding: const EdgeInsets.only(left: 22), // Reduced from 28 to 22
+            child: Text(
+              LoadDisplayHelper.company(load),
+              style: const TextStyle(
+                fontSize: 12, // Reduced from 14 to 12
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF6B7280),
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(height: 16), // Reduced from 24 to 16
+
+          // Route: Pickup -> Delivery
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Column(
                 children: [
                   Container(
-                    width: 12,
-                    height: 12,
+                    width: 10, // Reduced from 12 to 10
+                    height: 10, // Reduced from 12 to 10
                     decoration: const BoxDecoration(
                       color: Color(0xFF3B82F6),
                       shape: BoxShape.circle,
@@ -789,18 +1206,18 @@ class LoadCard extends StatelessWidget {
                   ),
                   Container(
                     width: 2,
-                    height: 40,
-                    margin: const EdgeInsets.symmetric(vertical: 4),
+                    height: 28, // Reduced from 40 to 28
+                    margin: const EdgeInsets.symmetric(vertical: 3), // Reduced from 4 to 3
                     child: CustomPaint(
                       painter: DottedLinePainter(
                         color: const Color(0xFFD1D5DB),
-                        strokeWidth: 2,
+                        strokeWidth: 1.5, // Reduced from 2 to 1.5
                       ),
                     ),
                   ),
                   Container(
-                    width: 12,
-                    height: 12,
+                    width: 10, // Reduced from 12 to 10
+                    height: 10, // Reduced from 12 to 10
                     decoration: BoxDecoration(
                       color: Colors.white,
                       shape: BoxShape.circle,
@@ -812,11 +1229,12 @@ class LoadCard extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 12), // Reduced from 16 to 12
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Pickup
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -824,24 +1242,26 @@ class LoadCard extends StatelessWidget {
                           child: Text(
                             LoadDisplayHelper.pickupAddress(load),
                             style: const TextStyle(
-                              fontSize: 16,
+                              fontSize: 13, // Reduced from 16 to 13
                               color: Color(0xFF6B7280),
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 6), // Reduced from 8 to 6
                         Text(
                           pickupText,
                           style: const TextStyle(
-                            fontSize: 16,
+                            fontSize: 13, // Reduced from 16 to 13
                             color: Color(0xFF6B7280),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 16), // Reduced from 24 to 16
+
+                    // Delivery
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -849,18 +1269,18 @@ class LoadCard extends StatelessWidget {
                           child: Text(
                             LoadDisplayHelper.deliveryAddress(load),
                             style: const TextStyle(
-                              fontSize: 16,
+                              fontSize: 13, // Reduced from 16 to 13
                               color: Color(0xFF6B7280),
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 6), // Reduced from 8 to 6
                         Text(
                           pickupText,
                           style: const TextStyle(
-                            fontSize: 16,
+                            fontSize: 13, // Reduced from 16 to 13
                             color: Color(0xFF6B7280),
                           ),
                         ),
@@ -871,9 +1291,13 @@ class LoadCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16), // Reduced from 24 to 16
+
+          // Divider
           Container(height: 1, color: const Color(0xFFF3F4F6)),
-          const SizedBox(height: 20),
+          const SizedBox(height: 14), // Reduced from 20 to 14
+
+          // Bottom: Rate + Details Button
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -883,16 +1307,16 @@ class LoadCard extends StatelessWidget {
                   const Text(
                     'RATE',
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: 10, // Reduced from 12 to 10
                       color: Color(0xFF6B7280),
                       fontWeight: FontWeight.w500,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 2), // Reduced from 4 to 2
                   Text(
                     '\$${rate.toStringAsFixed(2)}',
                     style: const TextStyle(
-                      fontSize: 24,
+                      fontSize: 20, // Reduced from 24 to 20
                       fontWeight: FontWeight.bold,
                       color: Color(0xFF111827),
                     ),
@@ -902,7 +1326,7 @@ class LoadCard extends StatelessWidget {
               Container(
                 decoration: BoxDecoration(
                   color: const Color(0xFF1E3A5F),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(10), // Reduced from 12 to 10
                 ),
                 child: Material(
                   color: Colors.transparent,
@@ -915,11 +1339,11 @@ class LoadCard extends StatelessWidget {
                         ),
                       );
                     },
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(10),
                     child: const Padding(
                       padding: EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 14,
+                        horizontal: 18, // Reduced from 24 to 18
+                        vertical: 10,   // Reduced from 14 to 10
                       ),
                       child: Row(
                         children: [
@@ -927,15 +1351,15 @@ class LoadCard extends StatelessWidget {
                             'Details',
                             style: TextStyle(
                               color: Colors.white,
-                              fontSize: 16,
+                              fontSize: 14, // Reduced from 16 to 14
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-                          SizedBox(width: 4),
+                          SizedBox(width: 2), // Reduced from 4 to 2
                           Icon(
                             Icons.chevron_right,
                             color: Colors.white,
-                            size: 20,
+                            size: 18, // Reduced from 20 to 18
                           ),
                         ],
                       ),
@@ -950,6 +1374,7 @@ class LoadCard extends StatelessWidget {
     );
   }
 }
+
 
 class DottedLinePainter extends CustomPainter {
   final Color color;
