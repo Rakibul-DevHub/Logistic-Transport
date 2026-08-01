@@ -453,6 +453,29 @@ abstract final class LoadDisplayHelper {
     }
   }
 
+  static DateTime? deliveryDate(AddLoadData load) {
+    final raw = load.deliveryDate;
+    if (raw != null && raw.isNotEmpty) {
+      try {
+        return DateTime.parse(raw).toLocal();
+      } catch (_) {}
+    }
+
+    // Completed loads often only have updatedAt as the delivery timestamp.
+    final status = (load.status ?? '').toLowerCase().trim();
+    final isCompleted =
+        status == 'completed' || status == 'delivered';
+    if (isCompleted) {
+      final updated = load.updatedAt;
+      if (updated != null && updated.isNotEmpty) {
+        try {
+          return DateTime.parse(updated).toLocal();
+        } catch (_) {}
+      }
+    }
+    return null;
+  }
+
   static String formattedDate(AddLoadData load) {
     final date = pickupDate(load);
     if (date == null) return '—';

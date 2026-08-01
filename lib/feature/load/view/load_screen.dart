@@ -778,10 +778,18 @@ class LoadCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final pickupDate = LoadDisplayHelper.pickupDate(load);
     final dateFormat = DateFormat('MMM dd, HH:mm');
+    final pickupDate = LoadDisplayHelper.pickupDate(load);
+    final deliveryDate = LoadDisplayHelper.deliveryDate(load);
     final pickupText =
-    pickupDate != null ? dateFormat.format(pickupDate) : '—';
+        pickupDate != null ? dateFormat.format(pickupDate) : '—';
+
+    final status = (load.status ?? '').toLowerCase().trim();
+    final isCompleted = status == 'completed' || status == 'delivered';
+    // Delivery row: show delivery date when completed (or when API sent one).
+    final deliveryText = isCompleted || deliveryDate != null
+        ? (deliveryDate != null ? dateFormat.format(deliveryDate) : '—')
+        : '—';
     final rate = load.rate?.toDouble() ?? 0;
 
     return Container(
@@ -959,7 +967,7 @@ class LoadCard extends StatelessWidget {
                         ),
                         const SizedBox(width: 6),
                         Text(
-                          pickupText,
+                          deliveryText,
                           style: const TextStyle(
                             fontSize: 13,
                             color: Color(0xFF6B7280),

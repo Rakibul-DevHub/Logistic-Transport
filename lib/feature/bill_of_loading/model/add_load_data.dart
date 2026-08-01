@@ -124,6 +124,7 @@ class AddLoadData {
   final List<String>? pickupAddresses;
   final List<String>? deliveryAddresses;
   final String? pickupDate;
+  final String? deliveryDate;
   final num? rate;
   final String? bolImage;
   final String? notes;
@@ -145,6 +146,7 @@ class AddLoadData {
     this.pickupAddresses,
     this.deliveryAddresses,
     this.pickupDate,
+    this.deliveryDate,
     this.rate,
     this.bolImage,
     this.notes,
@@ -290,6 +292,9 @@ class AddLoadData {
       pickupAddresses: pickupAddrs,
       deliveryAddresses: deliveryAddrs,
       pickupDate: json['pickupDate']?.toString(),
+      deliveryDate: json['deliveryDate']?.toString() ??
+          json['deliveredAt']?.toString() ??
+          json['completedAt']?.toString(),
       rate: json['rate'] as num?,
       bolImage: json['bolImage']?.toString(),
       notes: json['notes']?.toString(),
