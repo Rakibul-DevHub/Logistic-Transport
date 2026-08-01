@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:tag/core/network/auth_session.dart';
 import 'package:tag/core/network/secure_storage_service.dart';
@@ -174,7 +175,7 @@ class _LoadScreenState extends State<LoadScreen> {
     if (_selectedFilter != 'All') {
       result = result
           .where((load) =>
-              LoadDisplayHelper.filterBucket(load) == _selectedFilter)
+      LoadDisplayHelper.filterBucket(load) == _selectedFilter)
           .toList();
     }
 
@@ -409,14 +410,14 @@ class _LoadScreenState extends State<LoadScreen> {
                               borderRadius: BorderRadius.circular(10),
                               boxShadow: isSelected
                                   ? [
-                                      BoxShadow(
-                                        color: Colors.black.withValues(
-                                          alpha: 0.05,
-                                        ),
-                                        blurRadius: 4,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ]
+                                BoxShadow(
+                                  color: Colors.black.withValues(
+                                    alpha: 0.05,
+                                  ),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ]
                                   : null,
                             ),
                             child: Text(
@@ -493,78 +494,78 @@ class _LoadScreenState extends State<LoadScreen> {
                           _loadListCubit.fetchLoads(type: _listType),
                       child: filtered.isEmpty
                           ? ListView(
-                              physics: const AlwaysScrollableScrollPhysics(),
-                              children: [
-                                SizedBox(
-                                  height:
-                                      MediaQuery.of(context).size.height * 0.4,
-                                  child: Center(
-                                    child: Column(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        Icon(
-                                          Icons.local_shipping_outlined,
-                                          size: 80,
-                                          color: Colors.grey[400],
-                                        ),
-                                        const SizedBox(height: 16),
-                                        Text(
-                                          'No loads found',
-                                          style: TextStyle(
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.w600,
-                                            color: Colors.grey[600],
-                                          ),
-                                        ),
-                                        const SizedBox(height: 8),
-                                        Text(
-                                          _searchQuery.isNotEmpty
-                                              ? 'No matches for "$_searchQuery"'
-                                              : 'Try changing your filters',
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            color: Colors.grey[500],
-                                          ),
-                                        ),
-                                      ],
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        children: [
+                          SizedBox(
+                            height:
+                            MediaQuery.of(context).size.height * 0.4,
+                            child: Center(
+                              child: Column(
+                                mainAxisAlignment:
+                                MainAxisAlignment.center,
+                                children: [
+                                  SvgPicture.asset('assets/icons/empty.svg'),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    'No loads found',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.grey[600],
                                     ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    _searchQuery.isNotEmpty
+                                        ? 'No matches for "$_searchQuery"'
+                                        : 'Try changing your filters',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.grey[500],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      )
+                          : ListView.separated(
+                        controller: _scrollController,
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 0,
+                        ).copyWith(
+                          bottom: 20,
+                        ),
+                        itemCount:
+                        filtered.length + (state.isLoadingMore ? 1 : 0),
+                        separatorBuilder: (_, __) =>
+                        const SizedBox(height: 16),
+                        itemBuilder: (context, index) {
+                          if (index >= filtered.length) {
+                            return const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 16),
+                              child: Center(
+                                child: SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
                                   ),
                                 ),
-                              ],
-                            )
-                          : ListView.separated(
-                              controller: _scrollController,
-                              physics: const AlwaysScrollableScrollPhysics(),
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 16),
-                              itemCount:
-                                  filtered.length + (state.isLoadingMore ? 1 : 0),
-                              separatorBuilder: (_, __) =>
-                                  const SizedBox(height: 16),
-                              itemBuilder: (context, index) {
-                                if (index >= filtered.length) {
-                                  return const Padding(
-                                    padding: EdgeInsets.symmetric(vertical: 16),
-                                    child: Center(
-                                      child: SizedBox(
-                                        width: 24,
-                                        height: 24,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                }
-                                return RepaintBoundary(
-                                  child: LoadCard(
-                                    load: filtered[index],
-                                    driverName: _driverNameFor(filtered[index]),
-                                  ),
-                                );
-                              },
+                              ),
+                            );
+                          }
+                          return RepaintBoundary(
+                            child: LoadCard(
+                              load: filtered[index],
+                              driverName: _driverNameFor(filtered[index]),
                             ),
+                          );
+                        },
+                      ),
                     );
                   },
                 ),
@@ -745,305 +746,6 @@ class _LoadScreenState extends State<LoadScreen> {
   }
 }
 
-// class LoadCard extends StatelessWidget {
-//   final AddLoadData load;
-//   final String driverName;
-//
-//   const LoadCard({
-//     super.key,
-//     required this.load,
-//     required this.driverName,
-//   });
-//
-//   String _getStatusText() => LoadDisplayHelper.statusLabel(load).toUpperCase();
-//
-//   Color _getStatusBgColor() {
-//     final label = LoadDisplayHelper.statusLabel(load);
-//     switch (label) {
-//       case 'Completed':
-//         return const Color(0xFFF0FDF4);
-//       case 'Missing POD':
-//         return const Color(0xFFFFF7ED);
-//       case 'In Progress':
-//         return const Color(0xFFEFF6FF);
-//       default:
-//         return const Color(0xFFFFF7ED);
-//     }
-//   }
-//
-//   Color _getStatusTextColor() {
-//     return LoadDisplayHelper.statusColor(load);
-//   }
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     final pickupDate = LoadDisplayHelper.pickupDate(load);
-//     final dateFormat = DateFormat('MMM dd, HH:mm');
-//     final pickupText =
-//         pickupDate != null ? dateFormat.format(pickupDate) : '—';
-//     final rate = load.rate?.toDouble() ?? 0;
-//
-//     return Container(
-//       padding: const EdgeInsets.all(24),
-//       decoration: BoxDecoration(
-//         color: Colors.white,
-//         borderRadius: BorderRadius.circular(20),
-//         boxShadow: [
-//           BoxShadow(
-//             color: Colors.black.withValues(alpha: 0.04),
-//             blurRadius: 10,
-//             offset: const Offset(0, 4),
-//           ),
-//         ],
-//       ),
-//       child: Column(
-//         crossAxisAlignment: CrossAxisAlignment.start,
-//         children: [
-//           Row(
-//             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//             children: [
-//               Text(
-//                 LoadDisplayHelper.loadNumber(load),
-//                 style: const TextStyle(
-//                   color: Color(0xFF6B7280),
-//                   fontSize: 14,
-//                   fontWeight: FontWeight.w500,
-//                 ),
-//               ),
-//               Container(
-//                 padding: const EdgeInsets.symmetric(
-//                   horizontal: 16,
-//                   vertical: 8,
-//                 ),
-//                 decoration: BoxDecoration(
-//                   color: _getStatusBgColor(),
-//                   borderRadius: BorderRadius.circular(20),
-//                 ),
-//                 child: Text(
-//                   _getStatusText(),
-//                   style: TextStyle(
-//                     color: _getStatusTextColor(),
-//                     fontSize: 12,
-//                     fontWeight: FontWeight.bold,
-//                   ),
-//                 ),
-//               ),
-//             ],
-//           ),
-//           const SizedBox(height: 12),
-//           Row(
-//             children: [
-//               const Icon(Icons.person, size: 20, color: Color(0xFF6B7280)),
-//               const SizedBox(width: 8),
-//               Expanded(
-//                 child: Text(
-//                   driverName,
-//                   style: const TextStyle(
-//                     fontSize: 22,
-//                     fontWeight: FontWeight.bold,
-//                     color: Color(0xFF111827),
-//                   ),
-//                   maxLines: 1,
-//                   overflow: TextOverflow.ellipsis,
-//                 ),
-//               ),
-//             ],
-//           ),
-//           const SizedBox(height: 6),
-//           Padding(
-//             padding: const EdgeInsets.only(left: 28),
-//             child: Text(
-//               LoadDisplayHelper.company(load),
-//               style: const TextStyle(
-//                 fontSize: 14,
-//                 fontWeight: FontWeight.w500,
-//                 color: Color(0xFF6B7280),
-//               ),
-//               maxLines: 1,
-//               overflow: TextOverflow.ellipsis,
-//             ),
-//           ),
-//           const SizedBox(height: 24),
-//           Row(
-//             crossAxisAlignment: CrossAxisAlignment.start,
-//             children: [
-//               Column(
-//                 children: [
-//                   Container(
-//                     width: 12,
-//                     height: 12,
-//                     decoration: const BoxDecoration(
-//                       color: Color(0xFF3B82F6),
-//                       shape: BoxShape.circle,
-//                     ),
-//                   ),
-//                   Container(
-//                     width: 2,
-//                     height: 40,
-//                     margin: const EdgeInsets.symmetric(vertical: 4),
-//                     child: CustomPaint(
-//                       painter: DottedLinePainter(
-//                         color: const Color(0xFFD1D5DB),
-//                         strokeWidth: 2,
-//                       ),
-//                     ),
-//                   ),
-//                   Container(
-//                     width: 12,
-//                     height: 12,
-//                     decoration: BoxDecoration(
-//                       color: Colors.white,
-//                       shape: BoxShape.circle,
-//                       border: Border.all(
-//                         color: const Color(0xFF3B82F6),
-//                         width: 2,
-//                       ),
-//                     ),
-//                   ),
-//                 ],
-//               ),
-//               const SizedBox(width: 16),
-//               Expanded(
-//                 child: Column(
-//                   crossAxisAlignment: CrossAxisAlignment.start,
-//                   children: [
-//                     Row(
-//                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//                       children: [
-//                         Expanded(
-//                           child: Text(
-//                             LoadDisplayHelper.pickupAddress(load),
-//                             style: const TextStyle(
-//                               fontSize: 16,
-//                               color: Color(0xFF6B7280),
-//                             ),
-//                             maxLines: 1,
-//                             overflow: TextOverflow.ellipsis,
-//                           ),
-//                         ),
-//                         const SizedBox(width: 8),
-//                         Text(
-//                           pickupText,
-//                           style: const TextStyle(
-//                             fontSize: 16,
-//                             color: Color(0xFF6B7280),
-//                           ),
-//                         ),
-//                       ],
-//                     ),
-//                     const SizedBox(height: 24),
-//                     Row(
-//                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//                       children: [
-//                         Expanded(
-//                           child: Text(
-//                             LoadDisplayHelper.deliveryAddress(load),
-//                             style: const TextStyle(
-//                               fontSize: 16,
-//                               color: Color(0xFF6B7280),
-//                             ),
-//                             maxLines: 1,
-//                             overflow: TextOverflow.ellipsis,
-//                           ),
-//                         ),
-//                         const SizedBox(width: 8),
-//                         Text(
-//                           pickupText,
-//                           style: const TextStyle(
-//                             fontSize: 16,
-//                             color: Color(0xFF6B7280),
-//                           ),
-//                         ),
-//                       ],
-//                     ),
-//                   ],
-//                 ),
-//               ),
-//             ],
-//           ),
-//           const SizedBox(height: 24),
-//           Container(height: 1, color: const Color(0xFFF3F4F6)),
-//           const SizedBox(height: 20),
-//           Row(
-//             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//             children: [
-//               Column(
-//                 crossAxisAlignment: CrossAxisAlignment.start,
-//                 children: [
-//                   const Text(
-//                     'RATE',
-//                     style: TextStyle(
-//                       fontSize: 12,
-//                       color: Color(0xFF6B7280),
-//                       fontWeight: FontWeight.w500,
-//                     ),
-//                   ),
-//                   const SizedBox(height: 4),
-//                   Text(
-//                     '\$${rate.toStringAsFixed(2)}',
-//                     style: const TextStyle(
-//                       fontSize: 24,
-//                       fontWeight: FontWeight.bold,
-//                       color: Color(0xFF111827),
-//                     ),
-//                   ),
-//                 ],
-//               ),
-//               Container(
-//                 decoration: BoxDecoration(
-//                   color: const Color(0xFF1E3A5F),
-//                   borderRadius: BorderRadius.circular(12),
-//                 ),
-//                 child: Material(
-//                   color: Colors.transparent,
-//                   child: InkWell(
-//                     onTap: () {
-//                       Navigator.push(
-//                         context,
-//                         MaterialPageRoute(
-//                           builder: (_) => LoadDetailsScreen(load: load),
-//                         ),
-//                       );
-//                     },
-//                     borderRadius: BorderRadius.circular(12),
-//                     child: const Padding(
-//                       padding: EdgeInsets.symmetric(
-//                         horizontal: 24,
-//                         vertical: 14,
-//                       ),
-//                       child: Row(
-//                         children: [
-//                           Text(
-//                             'Details',
-//                             style: TextStyle(
-//                               color: Colors.white,
-//                               fontSize: 16,
-//                               fontWeight: FontWeight.w600,
-//                             ),
-//                           ),
-//                           SizedBox(width: 4),
-//                           Icon(
-//                             Icons.chevron_right,
-//                             color: Colors.white,
-//                             size: 20,
-//                           ),
-//                         ],
-//                       ),
-//                     ),
-//                   ),
-//                 ),
-//               ),
-//             ],
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-// }
-
-
-
-
 class LoadCard extends StatelessWidget {
   final AddLoadData load;
   final String driverName;
@@ -1083,15 +785,15 @@ class LoadCard extends StatelessWidget {
     final rate = load.rate?.toDouble() ?? 0;
 
     return Container(
-      padding: const EdgeInsets.all(16), // Reduced from 24 to 16
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16), // Reduced from 20 to 16
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 8, // Reduced from 10 to 8
-            offset: const Offset(0, 3), // Reduced from 4 to 3
+            blurRadius: 8,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
@@ -1106,42 +808,42 @@ class LoadCard extends StatelessWidget {
                 LoadDisplayHelper.loadNumber(load),
                 style: const TextStyle(
                   color: Color(0xFF6B7280),
-                  fontSize: 12, // Reduced from 14 to 12
+                  fontSize: 12,
                   fontWeight: FontWeight.w500,
                 ),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 12, // Reduced from 16 to 12
-                  vertical: 4,   // Reduced from 8 to 4
+                  horizontal: 12,
+                  vertical: 4,
                 ),
                 decoration: BoxDecoration(
                   color: _getStatusBgColor(),
-                  borderRadius: BorderRadius.circular(16), // Reduced from 20 to 16
+                  borderRadius: BorderRadius.circular(16),
                 ),
                 child: Text(
                   _getStatusText(),
                   style: TextStyle(
                     color: _getStatusTextColor(),
-                    fontSize: 10, // Reduced from 12 to 10
+                    fontSize: 10,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8), // Reduced from 12 to 8
+          const SizedBox(height: 8),
 
           // Row 2: Driver Name
           Row(
             children: [
-              const Icon(Icons.person, size: 16, color: Color(0xFF6B7280)), // Reduced from 20 to 16
-              const SizedBox(width: 6), // Reduced from 8 to 6
+              const Icon(Icons.person, size: 16, color: Color(0xFF6B7280)),
+              const SizedBox(width: 6),
               Expanded(
                 child: Text(
                   driverName,
                   style: const TextStyle(
-                    fontSize: 18, // Reduced from 22 to 18
+                    fontSize: 18,
                     fontWeight: FontWeight.bold,
                     color: Color(0xFF111827),
                   ),
@@ -1151,15 +853,15 @@ class LoadCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 4), // Reduced from 6 to 4
+          const SizedBox(height: 4),
 
           // Company Name
           Padding(
-            padding: const EdgeInsets.only(left: 22), // Reduced from 28 to 22
+            padding: const EdgeInsets.only(left: 22),
             child: Text(
               LoadDisplayHelper.company(load),
               style: const TextStyle(
-                fontSize: 12, // Reduced from 14 to 12
+                fontSize: 12,
                 fontWeight: FontWeight.w500,
                 color: Color(0xFF6B7280),
               ),
@@ -1167,7 +869,7 @@ class LoadCard extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          const SizedBox(height: 16), // Reduced from 24 to 16
+          const SizedBox(height: 16),
 
           // Route: Pickup -> Delivery
           Row(
@@ -1176,8 +878,8 @@ class LoadCard extends StatelessWidget {
               Column(
                 children: [
                   Container(
-                    width: 10, // Reduced from 12 to 10
-                    height: 10, // Reduced from 12 to 10
+                    width: 10,
+                    height: 10,
                     decoration: const BoxDecoration(
                       color: Color(0xFF3B82F6),
                       shape: BoxShape.circle,
@@ -1185,18 +887,18 @@ class LoadCard extends StatelessWidget {
                   ),
                   Container(
                     width: 2,
-                    height: 28, // Reduced from 40 to 28
-                    margin: const EdgeInsets.symmetric(vertical: 3), // Reduced from 4 to 3
+                    height: 28,
+                    margin: const EdgeInsets.symmetric(vertical: 3),
                     child: CustomPaint(
                       painter: DottedLinePainter(
                         color: const Color(0xFFD1D5DB),
-                        strokeWidth: 1.5, // Reduced from 2 to 1.5
+                        strokeWidth: 1.5,
                       ),
                     ),
                   ),
                   Container(
-                    width: 10, // Reduced from 12 to 10
-                    height: 10, // Reduced from 12 to 10
+                    width: 10,
+                    height: 10,
                     decoration: BoxDecoration(
                       color: Colors.white,
                       shape: BoxShape.circle,
@@ -1208,7 +910,7 @@ class LoadCard extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(width: 12), // Reduced from 16 to 12
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1221,24 +923,24 @@ class LoadCard extends StatelessWidget {
                           child: Text(
                             LoadDisplayHelper.pickupAddress(load),
                             style: const TextStyle(
-                              fontSize: 13, // Reduced from 16 to 13
+                              fontSize: 13,
                               color: Color(0xFF6B7280),
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        const SizedBox(width: 6), // Reduced from 8 to 6
+                        const SizedBox(width: 6),
                         Text(
                           pickupText,
                           style: const TextStyle(
-                            fontSize: 13, // Reduced from 16 to 13
+                            fontSize: 13,
                             color: Color(0xFF6B7280),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16), // Reduced from 24 to 16
+                    const SizedBox(height: 16),
 
                     // Delivery
                     Row(
@@ -1248,18 +950,18 @@ class LoadCard extends StatelessWidget {
                           child: Text(
                             LoadDisplayHelper.deliveryAddress(load),
                             style: const TextStyle(
-                              fontSize: 13, // Reduced from 16 to 13
+                              fontSize: 13,
                               color: Color(0xFF6B7280),
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        const SizedBox(width: 6), // Reduced from 8 to 6
+                        const SizedBox(width: 6),
                         Text(
                           pickupText,
                           style: const TextStyle(
-                            fontSize: 13, // Reduced from 16 to 13
+                            fontSize: 13,
                             color: Color(0xFF6B7280),
                           ),
                         ),
@@ -1270,11 +972,11 @@ class LoadCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 16), // Reduced from 24 to 16
+          const SizedBox(height: 16),
 
           // Divider
           Container(height: 1, color: const Color(0xFFF3F4F6)),
-          const SizedBox(height: 14), // Reduced from 20 to 14
+          const SizedBox(height: 14),
 
           // Bottom: Rate + Details Button
           Row(
@@ -1286,16 +988,16 @@ class LoadCard extends StatelessWidget {
                   const Text(
                     'RATE',
                     style: TextStyle(
-                      fontSize: 10, // Reduced from 12 to 10
+                      fontSize: 10,
                       color: Color(0xFF6B7280),
                       fontWeight: FontWeight.w500,
                     ),
                   ),
-                  const SizedBox(height: 2), // Reduced from 4 to 2
+                  const SizedBox(height: 2),
                   Text(
                     '\$${rate.toStringAsFixed(2)}',
                     style: const TextStyle(
-                      fontSize: 20, // Reduced from 24 to 20
+                      fontSize: 20,
                       fontWeight: FontWeight.bold,
                       color: Color(0xFF111827),
                     ),
@@ -1305,7 +1007,7 @@ class LoadCard extends StatelessWidget {
               Container(
                 decoration: BoxDecoration(
                   color: const Color(0xFF1E3A5F),
-                  borderRadius: BorderRadius.circular(10), // Reduced from 12 to 10
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Material(
                   color: Colors.transparent,
@@ -1321,8 +1023,8 @@ class LoadCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(10),
                     child: const Padding(
                       padding: EdgeInsets.symmetric(
-                        horizontal: 18, // Reduced from 24 to 18
-                        vertical: 10,   // Reduced from 14 to 10
+                        horizontal: 18,
+                        vertical: 10,
                       ),
                       child: Row(
                         children: [
@@ -1330,15 +1032,15 @@ class LoadCard extends StatelessWidget {
                             'Details',
                             style: TextStyle(
                               color: Colors.white,
-                              fontSize: 14, // Reduced from 16 to 14
+                              fontSize: 14,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-                          SizedBox(width: 2), // Reduced from 4 to 2
+                          SizedBox(width: 2),
                           Icon(
                             Icons.chevron_right,
                             color: Colors.white,
-                            size: 18, // Reduced from 20 to 18
+                            size: 18,
                           ),
                         ],
                       ),
@@ -1354,12 +1056,14 @@ class LoadCard extends StatelessWidget {
   }
 }
 
-
 class DottedLinePainter extends CustomPainter {
   final Color color;
   final double strokeWidth;
 
-  DottedLinePainter({required this.color, required this.strokeWidth});
+  const DottedLinePainter({
+    required this.color,
+    required this.strokeWidth,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1368,8 +1072,8 @@ class DottedLinePainter extends CustomPainter {
       ..strokeWidth = strokeWidth
       ..style = PaintingStyle.stroke;
 
-    const dashWidth = 3.0;
-    const dashSpace = 3.0;
+    const double dashWidth = 3.0;
+    const double dashSpace = 3.0;
     double startY = 0;
 
     while (startY < size.height) {
