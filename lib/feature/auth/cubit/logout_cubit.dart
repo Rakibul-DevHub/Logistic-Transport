@@ -99,6 +99,7 @@ class LogoutCubit extends Cubit<LogoutState> {
 
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:tag/core/network/auth_session.dart';
 import 'package:tag/core/network/network_caller_dio.dart';
 import 'package:tag/core/network/secure_storage_service.dart';
 import 'package:tag/core/utils/app_url.dart';
@@ -141,6 +142,7 @@ class LogoutCubit extends Cubit<LogoutState> {
       if (accessToken == null || accessToken.isEmpty) {
         await _storage.deleteAllTokens();
         await UserProfileCubit.clearCache();
+        AuthSession.clear();
         emit(LogoutSuccess());
         return;
       }
@@ -154,11 +156,13 @@ class LogoutCubit extends Cubit<LogoutState> {
 
       await _storage.deleteAllTokens();
       await UserProfileCubit.clearCache();
+      AuthSession.clear();
       emit(LogoutSuccess());
     } catch (e) {
       try {
         await _storage.deleteAllTokens();
         await UserProfileCubit.clearCache();
+        AuthSession.clear();
       } catch (_) {}
       emit(LogoutSuccess());
     }

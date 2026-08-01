@@ -5,18 +5,21 @@ import 'package:flutter/material.dart';
 class AppColors {
   AppColors._();
 
-  static const Color primaryColor = Color(0XFF1F3555);
-  static const Color backgroundColor = Color(0XFFF3F3F3);
-  static const Color primaryTextColor = Color(0XFF0F172A);
-  static const Color secondaryTextColor = Color(0XFF64748B);
-  static const Color border = Color(0XFF64748B);
-  static const Color borderTwo = Color(0XFFDBEAFE);
-  static const Color incomeColor = Color(0XFF2563EB);
-  static const Color expenseColor = Color(0XFFF59E0B);
-  static const Color tabBarColor = Color(0XFFE2E8F0);
-  static const Color textGreyColor = Color(0XFF64748B);
-  static const Color lightBlueColor = Color(0XFFE2E8F0);
-  static const Color buttonColor = Color(0XFFEEDCCE);
+  static const Color primaryColor = Color(0xFF1F3555);
+  static const Color backgroundColor = Color(0xFFF3F3F3);
+  static const Color primaryTextColor = Color(0xFF0F172A);
+  static const Color secondaryTextColor = Color(0xFF64748B);
+  static const Color border = Color(0xFF64748B);
+  static const Color borderTwo = Color(0xFFDBEAFE);
+  static const Color incomeColor = Color(0xFF2563EB);
+  static const Color totalIncomeColor = Color(0xFF34d399);
+  static const Color expenseColor = Color(0xFFF59E0B);
+  static const Color totalExpenseColor = Color(0xFFFB7185);
+  static const Color tabBarColor = Color(0xFFE2E8F0);
+  static const Color textGreyColor = Color(0xFF64748B);
+  static const Color blueColor = Color(0xFF3B82F6);
+  static const Color lightBlueColor = Color(0xFFE2E8F0);
+  static const Color buttonColor = Color(0xFFEEDCCE);
 
   ///report icons color
   static const Color fuel = Color(0xffF59E0B);

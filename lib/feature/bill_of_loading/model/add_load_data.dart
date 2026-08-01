@@ -118,11 +118,13 @@ class AddLoadData {
   final String? parentDriverId;
   final String? loadId;
   final String? companyName;
+  final String? driverName;
   final List<List<double>>? pickupCoordinates;
   final List<List<double>>? deliveryCoordinates;
   final List<String>? pickupAddresses;
   final List<String>? deliveryAddresses;
   final String? pickupDate;
+  final String? deliveryDate;
   final num? rate;
   final String? bolImage;
   final String? notes;
@@ -138,11 +140,13 @@ class AddLoadData {
     this.parentDriverId,
     this.loadId,
     this.companyName,
+    this.driverName,
     this.pickupCoordinates,
     this.deliveryCoordinates,
     this.pickupAddresses,
     this.deliveryAddresses,
     this.pickupDate,
+    this.deliveryDate,
     this.rate,
     this.bolImage,
     this.notes,
@@ -258,17 +262,39 @@ class AddLoadData {
       deliveryAddrs = [json['deliveryAddress'].toString()];
     }
 
+    String? nestedName(dynamic value) {
+      if (value is Map) {
+        final name = value['name'] ?? value['fullName'] ?? value['userName'];
+        if (name != null && name.toString().trim().isNotEmpty) {
+          return name.toString().trim();
+        }
+      }
+      return null;
+    }
+
+    final parsedDriverName = json['driverName']?.toString().trim().isNotEmpty == true
+            ? json['driverName'].toString().trim()
+            : json['userName']?.toString().trim().isNotEmpty == true
+                ? json['userName'].toString().trim()
+                : nestedName(json['driver']) ??
+                    nestedName(json['user']) ??
+                    nestedName(json['assignedDriver']);
+
     return AddLoadData(
       id: json['id']?.toString() ?? json['_id']?.toString(),
       userId: json['userId']?.toString(),
       parentDriverId: json['parentDriverId']?.toString(),
       loadId: json['loadId']?.toString(),
       companyName: json['companyName']?.toString(),
+      driverName: parsedDriverName,
       pickupCoordinates: pickupCoords,
       deliveryCoordinates: deliveryCoords,
       pickupAddresses: pickupAddrs,
       deliveryAddresses: deliveryAddrs,
       pickupDate: json['pickupDate']?.toString(),
+      deliveryDate: json['deliveryDate']?.toString() ??
+          json['deliveredAt']?.toString() ??
+          json['completedAt']?.toString(),
       rate: json['rate'] as num?,
       bolImage: json['bolImage']?.toString(),
       notes: json['notes']?.toString(),

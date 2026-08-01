@@ -1,6 +1,6 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:tag/core/theme/app_colors.dart';
 
 Widget buildLoadCard({
   required String loadNumber,
@@ -9,28 +9,28 @@ Widget buildLoadCard({
   required String status,
   required Color statusColor,
   required String amount,
-})
-{
+}) {
   return Container(
     padding: const EdgeInsets.all(14),
     decoration: BoxDecoration(
-      color: Colors.white,
+      color: AppColors.whiteColor,
       borderRadius: BorderRadius.circular(16),
       boxShadow: [
         BoxShadow(
-          color: Colors.grey.withOpacity(0.08),
+          color: AppColors.blackColor.withValues(alpha: 0.04),
           blurRadius: 10,
           offset: const Offset(0, 4),
         ),
       ],
     ),
     child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
           width: 48,
           height: 48,
           decoration: BoxDecoration(
-            color: statusColor.withOpacity(0.1),
+            color: AppColors.lightBlueColor,
             borderRadius: BorderRadius.circular(12),
           ),
           child: Center(
@@ -38,7 +38,10 @@ Widget buildLoadCard({
               'assets/icons/load.svg',
               height: 24,
               width: 24,
-              colorFilter: ColorFilter.mode(statusColor, BlendMode.srcIn),
+              colorFilter: const ColorFilter.mode(
+                AppColors.primaryColor,
+                BlendMode.srcIn,
+              ),
             ),
           ),
         ),
@@ -53,25 +56,24 @@ Widget buildLoadCard({
                   Text(
                     loadNumber,
                     style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF1E3A5F),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.secondaryTextColor,
                     ),
                   ),
-
                   Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 2,
+                      horizontal: 10,
+                      vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: statusColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
+                      color: statusColor.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
                       status,
                       style: TextStyle(
-                        fontSize: 10,
+                        fontSize: 11,
                         fontWeight: FontWeight.w600,
                         color: statusColor,
                       ),
@@ -79,36 +81,43 @@ Widget buildLoadCard({
                   ),
                 ],
               ),
-              const SizedBox(height: 4),
-
+              const SizedBox(height: 6),
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text(
-                    company,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.grey[700],
-                      fontWeight: FontWeight.w500,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          company,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.primaryTextColor,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          date,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w400,
+                            color: AppColors.secondaryTextColor,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 2),
                   Text(
                     amount,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: statusColor,
+                      color: AppColors.primaryTextColor,
                     ),
                   ),
                 ],
-              ),
-              Text(
-                date,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Colors.grey[500],
-                ),
               ),
             ],
           ),

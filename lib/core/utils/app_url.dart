@@ -50,8 +50,8 @@ class AppUrl {
 
 
   /// -------------- Load ---------------------
-  static String getMyLoad(String page, String limit) {
-    return "$baseUrl/load/my-loads?page=$page&limit=$limit";
+  static String getLoad(String page, String limit, String type) {
+    return "$baseUrl/load/my-loads?page=$page&limit=$limit&type=$type";
   }
 
   static const String addLoadExpense = "$baseUrl/load-expense";
