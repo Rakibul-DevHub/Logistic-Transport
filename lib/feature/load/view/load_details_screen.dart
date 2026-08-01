@@ -455,116 +455,144 @@ class _LoadDetailsScreenState extends State<LoadDetailsScreen> {
           child: Scaffold(
             backgroundColor: AppColors.backgroundColor,
             appBar: _buildAppBar(),
-            body: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (!_bolUploaded)
-                    _buildWarningCard(
-                      label: 'BOL: Missing',
-                      subtitle: 'Bill of Lading required',
-                      buttonLabel: 'Upload BOL',
-                      onUpload: _showImageSourceDialogForBOL,
-                    ),
-                if (!_bolUploaded) const SizedBox(height: 8),
-                if (!_podUploaded)
-                  _buildWarningCard(
-                    label: 'POD: Missing',
-                    subtitle: 'Proof of Delivery required',
-                    buttonLabel: 'Upload POD',
-                    onUpload: () => setState(() => _podUploaded = true),
+            body: LayoutBuilder(
+              builder: (context, constraints) {
+                final maxW = constraints.maxWidth.isFinite
+                    ? constraints.maxWidth
+                    : MediaQuery.sizeOf(context).width;
+                final maxH = constraints.maxHeight.isFinite
+                    ? constraints.maxHeight
+                    : MediaQuery.sizeOf(context).height;
+
+                // Keep the same framing; scale only within tight clamps.
+                final horizontalPad = (maxW * 0.042).clamp(14.0, 20.0);
+                final verticalPad = (maxH * 0.015).clamp(10.0, 14.0);
+                final sectionGap = (maxH * 0.015).clamp(10.0, 14.0);
+                final smallGap = (maxH * 0.01).clamp(6.0, 8.0);
+                final preActionsGap = (maxH * 0.07).clamp(48.0, 60.0);
+                final bottomSpacer = (maxH * 0.12).clamp(80.0, 100.0);
+                final outlinedBtnH = (maxH * 0.055).clamp(40.0, 44.0);
+                final primaryBtnH = (maxH * 0.06).clamp(44.0, 48.0);
+
+                return SingleChildScrollView(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: horizontalPad,
+                    vertical: verticalPad,
                   ),
-                if (!_podUploaded) const SizedBox(height: 12),
-                _buildLoadIdCard(),
-                const SizedBox(height: 12),
-                _buildIncomeExpenseRow(),
-                if (_expenses.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  _buildExpensesSection(),
-                ],
-                const SizedBox(height: 12),
-                _buildRouteCard(),
-                const SizedBox(height: 12),
-                _buildMapPreview(),
-                const SizedBox(height: 12),
-                _buildCarrierCard(),
-                if (_notes != null) ...[
-                  const SizedBox(height: 12),
-                  _buildNotesCard(),
-                ],
-                const SizedBox(height: 12),
-                _buildBolScanCard(),
-                const SizedBox(height: 60),
-                CustomElevatedButton(
-                  onPressed: () async {
-                    final mongoId = _load?.id?.trim() ?? '';
-                    final displayId = _load?.loadId?.trim() ?? '';
-                    if (mongoId.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Load ID is missing'),
-                          backgroundColor: Colors.red,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (!_bolUploaded)
+                        _buildWarningCard(
+                          label: 'BOL: Missing',
+                          subtitle: 'Bill of Lading required',
+                          buttonLabel: 'Upload BOL',
+                          onUpload: _showImageSourceDialogForBOL,
                         ),
-                      );
-                      return;
-                    }
+                      if (!_bolUploaded) SizedBox(height: smallGap),
+                      if (!_podUploaded)
+                        _buildWarningCard(
+                          label: 'POD: Missing',
+                          subtitle: 'Proof of Delivery required',
+                          buttonLabel: 'Upload POD',
+                          onUpload: () => setState(() => _podUploaded = true),
+                        ),
+                      if (!_podUploaded) SizedBox(height: sectionGap),
+                      _buildLoadIdCard(),
+                      SizedBox(height: sectionGap),
+                      _buildIncomeExpenseRow(),
+                      if (_expenses.isNotEmpty) ...[
+                        SizedBox(height: sectionGap),
+                        _buildExpensesSection(),
+                      ],
+                      SizedBox(height: sectionGap),
+                      _buildRouteCard(),
+                      SizedBox(height: sectionGap),
+                      _buildMapPreview(),
+                      SizedBox(height: sectionGap),
+                      _buildCarrierCard(),
+                      if (_notes != null) ...[
+                        SizedBox(height: sectionGap),
+                        _buildNotesCard(),
+                      ],
+                      SizedBox(height: sectionGap),
+                      _buildBolScanCard(),
+                      SizedBox(height: preActionsGap),
+                      CustomElevatedButton(
+                        onPressed: () async {
+                          final mongoId = _load?.id?.trim() ?? '';
+                          final displayId = _load?.loadId?.trim() ?? '';
+                          if (mongoId.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Load ID is missing'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                            return;
+                          }
 
-                    await Navigator.pushNamed(
-                      context,
-                      AppRoutes.addExpense,
-                      arguments: ExpenseScreenArgs(
-                        loadMongoId: mongoId,
-                        displayLoadId:
-                            displayId.isNotEmpty ? displayId : mongoId,
-                        totalExpenses: _expenseTotal,
+                          await Navigator.pushNamed(
+                            context,
+                            AppRoutes.addExpense,
+                            arguments: ExpenseScreenArgs(
+                              loadMongoId: mongoId,
+                              displayLoadId: displayId.isNotEmpty
+                                  ? displayId
+                                  : mongoId,
+                              totalExpenses: _expenseTotal,
+                            ),
+                          );
+
+                          if (mounted) {
+                            await _fetchExpenses();
+                          }
+                        },
+                        buttonText: 'Add Expense',
+                        isOutlined: true,
+                        borderSide: const BorderSide(),
+                        backgroundColor: AppColors.whiteColor,
+                        foregroundColor: AppColors.primaryColor,
+                        height: outlinedBtnH,
+                        borderRadius: BorderRadius.circular(30),
+                        isFullWidth: true,
+                        hasShadow: false,
+                        icon: const Icon(Icons.add_circle_outline, size: 20),
+                        gap: 8,
                       ),
-                    );
-
-                    if (mounted) {
-                      await _fetchExpenses();
-                    }
-                  },
-                  buttonText: 'Add Expense',
-                  isOutlined: true,
-                  borderSide: const BorderSide(),
-                  backgroundColor: AppColors.whiteColor,
-                  foregroundColor: AppColors.primaryColor,
-                  height: 44,
-                  borderRadius: BorderRadius.circular(30),
-                  isFullWidth: true,
-                  hasShadow: false,
-                  icon: const Icon(Icons.add_circle_outline, size: 20),
-                  gap: 8,
-                ),
-                const SizedBox(height: 8),
-                CustomElevatedButton(
-                  onPressed: () {
-                    Navigator.pushNamed(context, AppRoutes.proofOfDelivery);
-                  },
-                  buttonText: 'Upload POD/Signed BOL',
-                  backgroundColor: AppColors.primaryColor,
-                  foregroundColor: AppColors.whiteColor,
-                  height: 48,
-                  borderRadius: BorderRadius.circular(30),
-                  isFullWidth: true,
-                  hasShadow: false,
-                  icon: SvgPicture.asset(
-                    'assets/icons/upload.svg',
-                    colorFilter: const ColorFilter.mode(
-                      AppColors.whiteColor,
-                      BlendMode.srcIn,
-                    ),
+                      SizedBox(height: smallGap),
+                      CustomElevatedButton(
+                        onPressed: () {
+                          Navigator.pushNamed(
+                            context,
+                            AppRoutes.proofOfDelivery,
+                          );
+                        },
+                        buttonText: 'Upload POD/Signed BOL',
+                        backgroundColor: AppColors.primaryColor,
+                        foregroundColor: AppColors.whiteColor,
+                        height: primaryBtnH,
+                        borderRadius: BorderRadius.circular(30),
+                        isFullWidth: true,
+                        hasShadow: false,
+                        icon: SvgPicture.asset(
+                          'assets/icons/upload.svg',
+                          colorFilter: const ColorFilter.mode(
+                            AppColors.whiteColor,
+                            BlendMode.srcIn,
+                          ),
+                        ),
+                        gap: 8,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      SizedBox(height: bottomSpacer),
+                    ],
                   ),
-                  gap: 8,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-                const SizedBox(height: 100),
-              ],
+                );
+              },
             ),
           ),
-        ),
         ),
       ),
     );
@@ -576,9 +604,19 @@ class _LoadDetailsScreenState extends State<LoadDetailsScreen> {
       surfaceTintColor: AppColors.backgroundColor,
       leading: Padding(
         padding: const EdgeInsets.only(left: 14),
-        child: InkWell(
-          onTap: () => Navigator.pop(context),
-          child: SvgPicture.asset('assets/icons/back_button_with_circle.svg'),
+        child: Material(
+          color: Colors.transparent,
+          shape: const CircleBorder(),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            onTap: () => Navigator.pop(context),
+            child: Center(
+              child: SvgPicture.asset(
+                'assets/icons/back_button_with_circle.svg',
+              ),
+            ),
+          ),
         ),
       ),
       title: const Text(
@@ -1167,85 +1205,92 @@ class _LoadDetailsScreenState extends State<LoadDetailsScreen> {
     final hasRoute =
         _allPickupCoords.isNotEmpty || _allDeliveryCoords.isNotEmpty;
 
-    return Container(
-      decoration: _cardDecoration(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Map preview',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF1A1A2E),
-                  ),
-                ),
-                if (hasRoute)
-                  TextButton(
-                    onPressed: _openRouteMap,
-                    child: Text(
-                      'VIEW MAP',
-                      style: AppTextStyle.SFProDisplay_Regular.copyWith(
-                        fontSize: 11,
-                        color: AppColors.primaryColor,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final mapH = (constraints.maxWidth * 0.45).clamp(140.0, 200.0);
+
+        return Container(
+          decoration: _cardDecoration(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Map preview',
+                      style: TextStyle(
+                        fontSize: 13,
                         fontWeight: FontWeight.w600,
+                        color: Color(0xFF1A1A2E),
                       ),
                     ),
-                  ),
-              ],
-            ),
-          ),
-          ClipRRect(
-            borderRadius: const BorderRadius.only(
-              bottomLeft: Radius.circular(12),
-              bottomRight: Radius.circular(12),
-            ),
-            child: GestureDetector(
-              onTap: hasRoute ? _openRouteMap : null,
-              child: Stack(
-                children: [
-                  Image.asset(
-                    'assets/images/demo_map.png',
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                  ),
-                  if (hasRoute)
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      bottom: 12,
-                      child: Center(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.55),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: const Text(
-                            'Tap to view all locations',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                            ),
+                    if (hasRoute)
+                      TextButton(
+                        onPressed: _openRouteMap,
+                        child: Text(
+                          'VIEW MAP',
+                          style: AppTextStyle.SFProDisplay_Regular.copyWith(
+                            fontSize: 11,
+                            color: AppColors.primaryColor,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
-            ),
+              ClipRRect(
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(12),
+                  bottomRight: Radius.circular(12),
+                ),
+                child: GestureDetector(
+                  onTap: hasRoute ? _openRouteMap : null,
+                  child: Stack(
+                    children: [
+                      Image.asset(
+                        'assets/images/demo_map.png',
+                        width: double.infinity,
+                        height: mapH,
+                        fit: BoxFit.cover,
+                      ),
+                      if (hasRoute)
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          bottom: 12,
+                          child: Center(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withOpacity(0.55),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: const Text(
+                                'Tap to view all locations',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
