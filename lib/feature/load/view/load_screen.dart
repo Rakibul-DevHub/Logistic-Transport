@@ -162,11 +162,39 @@ class _LoadScreenState extends State<LoadScreen> {
   }
 
   void _onScroll() {
+    _maybePrefetchMore();
+  }
+
+  /// Early silent prefetch + spinner only if user reaches the end while waiting.
+  void _maybePrefetchMore() {
     if (!_scrollController.hasClients) return;
     final pos = _scrollController.position;
-    if (pos.pixels >= pos.maxScrollExtent - 200) {
-      _loadListCubit.loadMore();
+    if (!pos.hasContentDimensions) return;
+
+    final maxExtent = pos.maxScrollExtent;
+
+    // Short list → keep warming next pages silently until list can scroll.
+    if (maxExtent <= 0) {
+      _loadListCubit.loadMore(silent: true);
+      return;
     }
+
+    // ~25%: start next page early (silent).
+    if (pos.pixels >= maxExtent * 0.25) {
+      _loadListCubit.loadMore(silent: true);
+    }
+
+    // ~85%: user is near the end — show spinner only if still fetching.
+    if (pos.pixels >= maxExtent * 0.85) {
+      _loadListCubit.loadMore(silent: false);
+    }
+  }
+
+  void _schedulePrefetchIfNeeded() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _maybePrefetchMore();
+    });
   }
 
   List<AddLoadData> _applyLocalFilters(List<AddLoadData> loads) {
@@ -445,7 +473,16 @@ class _LoadScreenState extends State<LoadScreen> {
               ),
               const SizedBox(height: 8),
               Expanded(
-                child: BlocBuilder<LoadListCubit, LoadListState>(
+                child: BlocConsumer<LoadListCubit, LoadListState>(
+                  listenWhen: (prev, next) =>
+                      next is LoadListSuccess &&
+                      (prev is! LoadListSuccess ||
+                          prev.loads.length != next.loads.length),
+                  listener: (context, state) {
+                    if (state is LoadListSuccess && state.hasMore) {
+                      _schedulePrefetchIfNeeded();
+                    }
+                  },
                   builder: (context, state) {
                     if (state is LoadListLoading || state is LoadListInitial) {
                       return const Center(
@@ -488,84 +525,104 @@ class _LoadScreenState extends State<LoadScreen> {
 
                     final filtered = _applyLocalFilters(state.loads);
 
+                    // Prefetch when 3rd item (index 2) of the *latest* page
+                    // is built — next page loads before user reaches the end.
+                    final latestPageStart = filtered.length <= LoadListCubit.pageSize
+                        ? 0
+                        : filtered.length - LoadListCubit.pageSize;
+                    final prefetchIndex = latestPageStart + 2;
+
                     return RefreshIndicator(
                       color: AppColors.primaryColor,
                       onRefresh: () =>
                           _loadListCubit.fetchLoads(type: _listType),
                       child: filtered.isEmpty
                           ? ListView(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        children: [
-                          SizedBox(
-                            height:
-                            MediaQuery.of(context).size.height * 0.4,
-                            child: Center(
-                              child: Column(
-                                mainAxisAlignment:
-                                MainAxisAlignment.center,
-                                children: [
-                                  SvgPicture.asset('assets/icons/empty.svg'),
-                                  const SizedBox(height: 16),
-                                  Text(
-                                    'No loads found',
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.grey[600],
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              children: [
+                                SizedBox(
+                                  height:
+                                      MediaQuery.of(context).size.height * 0.4,
+                                  child: Center(
+                                    child: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        SvgPicture.asset(
+                                          'assets/icons/empty.svg',
+                                        ),
+                                        const SizedBox(height: 16),
+                                        Text(
+                                          'No loads found',
+                                          style: TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.grey[600],
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          _searchQuery.isNotEmpty
+                                              ? 'No matches for "$_searchQuery"'
+                                              : 'Try changing your filters',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            color: Colors.grey[500],
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    _searchQuery.isNotEmpty
-                                        ? 'No matches for "$_searchQuery"'
-                                        : 'Try changing your filters',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      color: Colors.grey[500],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      )
-                          : ListView.separated(
-                        controller: _scrollController,
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 0,
-                        ).copyWith(
-                          bottom: 20,
-                        ),
-                        itemCount:
-                        filtered.length + (state.isLoadingMore ? 1 : 0),
-                        separatorBuilder: (_, __) =>
-                        const SizedBox(height: 16),
-                        itemBuilder: (context, index) {
-                          if (index >= filtered.length) {
-                            return const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 16),
-                              child: Center(
-                                child: SizedBox(
-                                  width: 24,
-                                  height: 24,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
                                   ),
                                 ),
+                              ],
+                            )
+                          : ListView.separated(
+                              controller: _scrollController,
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 0,
+                              ).copyWith(
+                                bottom: 20,
                               ),
-                            );
-                          }
-                          return RepaintBoundary(
-                            child: LoadCard(
-                              load: filtered[index],
-                              driverName: _driverNameFor(filtered[index]),
+                              itemCount: filtered.length +
+                                  (state.isLoadingMore ? 1 : 0),
+                              separatorBuilder: (_, __) =>
+                                  const SizedBox(height: 16),
+                              itemBuilder: (context, index) {
+                                if (index >= filtered.length) {
+                                  return const Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 16),
+                                    child: Center(
+                                      child: SizedBox(
+                                        width: 24,
+                                        height: 24,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                }
+
+                                if (index == prefetchIndex && state.hasMore) {
+                                  WidgetsBinding.instance
+                                      .addPostFrameCallback((_) {
+                                    if (mounted) {
+                                      _loadListCubit.loadMore(silent: true);
+                                    }
+                                  });
+                                }
+
+                                return RepaintBoundary(
+                                  child: LoadCard(
+                                    load: filtered[index],
+                                    driverName:
+                                        _driverNameFor(filtered[index]),
+                                  ),
+                                );
+                              },
                             ),
-                          );
-                        },
-                      ),
                     );
                   },
                 ),

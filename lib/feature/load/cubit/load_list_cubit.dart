@@ -250,6 +250,9 @@ class LoadListCubit extends Cubit<LoadListState> {
           ),
           type: type,
         ));
+
+        // Warm page 2 immediately so first scroll feels instant.
+        _prefetchNextPageSilently();
         return;
       }
 
@@ -271,19 +274,37 @@ class LoadListCubit extends Cubit<LoadListState> {
         pagination: parsed.pagination,
         type: type,
       ));
+
+      _prefetchNextPageSilently();
     } catch (e) {
       debugPrint('❌ LoadListCubit fetch error: $e');
       emit(LoadListFailure(errorMessage: e.toString()));
     }
   }
 
-  Future<void> loadMore() async {
+  void _prefetchNextPageSilently() {
+    Future.microtask(() => loadMore(silent: true));
+  }
+
+  /// [silent] = true → background prefetch (no bottom spinner).
+  /// [silent] = false → user is near the end; show spinner if still waiting.
+  Future<void> loadMore({bool silent = true}) async {
     final current = state;
     if (current is! LoadListSuccess) return;
-    if (!current.hasMore || _isFetchingMore || current.isLoadingMore) return;
+    if (!current.hasMore) return;
+
+    // Already fetching — only upgrade UI to spinner if user reached the end.
+    if (_isFetchingMore) {
+      if (!silent && !current.isLoadingMore) {
+        emit(current.copyWith(isLoadingMore: true));
+      }
+      return;
+    }
 
     _isFetchingMore = true;
-    emit(current.copyWith(isLoadingMore: true));
+    if (!silent) {
+      emit(current.copyWith(isLoadingMore: true));
+    }
 
     try {
       final token = await _storage.getAccessToken();
