@@ -314,8 +314,8 @@ class _LoadScreenState extends State<LoadScreen> {
                   : Icons.person_outline,
               size: 18,
               color: isSpecial
-                  ? const Color(0xFF6B7280)
-                  : const Color(0xFF3B82F6),
+                  ? AppColors.lightBlueColor
+                  : AppColors.blueColor,
             ),
             const SizedBox(width: 8),
             Expanded(
@@ -718,8 +718,8 @@ class _LoadScreenState extends State<LoadScreen> {
                     : Icons.person_outline,
                 size: 18,
                 color: _isDriverScope
-                    ? const Color(0xFF3B82F6)
-                    : const Color(0xFF6B7280),
+                    ?  AppColors.blueColor
+                    :  AppColors.lightBlueColor,
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -861,25 +861,8 @@ class LoadCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 10),
 
-          // Company Name
-          Padding(
-            padding: const EdgeInsets.only(left: 22),
-            child: Text(
-              LoadDisplayHelper.company(load),
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: Color(0xFF6B7280),
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // Route: Pickup -> Delivery
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -889,7 +872,7 @@ class LoadCard extends StatelessWidget {
                     width: 10,
                     height: 10,
                     decoration: const BoxDecoration(
-                      color: Color(0xFF3B82F6),
+                      color: AppColors.blueColor,
                       shape: BoxShape.circle,
                     ),
                   ),
@@ -911,7 +894,7 @@ class LoadCard extends StatelessWidget {
                       color: Colors.white,
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: const Color(0xFF3B82F6),
+                        color: AppColors.blueColor,
                         width: 2,
                       ),
                     ),
