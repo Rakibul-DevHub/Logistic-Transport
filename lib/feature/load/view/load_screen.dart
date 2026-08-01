@@ -545,13 +545,13 @@ class _LoadScreenState extends State<LoadScreen> {
                                       MediaQuery.of(context).size.height * 0.4,
                                   child: Center(
                                     child: Column(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
+                                      mainAxisSize: MainAxisSize.min,
                                       children: [
                                         SvgPicture.asset(
                                           'assets/icons/empty.svg',
+                                          height: 300,
                                         ),
-                                        const SizedBox(height: 16),
+                                        const SizedBox(height: 10),
                                         Text(
                                           'No loads found',
                                           style: TextStyle(
@@ -565,6 +565,7 @@ class _LoadScreenState extends State<LoadScreen> {
                                           _searchQuery.isNotEmpty
                                               ? 'No matches for "$_searchQuery"'
                                               : 'Try changing your filters',
+                                          textAlign: TextAlign.center,
                                           style: TextStyle(
                                             fontSize: 14,
                                             color: Colors.grey[500],
