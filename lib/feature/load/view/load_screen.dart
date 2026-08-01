@@ -67,6 +67,20 @@ class _LoadScreenState extends State<LoadScreen> {
         _selectedScope != _scopeAllDrivers;
   }
 
+  IconData _scopeIcon(String scope) {
+    if (scope == _scopeMyLoads) return Icons.inventory_2_outlined;
+    if (scope == _scopeAllDrivers) return Icons.groups_outlined;
+    if (scope == _scopeAll) return Icons.list_alt_outlined;
+    return Icons.person_outline; // individual sub-drivers
+  }
+
+  Color _scopeIconColor(String scope) {
+    if (scope == _scopeAll) return AppColors.primaryColor;
+    if (scope == _scopeMyLoads) return AppColors.primaryColor;
+    if (scope == _scopeAllDrivers) return AppColors.primaryColor;
+    return AppColors.greyColor; // individual sub-drivers
+  }
+
   @override
   void initState() {
     super.initState();
@@ -329,7 +343,7 @@ class _LoadScreenState extends State<LoadScreen> {
         .where((s) => !specialScopes.contains(s))
         .toList();
 
-    PopupMenuItem<String> scopeItem(String scope, {required bool isSpecial}) {
+    PopupMenuItem<String> scopeItem(String scope) {
       final isSelected = scope == _selectedScope;
       return PopupMenuItem<String>(
         value: scope,
@@ -337,13 +351,9 @@ class _LoadScreenState extends State<LoadScreen> {
         child: Row(
           children: [
             Icon(
-              scope == _scopeMyLoads
-                  ? Icons.inventory_2_outlined
-                  : Icons.person_outline,
+              _scopeIcon(scope),
               size: 18,
-              color: isSpecial
-                  ? AppColors.lightBlueColor
-                  : AppColors.blueColor,
+              color: _scopeIconColor(scope),
             ),
             const SizedBox(width: 8),
             Expanded(
@@ -368,9 +378,9 @@ class _LoadScreenState extends State<LoadScreen> {
     }
 
     final menuItems = <PopupMenuEntry<String>>[
-      ...specialScopes.map((s) => scopeItem(s, isSpecial: true)),
-      if (driverNames.isNotEmpty) PopupMenuDivider(height: 8),
-      ...driverNames.map((s) => scopeItem(s, isSpecial: false)),
+      ...specialScopes.map(scopeItem),
+      if (driverNames.isNotEmpty) const PopupMenuDivider(height: 8),
+      ...driverNames.map(scopeItem),
     ];
 
     final selected = await showMenu<String>(
@@ -537,45 +547,76 @@ class _LoadScreenState extends State<LoadScreen> {
                       onRefresh: () =>
                           _loadListCubit.fetchLoads(type: _listType),
                       child: filtered.isEmpty
-                          ? ListView(
-                              physics: const AlwaysScrollableScrollPhysics(),
-                              children: [
-                                SizedBox(
-                                  height:
-                                      MediaQuery.of(context).size.height * 0.4,
-                                  child: Center(
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        SvgPicture.asset(
-                                          'assets/icons/empty.svg',
-                                          height: 300,
-                                        ),
-                                        const SizedBox(height: 10),
-                                        Text(
-                                          'No loads found',
-                                          style: TextStyle(
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.w600,
-                                            color: Colors.grey[600],
+                          ? LayoutBuilder(
+                              builder: (context, constraints) {
+                                final maxH = constraints.maxHeight.isFinite
+                                    ? constraints.maxHeight
+                                    : MediaQuery.of(context).size.height * 0.5;
+                                final maxW = constraints.maxWidth.isFinite
+                                    ? constraints.maxWidth
+                                    : MediaQuery.of(context).size.width;
+
+                                final iconSize =
+                                    (maxH * 0.28).clamp(96.0, 200.0);
+                                final titleSize =
+                                    (maxH * 0.028).clamp(16.0, 18.0);
+                                final subtitleSize =
+                                    (maxH * 0.022).clamp(12.0, 14.0);
+                                final gapAfterIcon =
+                                    (maxH * 0.02).clamp(8.0, 16.0);
+                                final gapAfterTitle =
+                                    (maxH * 0.012).clamp(4.0, 8.0);
+                                final horizontalPad =
+                                    (maxW * 0.06).clamp(16.0, 32.0);
+
+                                return CustomScrollView(
+                                  physics:
+                                      const AlwaysScrollableScrollPhysics(),
+                                  slivers: [
+                                    SliverFillRemaining(
+                                      hasScrollBody: false,
+                                      child: Center(
+                                        child: Padding(
+                                          padding: EdgeInsets.symmetric(
+                                            horizontal: horizontalPad,
+                                          ),
+                                          child: Column(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              SvgPicture.asset(
+                                                'assets/icons/empty.svg',
+                                                height: iconSize,
+                                                width: iconSize,
+                                              ),
+                                              SizedBox(height: gapAfterIcon),
+                                              Text(
+                                                'No loads found',
+                                                textAlign: TextAlign.center,
+                                                style: TextStyle(
+                                                  fontSize: titleSize,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: Colors.grey[600],
+                                                ),
+                                              ),
+                                              SizedBox(height: gapAfterTitle),
+                                              Text(
+                                                _searchQuery.isNotEmpty
+                                                    ? 'No matches for "$_searchQuery"'
+                                                    : 'Try changing your filters',
+                                                textAlign: TextAlign.center,
+                                                style: TextStyle(
+                                                  fontSize: subtitleSize,
+                                                  color: Colors.grey[500],
+                                                ),
+                                              ),
+                                            ],
                                           ),
                                         ),
-                                        const SizedBox(height: 8),
-                                        Text(
-                                          _searchQuery.isNotEmpty
-                                              ? 'No matches for "$_searchQuery"'
-                                              : 'Try changing your filters',
-                                          textAlign: TextAlign.center,
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            color: Colors.grey[500],
-                                          ),
-                                        ),
-                                      ],
+                                      ),
                                     ),
-                                  ),
-                                ),
-                              ],
+                                  ],
+                                );
+                              },
                             )
                           : ListView.separated(
                               controller: _scrollController,
@@ -771,13 +812,9 @@ class _LoadScreenState extends State<LoadScreen> {
           child: Row(
             children: [
               Icon(
-                _selectedScope == _scopeMyLoads
-                    ? Icons.inventory_2_outlined
-                    : Icons.person_outline,
+                _scopeIcon(_selectedScope),
                 size: 18,
-                color: _isDriverScope
-                    ?  AppColors.blueColor
-                    :  AppColors.lightBlueColor,
+                color: _scopeIconColor(_selectedScope),
               ),
               const SizedBox(width: 8),
               Expanded(
