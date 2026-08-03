@@ -451,38 +451,38 @@ class _ReportScreenState extends State<ReportScreen> {
                 ),
               ),
 
-              // Growth percentage with proper sign and color
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: growthColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      growthIcon,
-                      color: growthColor,
-                      size: 16,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      growth >= 0
-                          ? "+${growth.toStringAsFixed(1)}%"
-                          : "${growth.toStringAsFixed(1)}%",
-                      style: TextStyle(
-                        color: growthColor,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              // // Growth percentage with proper sign and color
+              // Container(
+              //   padding: const EdgeInsets.symmetric(
+              //     horizontal: 12,
+              //     vertical: 6,
+              //   ),
+              //   decoration: BoxDecoration(
+              //     color: growthColor.withValues(alpha: 0.1),
+              //     borderRadius: BorderRadius.circular(8),
+              //   ),
+              //   child: Row(
+              //     mainAxisSize: MainAxisSize.min,
+              //     children: [
+              //       Icon(
+              //         growthIcon,
+              //         color: growthColor,
+              //         size: 16,
+              //       ),
+              //       const SizedBox(width: 4),
+              //       Text(
+              //         growth >= 0
+              //             ? "+${growth.toStringAsFixed(1)}%"
+              //             : "${growth.toStringAsFixed(1)}%",
+              //         style: TextStyle(
+              //           color: growthColor,
+              //           fontWeight: FontWeight.bold,
+              //           fontSize: 14,
+              //         ),
+              //       ),
+              //     ],
+              //   ),
+              // ),
             ],
           ),
 
@@ -731,77 +731,6 @@ class _ReportScreenState extends State<ReportScreen> {
       ],
     );
   }
-
-  // Widget _buildCategoryCard({
-  //   required String title,
-  //   required String amount,
-  //   required String subtitle,
-  //   required String svgAsset,
-  // })
-  // {
-  //   return Container(
-  //     padding: const EdgeInsets.all(16),
-  //     decoration: BoxDecoration(
-  //       color: Colors.white,
-  //       borderRadius: BorderRadius.circular(16),
-  //     ),
-  //     child: Row(
-  //       children: [
-  //         Container(
-  //           width: 50,
-  //           height: 50,
-  //           decoration: BoxDecoration(
-  //             borderRadius: BorderRadius.circular(12),
-  //           ),
-  //           child: Center(
-  //             child: SvgPicture.asset(
-  //               svgAsset,
-  //               width: 35,
-  //               height: 35,
-  //             ),
-  //           ),
-  //         ),
-  //         const SizedBox(width: 14),
-  //         Expanded(
-  //           child: Column(
-  //             crossAxisAlignment: CrossAxisAlignment.start,
-  //             children: [
-  //               Row(
-  //                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
-  //                 children: [
-  //                   Text(
-  //                     title,
-  //                     style: const TextStyle(
-  //                       fontWeight: FontWeight.w600,
-  //                       fontSize: 16,
-  //                     ),
-  //                   ),
-  //                   Text(
-  //                     amount,
-  //                     style: const TextStyle(
-  //                       fontWeight: FontWeight.bold,
-  //                     ),
-  //                   ),
-  //                 ],
-  //               ),
-  //               const SizedBox(height: 4),
-  //               Text(
-  //                 subtitle,
-  //                 style: const TextStyle(
-  //                   color: Colors.grey,
-  //                   fontSize: 12,
-  //                 ),
-  //               ),
-  //             ],
-  //           ),
-  //         ),
-  //       ],
-  //     ),
-  //   );
-  // }
-
-
-
 
   Widget _buildCategoryCard({
     required String title,
