@@ -83,9 +83,10 @@ class AppUrl {
 
 
 
-  /// ------------------ profile terms-privacy ---------------
+  /// ------------------ profile terms-privacy help & support ---------------
   static const String termsAndConditions = "$baseUrl/setting/terms-conditions";
   static const String privacyPolicy = "$baseUrl/setting/privacy-policy";
+  static const String helpSupport = "$baseUrl/setting/support";
 
 
 }
