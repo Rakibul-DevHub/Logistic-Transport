@@ -2,11 +2,14 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:intl/intl.dart';
 import 'package:tag/core/constants/app_routes.dart';
 import 'package:tag/core/network/auth_session.dart';
 import 'package:tag/core/network/secure_storage_service.dart';
 import 'package:tag/core/theme/app_colors.dart';
 import 'package:tag/feature/bill_of_loading/model/add_load_data.dart';
+import 'package:tag/feature/home/cubit/home_report_cubit.dart';
+import 'package:tag/feature/home/model/home_report_data.dart';
 import 'package:tag/feature/load/cubit/load_list_cubit.dart';
 import 'package:tag/feature/load/view/load_details_screen.dart';
 import '../../../shared/widget/bottom_nav.dart';
@@ -33,33 +36,13 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _roleLoaded = false;
 
   late final HomeLoadsCubit _homeLoadsCubit;
-
-  /// Pre-calculate status data to avoid recreation on every build
-  static final List<_StatusData> _statusData = [
-    _StatusData(
-      title: 'Completed',
-      count: '21',
-      icon: 'assets/icons/completed.svg',
-      color: Color(0xFF12B76A),
-    ),
-    _StatusData(
-      title: 'Missing POD',
-      count: '03',
-      icon: 'assets/icons/missing_pod.svg',
-      color: Color(0xFFEAAA08),
-    ),
-    _StatusData(
-      title: 'Expense',
-      count: '12',
-      icon: 'assets/icons/expense.svg',
-      color: Color(0xFFD92D20),
-    ),
-  ];
+  late final HomeReportCubit _homeReportCubit;
 
   @override
   void initState() {
     super.initState();
     _homeLoadsCubit = HomeLoadsCubit();
+    _homeReportCubit = HomeReportCubit()..fetch();
     _resolveParentDriverFlag();
     _subscriptionTimer = Timer(const Duration(seconds: 2), () {
       if (mounted && !_hasShownSubscription) {
@@ -94,6 +77,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void dispose() {
     _subscriptionTimer?.cancel();
     _homeLoadsCubit.close();
+    _homeReportCubit.close();
     super.dispose();
   }
 
@@ -103,8 +87,11 @@ class _HomeScreenState extends State<HomeScreen> {
     // isParentDriver == false → not owner → HIDE Assigned Load
     final showAssignedLoad = _roleLoaded && _isParentDriver == true;
 
-    return BlocProvider.value(
-      value: _homeLoadsCubit,
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider.value(value: _homeLoadsCubit),
+        BlocProvider.value(value: _homeReportCubit),
+      ],
       child: Scaffold(
         backgroundColor: AppColors.backgroundColor,
         body: ImmersiveSafeArea(
@@ -274,56 +261,79 @@ class _NotificationButton extends StatelessWidget {
 class _NetProfitCard extends StatelessWidget {
   const _NetProfitCard();
 
+  static final NumberFormat _money = NumberFormat('#,##0.##');
+
+  String _moneyText(double value) => '\$${_money.format(value)}';
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF1E3A5F), Color(0xFF2E5A8A)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF1E3A5F).withOpacity(0.3),
-            blurRadius: 15,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: const Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Net Profit',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.white70,
-              fontWeight: FontWeight.w500,
+    return BlocBuilder<HomeReportCubit, HomeReportState>(
+      builder: (context, state) {
+        final summary = state is HomeReportSuccess
+            ? state.data.summary
+            : HomeReportSummary.empty();
+        final loading =
+            state is HomeReportLoading || state is HomeReportInitial;
+
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF1E3A5F), Color(0xFF2E5A8A)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF1E3A5F).withOpacity(0.3),
+                blurRadius: 15,
+                offset: const Offset(0, 8),
+              ),
+            ],
           ),
-          SizedBox(height: 8),
-          Text(
-            '\$4,300',
-            style: TextStyle(
-              fontSize: 36,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Net Profit',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.white70,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                loading ? '—' : _moneyText(summary.totalProfit),
+                style: const TextStyle(
+                  fontSize: 36,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 20),
+              _ProfitBreakdown(
+                income: loading ? '—' : _moneyText(summary.totalIncome),
+                expense: loading ? '—' : _moneyText(summary.totalExpenses),
+              ),
+            ],
           ),
-          SizedBox(height: 20),
-          _ProfitBreakdown(),
-        ],
-      ),
+        );
+      },
     );
   }
 }
 
 class _ProfitBreakdown extends StatelessWidget {
-  const _ProfitBreakdown();
+  const _ProfitBreakdown({
+    required this.income,
+    required this.expense,
+  });
+
+  final String income;
+  final String expense;
 
   @override
   Widget build(BuildContext context) {
@@ -332,15 +342,15 @@ class _ProfitBreakdown extends StatelessWidget {
         Expanded(
           child: _StatCard(
             label: 'Total Income',
-            value: '\$12,500',
-            valueColor: AppColors.totalIncomeColor
+            value: income,
+            valueColor: AppColors.totalIncomeColor,
           ),
         ),
         const SizedBox(width: 12),
         Expanded(
           child: _StatCard(
             label: 'Total Expense',
-            value: '\$8,200',
+            value: expense,
             valueColor: AppColors.totalExpenseColor,
           ),
         ),
@@ -435,42 +445,75 @@ class _ActionButtons extends StatelessWidget {
 class _StatusOverviewSection extends StatelessWidget {
   const _StatusOverviewSection();
 
+  String _padCount(int value) => value.toString().padLeft(2, '0');
+
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Status Overview',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-            color: Color(0xFF111827),
+    return BlocBuilder<HomeReportCubit, HomeReportState>(
+      builder: (context, state) {
+        final counts = state is HomeReportSuccess
+            ? state.data.loadStatusCounts
+            : HomeLoadStatusCounts.empty();
+        final loading =
+            state is HomeReportLoading || state is HomeReportInitial;
+
+        final items = <_StatusData>[
+          _StatusData(
+            title: 'Completed',
+            count: loading ? '--' : _padCount(counts.delivered),
+            icon: 'assets/icons/completed.svg',
+            color: const Color(0xFF12B76A),
           ),
-        ),
-        const SizedBox(height: 16),
-        SizedBox(
-          height: 90,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            physics: const BouncingScrollPhysics(),
-            itemCount: _HomeScreenState._statusData.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 10),
-            itemBuilder: (context, index) {
-              final data = _HomeScreenState._statusData[index];
-              return SizedBox(
-                width: 160,
-                child: buildStatusCard(
-                  title: data.title,
-                  count: data.count,
-                  icon: data.icon,
-                  color: data.color,
-                ),
-              );
-            },
+          _StatusData(
+            title: 'Missing POD',
+            count: loading ? '--' : _padCount(counts.pending),
+            icon: 'assets/icons/missing_pod.svg',
+            color: const Color(0xFFEAAA08),
           ),
-        ),
-      ],
+          _StatusData(
+            title: 'Expense',
+            count: loading ? '--' : _padCount(counts.cancelled),
+            icon: 'assets/icons/expense.svg',
+            color: const Color(0xFFD92D20),
+          ),
+        ];
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Status Overview',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF111827),
+              ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              height: 90,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                physics: const BouncingScrollPhysics(),
+                itemCount: items.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 10),
+                itemBuilder: (context, index) {
+                  final data = items[index];
+                  return SizedBox(
+                    width: 160,
+                    child: buildStatusCard(
+                      title: data.title,
+                      count: data.count,
+                      icon: data.icon,
+                      color: data.color,
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

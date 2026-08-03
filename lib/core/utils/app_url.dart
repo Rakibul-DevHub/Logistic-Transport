@@ -12,6 +12,13 @@ class AppUrl {
 
 
 
+  /// --------- Home -------------
+
+  static const String homeReport = "$baseUrl/report/report";
+
+
+
+
   /// --------- Profile -------------
   static const String createAccount = "$baseUrl/auth/register";
   static const String userProfile = "$baseUrl/user/me";
@@ -61,9 +68,7 @@ class AppUrl {
   }
 
   /// ------------------ report ---------------
-
-
-  /// Dates are optional — omit both to hit `/report` with no query params.
+  // Dates are optional — omit both to hit `/report` with no query params.
   static String report([String? startDate, String? endDate]) {
     final hasStart = startDate != null && startDate.isNotEmpty;
     final hasEnd = endDate != null && endDate.isNotEmpty;
