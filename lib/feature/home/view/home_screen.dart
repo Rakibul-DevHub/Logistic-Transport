@@ -587,11 +587,10 @@ class _HomeLoadCardItem extends StatelessWidget {
         },
         child: buildLoadCard(
           loadNumber: LoadDisplayHelper.loadNumber(load),
-          company: LoadDisplayHelper.company(load),
-          date: LoadDisplayHelper.formattedDate(load),
+          driverName: LoadDisplayHelper.driverName(load),
+          pickupDate: LoadDisplayHelper.formattedDate(load),
           status: LoadDisplayHelper.statusLabel(load),
           statusColor: LoadDisplayHelper.statusColor(load),
-          amount: LoadDisplayHelper.amount(load),
         ),
       ),
     );
