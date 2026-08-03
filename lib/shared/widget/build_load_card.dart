@@ -4,11 +4,10 @@ import 'package:tag/core/theme/app_colors.dart';
 
 Widget buildLoadCard({
   required String loadNumber,
-  required String company,
-  required String date,
+  required String driverName,
+  required String pickupDate,
   required String status,
   required Color statusColor,
-  required String amount,
 }) {
   return Container(
     padding: const EdgeInsets.all(14),
@@ -82,42 +81,24 @@ Widget buildLoadCard({
                 ],
               ),
               const SizedBox(height: 6),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          company,
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.primaryTextColor,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          date,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w400,
-                            color: AppColors.secondaryTextColor,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Text(
-                    amount,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.primaryTextColor,
-                    ),
-                  ),
-                ],
+              Text(
+                driverName,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.primaryTextColor,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                pickupDate,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w400,
+                  color: AppColors.secondaryTextColor,
+                ),
               ),
             ],
           ),

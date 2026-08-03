@@ -197,14 +197,28 @@ class _ProfileContentState extends State<_ProfileContent>
                 Navigator.pushNamed(context, AppRoutes.subscriptionScreen);
               },
             ),
-            _buildMenuItem(
-              iconPath: 'assets/icons/app_preferences.svg',
-              title: 'App Preferences',
-              subtitle: 'Language, Units, and others',
-              onTap: () {
-                Navigator.pushNamed(context, AppRoutes.appPreferencesScreen);
-              },
-            ),
+
+
+            /// ================================================================
+            ///
+            ///
+            ///todo:: As this was not being used, it has been removed.
+            ///
+            ///
+            /// _buildMenuItem(
+            ///   iconPath: 'assets/icons/app_preferences.svg',
+            ///   title: 'App Preferences',
+            ///   subtitle: 'Language, Units, and others',
+            ///   onTap: () {
+            ///     Navigator.pushNamed(context, AppRoutes.appPreferencesScreen);
+            ///   },
+            /// ),
+            ///
+            ///
+            /// ================================================================
+
+
+
             _buildMenuItem(
               iconPath: 'assets/icons/help_support.svg',
               title: 'Help & Support',
