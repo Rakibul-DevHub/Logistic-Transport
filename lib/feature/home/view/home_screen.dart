@@ -692,7 +692,7 @@ class _HomeLoadsError extends StatelessWidget {
           Expanded(
             child: Text(
               message,
-              style: const TextStyle(fontSize: 12, color: Colors.red),
+              style: TextStyle(fontSize: 12, color: AppColors.redColor),
             ),
           ),
           TextButton(
