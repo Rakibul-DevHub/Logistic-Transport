@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:fl_chart/fl_chart.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:intl/intl.dart';
 import 'package:tag/core/theme/app_colors.dart';
@@ -64,7 +63,7 @@ class _ReportViewState extends State<_ReportView> {
     final now = DateTime.now();
     _activeStart = DateTime(now.year, now.month, 1);
     _activeEnd = DateTime(now.year, now.month + 1, 0);
-    _chartStart = _dateOnly(now).subtract(Duration(days: now.weekday - 1));
+    _chartStart = _activeStart;
   }
 
   DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
@@ -87,17 +86,21 @@ class _ReportViewState extends State<_ReportView> {
     _dailyByDate
       ..clear()
       ..addEntries(
-        daily.map((d) => MapEntry(_keyFor(d.date), d)),
+        daily.map((d) {
+          // Normalize to date-only local key (yyyy-MM-dd).
+          final key = _keyFor(d.date);
+          return MapEntry(key, d);
+        }),
       );
 
-    // Clamp chart window inside the active selected range.
-    _chartStart = _clampChartStart(_chartStart);
+    // Keep / clamp chart window inside active range (never jump to wrong week).
+    _chartStart = _clampChartStart(_dateOnly(_chartStart));
   }
 
   int get _rangeDayCount =>
       _activeEnd.difference(_activeStart).inDays + 1;
 
-  /// Visible bars: up to 7 days, or the full short range.
+  /// Chart always shows up to 7 day slots.
   int get _windowDays {
     final span = _rangeDayCount;
     if (span <= 0) return 1;
@@ -123,10 +126,11 @@ class _ReportViewState extends State<_ReportView> {
 
   bool get _canScrollRight => _chartStart.isBefore(_maxChartStart);
 
+  /// Exactly [_windowDays] consecutive calendar days starting at [_chartStart].
   List<DailyReport> get _visibleDays {
+    final start = _dateOnly(_chartStart);
     return List.generate(_windowDays, (i) {
-      final day = _chartStart.add(Duration(days: i));
-      // Don't paint past the selected end date.
+      final day = DateTime(start.year, start.month, start.day + i);
       if (day.isAfter(_activeEnd)) {
         return DailyReport(
           date: day,
@@ -147,11 +151,12 @@ class _ReportViewState extends State<_ReportView> {
     });
   }
 
-  /// Chart ◀ / ▶ / swipe — scroll the window by 1 day inside the
-  /// selected range. Does NOT refetch and does NOT clear the date chip.
+  /// Chart ◀ / ▶ / swipe — scroll the 7-day window by 1 day.
   void _shiftChartByOneDay(int delta) {
-    final next = _clampChartStart(_chartStart.add(Duration(days: delta)));
-    if (next.isAtSameMomentAs(_chartStart)) return;
+    final next = _clampChartStart(
+      _dateOnly(_chartStart).add(Duration(days: delta)),
+    );
+    if (next.isAtSameMomentAs(_dateOnly(_chartStart))) return;
     setState(() {
       _chartStart = next;
       _selectedDay = next;
@@ -180,16 +185,16 @@ class _ReportViewState extends State<_ReportView> {
     final now = DateTime.now();
     final first = DateTime(now.year, now.month, 1);
     final last = DateTime(now.year, now.month + 1, 0);
-    final monday = _dateOnly(now).subtract(Duration(days: now.weekday - 1));
     setState(() {
       _isThisMonth = true;
       _hasCustomRange = false;
       _rangeStart = null;
       _rangeEnd = null;
       _setActiveRange(first, last);
-      _chartStart = _clampChartStart(monday);
-      _selectedDay = _chartStart;
-      _focusedDay = _chartStart;
+      // Chart starts on the 1st so days 1–7 line up exactly.
+      _chartStart = first;
+      _selectedDay = first;
+      _focusedDay = first;
     });
     context.read<ReportCubit>().fetchThisMonth();
   }
@@ -393,8 +398,8 @@ class _ReportViewState extends State<_ReportView> {
                     week.map((d) => d.income).toList(growable: false);
                 final expenseData =
                     week.map((d) => d.expenses).toList(growable: false);
-                final weekProfit =
-                    week.fold<double>(0, (sum, d) => sum + d.profit);
+                // Full selected range profit (month/week/custom) — not just 7 chart days.
+                final totalProfit = data.summary.totalProfit;
                 final growth = data.trend.isPositive
                     ? data.trend.percentage.abs()
                     : -data.trend.percentage.abs();
@@ -410,7 +415,7 @@ class _ReportViewState extends State<_ReportView> {
                         weekDays: weekDays,
                         incomeData: incomeData,
                         expenseData: expenseData,
-                        totalProfit: weekProfit,
+                        totalProfit: totalProfit,
                         growth: growth,
                       ),
                       const SizedBox(height: 16),
@@ -830,173 +835,162 @@ class _ReportViewState extends State<_ReportView> {
             onHorizontalDragEnd: (details) {
               final v = details.primaryVelocity ?? 0;
               if (v < -200) {
-                // Swipe left → next days
                 _shiftChartByOneDay(1);
               } else if (v > 200) {
-                // Swipe right → previous days
                 _shiftChartByOneDay(-1);
               }
             },
-            child: Column(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                SizedBox(
-                  height: 180,
-                  child: BarChart(
-                    BarChartData(
-                      maxY: maxY,
-                      minY: 0,
-                      gridData: const FlGridData(show: false),
-                      borderData: FlBorderData(show: false),
-                      barTouchData: BarTouchData(enabled: false),
-                      titlesData: const FlTitlesData(
-                        leftTitles: AxisTitles(
-                          sideTitles: SideTitles(showTitles: false),
-                        ),
-                        topTitles: AxisTitles(
-                          sideTitles: SideTitles(showTitles: false),
-                        ),
-                        rightTitles: AxisTitles(
-                          sideTitles: SideTitles(showTitles: false),
-                        ),
-                        bottomTitles: AxisTitles(
-                          sideTitles: SideTitles(showTitles: false),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: GestureDetector(
+                    onTap: _canScrollLeft
+                        ? () => _shiftChartByOneDay(-1)
+                        : null,
+                    child: Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: _canScrollLeft
+                              ? Colors.black
+                              : Colors.grey.shade300,
+                          width: 1.5,
                         ),
                       ),
-                      barGroups: List.generate(
-                        weekDays.length,
-                        (index) {
-                          return BarChartGroupData(
-                            x: index,
-                            barsSpace: 3,
-                            barRods: [
-                              BarChartRodData(
-                                toY: index < incomeData.length
-                                    ? incomeData[index]
-                                    : 0,
-                                width: 7,
-                                color: const Color(0xFF3B82F6),
-                                borderRadius: const BorderRadius.only(
-                                  topLeft: Radius.circular(4),
-                                  topRight: Radius.circular(4),
-                                ),
-                              ),
-                              BarChartRodData(
-                                toY: index < expenseData.length
-                                    ? expenseData[index]
-                                    : 0,
-                                width: 7,
-                                color: const Color(0xFFF59E0B),
-                                borderRadius: const BorderRadius.only(
-                                  topLeft: Radius.circular(4),
-                                  topRight: Radius.circular(4),
-                                ),
-                              ),
-                            ],
-                          );
-                        },
+                      child: Icon(
+                        Icons.chevron_left,
+                        size: 18,
+                        color: _canScrollLeft
+                            ? Colors.black87
+                            : Colors.grey.shade300,
                       ),
-                      groupsSpace: 8,
                     ),
                   ),
                 ),
-                const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    GestureDetector(
-                      onTap: _canScrollLeft
-                          ? () => _shiftChartByOneDay(-1)
-                          : null,
-                      child: Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: _canScrollLeft
-                                ? Colors.black
-                                : Colors.grey.shade300,
-                            width: 1.5,
-                          ),
-                        ),
-                        child: Icon(
-                          Icons.chevron_left,
-                          size: 18,
-                          color: _canScrollLeft
-                              ? Colors.black87
-                              : Colors.grey.shade300,
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: List.generate(
-                            weekDays.length,
-                            (index) {
-                              final day = weekDays[index];
-                              final parts = day.split(' ');
-                              final dayName = parts[0];
-                              final dayNumber =
-                                  parts.length > 1 ? parts[1] : '';
+                const SizedBox(width: 4),
+                // One column per calendar day → bar sits exactly on its date.
+                Expanded(
+                  child: SizedBox(
+                    height: 220,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: List.generate(weekDays.length, (index) {
+                        final day = weekDays[index];
+                        final parts = day.split(' ');
+                        final dayName = parts.isNotEmpty ? parts[0] : '';
+                        final dayNumber =
+                            parts.length > 1 ? parts[1] : '';
+                        final income =
+                            index < incomeData.length ? incomeData[index] : 0.0;
+                        final expense = index < expenseData.length
+                            ? expenseData[index]
+                            : 0.0;
+                        final incomeH =
+                            maxY <= 0 ? 0.0 : (income / maxY) * 150.0;
+                        final expenseH =
+                            maxY <= 0 ? 0.0 : (expense / maxY) * 150.0;
 
-                              return Expanded(
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      dayName,
-                                      style: const TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.black54,
-                                      ),
+                        return Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 2),
+                            child: Column(
+                              children: [
+                                Expanded(
+                                  child: Align(
+                                    alignment: Alignment.bottomCenter,
+                                    child: Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.end,
+                                      children: [
+                                        Container(
+                                          width: 7,
+                                          height: incomeH.clamp(0.0, 150.0),
+                                          decoration: const BoxDecoration(
+                                            color: Color(0xFF3B82F6),
+                                            borderRadius: BorderRadius.only(
+                                              topLeft: Radius.circular(4),
+                                              topRight: Radius.circular(4),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 3),
+                                        Container(
+                                          width: 7,
+                                          height: expenseH.clamp(0.0, 150.0),
+                                          decoration: const BoxDecoration(
+                                            color: Color(0xFFF59E0B),
+                                            borderRadius: BorderRadius.only(
+                                              topLeft: Radius.circular(4),
+                                              topRight: Radius.circular(4),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      dayNumber,
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.black87,
-                                      ),
-                                    ),
-                                  ],
+                                  ),
                                 ),
-                              );
-                            },
+                                const SizedBox(height: 10),
+                                Text(
+                                  dayName,
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.black54,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  dayNumber,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                      ),
+                        );
+                      }),
                     ),
-                    GestureDetector(
-                      onTap: _canScrollRight
-                          ? () => _shiftChartByOneDay(1)
-                          : null,
-                      child: Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: _canScrollRight
-                                ? Colors.black
-                                : Colors.grey.shade300,
-                            width: 1.5,
-                          ),
-                        ),
-                        child: Icon(
-                          Icons.chevron_right,
-                          size: 18,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: GestureDetector(
+                    onTap: _canScrollRight
+                        ? () => _shiftChartByOneDay(1)
+                        : null,
+                    child: Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
                           color: _canScrollRight
-                              ? Colors.black87
+                              ? Colors.black
                               : Colors.grey.shade300,
+                          width: 1.5,
                         ),
                       ),
+                      child: Icon(
+                        Icons.chevron_right,
+                        size: 18,
+                        color: _canScrollRight
+                            ? Colors.black87
+                            : Colors.grey.shade300,
+                      ),
                     ),
-                  ],
+                  ),
                 ),
               ],
             ),
