@@ -610,9 +610,19 @@ class _AccountSettingScreenState extends State<AccountSettingScreen> {
       elevation: 0,
       leading: Padding(
         padding: const EdgeInsets.only(left: 14),
-        child: InkWell(
-          onTap: () => Navigator.pop(context),
-          child: SvgPicture.asset('assets/icons/back_button_with_circle.svg'),
+        child: Material(
+          color: Colors.transparent,
+          shape: const CircleBorder(),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            onTap: () => Navigator.pop(context),
+            child: Center(
+              child: SvgPicture.asset(
+                'assets/icons/back_button_with_circle.svg',
+              ),
+            ),
+          ),
         ),
       ),
       title: const Text(

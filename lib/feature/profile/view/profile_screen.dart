@@ -376,32 +376,13 @@ class _ProfileContentState extends State<_ProfileContent>
         Text(
           isProfileLoading
               ? 'Loading...'
-              : (userData?.email ?? 'john.doe@logistics.com'),
+              : (userData?.email ?? ''),
           style: TextStyle(
             fontSize: 14,
             color: AppColors.textGreyColor,
           ),
         ),
         const SizedBox(height: 8),
-        if (!isProfileLoading && userData != null)
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 4,
-            ),
-            decoration: BoxDecoration(
-              color: AppColors.primaryColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              userData.role.toUpperCase(),
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: AppColors.primaryColor,
-              ),
-            ),
-          ),
       ],
     );
   }
