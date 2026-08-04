@@ -26,12 +26,13 @@ class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  State<HomeScreen> createState() => HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class HomeScreenState extends State<HomeScreen> {
   Timer? _subscriptionTimer;
   bool _hasShownSubscription = false;
+  bool _isSilentRefreshing = false;
 
   /// true  = owner → show Assigned Load
   /// false = not owner → hide Assigned Load
@@ -50,6 +51,24 @@ class _HomeScreenState extends State<HomeScreen> {
     // Loads SharedPreferences cache first, then refreshes from API.
     _accountSettingsCubit = AccountSettingsCubit();
     _resolveParentDriverFlag();
+  }
+
+  /// Silent refresh from bottom-nav Home tap — no loading indicators.
+  Future<void> reloadSilently() async {
+    if (!_roleLoaded || _isSilentRefreshing || !mounted) return;
+    _isSilentRefreshing = true;
+    try {
+      await Future.wait([
+        _homeLoadsCubit.fetchPreviews(
+          includeAssigned: _isParentDriver,
+          silent: true,
+        ),
+        _homeReportCubit.fetch(silent: true),
+        _accountSettingsCubit.refreshSilently(),
+      ]);
+    } finally {
+      _isSilentRefreshing = false;
+    }
   }
 
   Future<void> _resolveParentDriverFlag() async {

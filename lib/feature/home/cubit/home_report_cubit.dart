@@ -41,11 +41,15 @@ class HomeReportCubit extends Cubit<HomeReportState> {
 
   HomeReportCubit() : super(HomeReportInitial());
 
-  Future<void> fetch() async {
-    emit(HomeReportLoading());
+  Future<void> fetch({bool silent = false}) async {
+    final previous = state;
+    if (!silent) {
+      emit(HomeReportLoading());
+    }
     try {
       final token = await _storage.getAccessToken();
       if (token == null || token.isEmpty) {
+        if (silent && previous is HomeReportSuccess) return;
         emit(const HomeReportFailure(errorMessage: 'Please login again'));
         return;
       }
@@ -56,6 +60,7 @@ class HomeReportCubit extends Cubit<HomeReportState> {
       );
 
       if (!response.isSuccess || response.jsonResponse == null) {
+        if (silent && previous is HomeReportSuccess) return;
         emit(HomeReportFailure(
           errorMessage: response.errorMessage ?? 'Failed to load home report',
         ));
@@ -64,6 +69,7 @@ class HomeReportCubit extends Cubit<HomeReportState> {
 
       final parsed = HomeReportResponse.fromJson(response.jsonResponse!);
       if (parsed.data == null) {
+        if (silent && previous is HomeReportSuccess) return;
         emit(HomeReportFailure(
           errorMessage: parsed.message ?? 'Home report data is empty',
         ));
@@ -73,6 +79,7 @@ class HomeReportCubit extends Cubit<HomeReportState> {
       emit(HomeReportSuccess(data: parsed.data!));
     } catch (e) {
       debugPrint('❌ HomeReportCubit error: $e');
+      if (silent && previous is HomeReportSuccess) return;
       emit(HomeReportFailure(errorMessage: e.toString()));
     }
   }

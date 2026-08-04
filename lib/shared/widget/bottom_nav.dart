@@ -146,6 +146,7 @@ class NavItem {
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:tag/feature/home/view/home_screen.dart';
 import '../../core/constants/app_routes.dart';
 import 'immersive_safe_area.dart';
 
@@ -159,6 +160,7 @@ class BottomNav extends StatefulWidget {
 class BottomNavState extends State<BottomNav> {
   int _selectedIndex = 0;
   late final List<Widget> _screens;
+  final GlobalKey<HomeScreenState> _homeKey = GlobalKey<HomeScreenState>();
 
   final List<NavItem> _navItems = [
     const NavItem(
@@ -187,7 +189,7 @@ class BottomNavState extends State<BottomNav> {
   void initState() {
     super.initState();
     _screens = [
-      AppRoutes.routes[AppRoutes.home]!(context),
+      HomeScreen(key: _homeKey),
       AppRoutes.routes[AppRoutes.load]!(context),
       AppRoutes.routes[AppRoutes.report]!(context),
       AppRoutes.routes[AppRoutes.profile]!(context),
@@ -198,7 +200,13 @@ class BottomNavState extends State<BottomNav> {
   /// context.findAncestorStateOfType<BottomNavState>()?.switchTab(1);
   void switchTab(int index) {
     if (index < 0 || index >= _screens.length) return;
-    setState(() => _selectedIndex = index);
+    if (_selectedIndex != index) {
+      setState(() => _selectedIndex = index);
+    }
+    // Silent home refresh on Home tab tap (no visible spinner).
+    if (index == 0) {
+      _homeKey.currentState?.reloadSilently();
+    }
   }
 
   @override

@@ -451,6 +451,9 @@ class AccountSettingsCubit extends Cubit<AccountSettingsState> {
     }
   }
 
+  /// Silent profile refresh for home header (no loading UI).
+  Future<void> refreshSilently() => _fetchFreshData();
+
   // Cache user data
   Future<void> _cacheUserData(UserData userData) async {
     try {
