@@ -9,6 +9,7 @@ import 'package:tag/feature/map/map_screen.dart';
 import '../../../core/constants/app_routes.dart';
 import '../../../shared/components/Custom_Elevated_Button.dart';
 import 'model/bill_of_load_data.dart';
+import 'package:tag/feature/load/view/load_details_screen.dart';
 
 class ScanBillOfLoadingScreen extends StatelessWidget {
   final String imagePath;
@@ -969,7 +970,10 @@ class _ScanBillOfLoadingViewState extends State<_ScanBillOfLoadingView> {
           Navigator.pushReplacementNamed(
             context,
             AppRoutes.loadDetails,
-            arguments: state.data,
+            arguments: LoadDetailsArgs(
+              load: state.data,
+              refreshHomeOnPop: true,
+            ),
           );
         } else if (state is AddLoadFailure) {
           ScaffoldMessenger.of(context).showSnackBar(

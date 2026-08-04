@@ -7,11 +7,14 @@ import 'package:tag/core/constants/app_routes.dart';
 import 'package:tag/core/network/auth_session.dart';
 import 'package:tag/core/network/secure_storage_service.dart';
 import 'package:tag/core/theme/app_colors.dart';
+import 'package:tag/core/utils/app_url.dart';
 import 'package:tag/feature/bill_of_loading/model/add_load_data.dart';
 import 'package:tag/feature/home/cubit/home_report_cubit.dart';
 import 'package:tag/feature/home/model/home_report_data.dart';
 import 'package:tag/feature/load/cubit/load_list_cubit.dart';
 import 'package:tag/feature/load/view/load_details_screen.dart';
+import 'package:tag/feature/profile/view/account_settings/cubit/account_settings_cubit.dart';
+import 'package:tag/feature/profile/view/account_settings/model/account_settings_data.dart';
 import '../../../shared/widget/bottom_nav.dart';
 import '../../../shared/widget/build_action_button.dart';
 import '../../../shared/widget/build_load_card.dart';
@@ -23,12 +26,13 @@ class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  State<HomeScreen> createState() => HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class HomeScreenState extends State<HomeScreen> {
   Timer? _subscriptionTimer;
   bool _hasShownSubscription = false;
+  bool _isSilentRefreshing = false;
 
   /// true  = owner → show Assigned Load
   /// false = not owner → hide Assigned Load
@@ -37,19 +41,40 @@ class _HomeScreenState extends State<HomeScreen> {
 
   late final HomeLoadsCubit _homeLoadsCubit;
   late final HomeReportCubit _homeReportCubit;
+  late final AccountSettingsCubit _accountSettingsCubit;
 
   @override
   void initState() {
     super.initState();
     _homeLoadsCubit = HomeLoadsCubit();
     _homeReportCubit = HomeReportCubit()..fetch();
+    // Loads SharedPreferences cache first, then refreshes from API.
+    _accountSettingsCubit = AccountSettingsCubit();
     _resolveParentDriverFlag();
-    _subscriptionTimer = Timer(const Duration(seconds: 2), () {
-      if (mounted && !_hasShownSubscription) {
-        _hasShownSubscription = true;
-        showSubscriptionModal(context);
-      }
-    });
+  }
+
+  /// Silent refresh for loads + report — no loading indicators.
+  /// Profile header is NOT refreshed here; it updates when Account Settings saves.
+  Future<void> reloadSilently() async {
+    if (!_roleLoaded || _isSilentRefreshing || !mounted) return;
+    _isSilentRefreshing = true;
+    try {
+      await Future.wait([
+        _homeLoadsCubit.fetchPreviews(
+          includeAssigned: _isParentDriver,
+          silent: true,
+        ),
+        _homeReportCubit.fetch(silent: true),
+      ]);
+    } finally {
+      _isSilentRefreshing = false;
+    }
+  }
+
+  /// Sync home app-bar name/avatar from Account Settings cache after a profile update.
+  Future<void> reloadProfileFromAccountCache() async {
+    if (!mounted) return;
+    await _accountSettingsCubit.reloadFromCache();
   }
 
   Future<void> _resolveParentDriverFlag() async {
@@ -71,6 +96,17 @@ class _HomeScreenState extends State<HomeScreen> {
     });
 
     _homeLoadsCubit.fetchPreviews(includeAssigned: isParent);
+
+    // Subscription modal: only parent/owner drivers without a plan.
+    // Child drivers under a parent never see it.
+    if (isParent) {
+      _subscriptionTimer = Timer(const Duration(seconds: 2), () {
+        if (mounted && !_hasShownSubscription) {
+          _hasShownSubscription = true;
+          showSubscriptionModal(context);
+        }
+      });
+    }
   }
 
   @override
@@ -78,6 +114,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _subscriptionTimer?.cancel();
     _homeLoadsCubit.close();
     _homeReportCubit.close();
+    _accountSettingsCubit.close();
     super.dispose();
   }
 
@@ -91,6 +128,7 @@ class _HomeScreenState extends State<HomeScreen> {
       providers: [
         BlocProvider.value(value: _homeLoadsCubit),
         BlocProvider.value(value: _homeReportCubit),
+        BlocProvider.value(value: _accountSettingsCubit),
       ],
       child: Scaffold(
         backgroundColor: AppColors.backgroundColor,
@@ -187,36 +225,91 @@ class _HeaderSection extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        const _LocationWidget(),
+        const Expanded(child: _UserGreetingWidget()),
         _NotificationButton(),
       ],
     );
   }
 }
 
-class _LocationWidget extends StatelessWidget {
-  const _LocationWidget();
+/// Profile avatar + greeting from Account Settings cache/API.
+class _UserGreetingWidget extends StatelessWidget {
+  const _UserGreetingWidget();
+
+  bool _hasRemoteImage(UserData? user) {
+    final img = user?.profileImage.trim() ?? '';
+    return img.isNotEmpty && img != 'users/user.png';
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SvgPicture.asset(
-          'assets/icons/location_with_icon.svg',
-          height: 24,
-          width: 24,
-        ),
-        SizedBox(width: 6),
-        Text(
-          'Reine, Norway',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF1E3A5F),
-          ),
-        ),
-      ],
+    return BlocBuilder<AccountSettingsCubit, AccountSettingsState>(
+      builder: (context, state) {
+        final user = state is AccountSettingsSuccess ? state.userData : null;
+        final name = (user?.name.trim().isNotEmpty == true)
+            ? user!.name.trim()
+            : 'User';
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E3A5F).withOpacity(0.08),
+                shape: BoxShape.circle,
+              ),
+              child: ClipOval(
+                child: _hasRemoteImage(user)
+                    ? Image.network(
+                        '${AppUrl.imageBaseUrl}/${user!.profileImage}',
+                        width: 48,
+                        height: 48,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => const Icon(
+                          Icons.person,
+                          color: Color(0xFF1E3A5F),
+                          size: 28,
+                        ),
+                      )
+                    : const Icon(
+                        Icons.person,
+                        color: Color(0xFF1E3A5F),
+                        size: 28,
+                      ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'hello,',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF6B7280),
+                    ),
+                  ),
+                  Text(
+                    name,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1E3A5F),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

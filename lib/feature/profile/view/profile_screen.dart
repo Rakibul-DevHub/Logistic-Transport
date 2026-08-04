@@ -8,6 +8,7 @@ import 'package:tag/core/theme/app_colors.dart';
 import 'package:tag/core/utils/app_url.dart';
 import 'package:tag/feature/profile/view/account_settings/model/account_settings_data.dart';
 import 'package:tag/feature/profile/view/terms_privacy_policy/terms_privacy_policy.dart';
+import '../../../shared/widget/bottom_nav.dart';
 import '../../auth/cubit/logout_cubit.dart';
 import '../cubit/user_profile_cubit.dart';
 
@@ -168,6 +169,8 @@ class _ProfileContentState extends State<_ProfileContent>
               onTap: () {
                 Navigator.pushNamed(context, AppRoutes.accoutnSettings).then((_) {
                   _refreshProfile();
+                  // Home header shares Account Settings cache — sync after any visit/update.
+                  BottomNavState.instance?.refreshHomeProfileFromAccountCache();
                 });
               },
             ),
@@ -376,32 +379,13 @@ class _ProfileContentState extends State<_ProfileContent>
         Text(
           isProfileLoading
               ? 'Loading...'
-              : (userData?.email ?? 'john.doe@logistics.com'),
+              : (userData?.email ?? ''),
           style: TextStyle(
             fontSize: 14,
             color: AppColors.textGreyColor,
           ),
         ),
         const SizedBox(height: 8),
-        if (!isProfileLoading && userData != null)
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 4,
-            ),
-            decoration: BoxDecoration(
-              color: AppColors.primaryColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              userData.role.toUpperCase(),
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: AppColors.primaryColor,
-              ),
-            ),
-          ),
       ],
     );
   }

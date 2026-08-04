@@ -1,18 +1,24 @@
 /**
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:tag/feature/home/view/home_screen.dart';
 import '../../core/constants/app_routes.dart';
+import 'immersive_safe_area.dart';
 
 class BottomNav extends StatefulWidget {
   const BottomNav({super.key});
 
   @override
-  State<BottomNav> createState() => _BottomNavState();
+  State<BottomNav> createState() => BottomNavState();
 }
 
-class _BottomNavState extends State<BottomNav> {
+class BottomNavState extends State<BottomNav> {
+  /// Allows pushed routes (e.g. Load Details after create) to refresh Home.
+  static BottomNavState? instance;
+
   int _selectedIndex = 0;
   late final List<Widget> _screens;
+  final GlobalKey<HomeScreenState> _homeKey = GlobalKey<HomeScreenState>();
 
   final List<NavItem> _navItems = [
     const NavItem(
@@ -40,8 +46,9 @@ class _BottomNavState extends State<BottomNav> {
   @override
   void initState() {
     super.initState();
+    instance = this;
     _screens = [
-      AppRoutes.routes[AppRoutes.home]!(context),
+      HomeScreen(key: _homeKey),
       AppRoutes.routes[AppRoutes.load]!(context),
       AppRoutes.routes[AppRoutes.report]!(context),
       AppRoutes.routes[AppRoutes.profile]!(context),
@@ -49,13 +56,47 @@ class _BottomNavState extends State<BottomNav> {
   }
 
   @override
+  void dispose() {
+    if (identical(instance, this)) instance = null;
+    super.dispose();
+  }
+
+  /// Switch tab programmatically from any child screen:
+  /// context.findAncestorStateOfType<BottomNavState>()?.switchTab(1);
+  void switchTab(int index) {
+    if (index < 0 || index >= _screens.length) return;
+    if (_selectedIndex != index) {
+      setState(() => _selectedIndex = index);
+    }
+    // Silent home refresh on Home tab tap (no visible spinner).
+    if (index == 0) {
+      _homeKey.currentState?.reloadSilently();
+    }
+  }
+
+  /// Silent home refresh from outside the tab tree (e.g. after creating a load).
+  /// Does not touch profile header (avatar/name).
+  void refreshHomeSilently() {
+    _homeKey.currentState?.reloadSilently();
+  }
+
+  /// Sync home header from Account Settings cache after profile update.
+  void refreshHomeProfileFromAccountCache() {
+    _homeKey.currentState?.reloadProfileFromAccountCache();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: IndexedStack(
-        index: _selectedIndex,
-        children: _screens,
+    // Restore notch/camera insets for tab screens (immersiveSticky zeroes padding).
+    return MediaQuery(
+      data: withImmersiveSafePadding(context),
+      child: Scaffold(
+        body: IndexedStack(
+          index: _selectedIndex,
+          children: _screens,
+        ),
+        bottomNavigationBar: _buildBottomNav(),
       ),
-      bottomNavigationBar: _buildBottomNav(),
     );
   }
 
@@ -85,7 +126,7 @@ class _BottomNavState extends State<BottomNav> {
     final isSelected = _selectedIndex == index;
 
     return GestureDetector(
-      onTap: () => setState(() => _selectedIndex = index),
+      onTap: () => switchTab(index),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
@@ -134,11 +175,11 @@ class NavItem {
 
 
 
-
-
-
-
-
+///
+///
+///todo:: updating for the internal refresh of report
+///
+///
 
 
 
@@ -146,6 +187,8 @@ class NavItem {
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:tag/feature/home/view/home_screen.dart';
+import 'package:tag/feature/report/view/report_screen.dart';
 import '../../core/constants/app_routes.dart';
 import 'immersive_safe_area.dart';
 
@@ -157,8 +200,13 @@ class BottomNav extends StatefulWidget {
 }
 
 class BottomNavState extends State<BottomNav> {
+  /// Allows pushed routes (e.g. Load Details after create) to refresh Home.
+  static BottomNavState? instance;
+
   int _selectedIndex = 0;
   late final List<Widget> _screens;
+  final GlobalKey<HomeScreenState> _homeKey = GlobalKey<HomeScreenState>();
+  final GlobalKey<ReportScreenState> _reportKey = GlobalKey<ReportScreenState>();
 
   final List<NavItem> _navItems = [
     const NavItem(
@@ -186,19 +234,53 @@ class BottomNavState extends State<BottomNav> {
   @override
   void initState() {
     super.initState();
+    instance = this;
     _screens = [
-      AppRoutes.routes[AppRoutes.home]!(context),
+      HomeScreen(key: _homeKey),
       AppRoutes.routes[AppRoutes.load]!(context),
-      AppRoutes.routes[AppRoutes.report]!(context),
+      ReportScreen(key: _reportKey),
       AppRoutes.routes[AppRoutes.profile]!(context),
     ];
+  }
+
+  @override
+  void dispose() {
+    if (identical(instance, this)) instance = null;
+    super.dispose();
   }
 
   /// Switch tab programmatically from any child screen:
   /// context.findAncestorStateOfType<BottomNavState>()?.switchTab(1);
   void switchTab(int index) {
     if (index < 0 || index >= _screens.length) return;
-    setState(() => _selectedIndex = index);
+    if (_selectedIndex != index) {
+      setState(() => _selectedIndex = index);
+    }
+
+    // Silent refresh based on tab
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (index == 0) {
+        _homeKey.currentState?.reloadSilently();
+      } else if (index == 2) {
+        _reportKey.currentState?.refreshDataSilently();
+      }
+    });
+  }
+
+  /// Silent home refresh from outside the tab tree (e.g. after creating a load).
+  /// Does not touch profile header (avatar/name).
+  void refreshHomeSilently() {
+    _homeKey.currentState?.reloadSilently();
+  }
+
+  /// Sync home header from Account Settings cache after profile update.
+  void refreshHomeProfileFromAccountCache() {
+    _homeKey.currentState?.reloadProfileFromAccountCache();
+  }
+
+  /// Silent report refresh from outside the tab tree
+  void refreshReportSilently() {
+    _reportKey.currentState?.refreshDataSilently();
   }
 
   @override

@@ -52,11 +52,18 @@ class HomeLoadsCubit extends Cubit<HomeLoadsState> {
 
   HomeLoadsCubit() : super(HomeLoadsInitial());
 
-  Future<void> fetchPreviews({bool includeAssigned = true}) async {
-    emit(HomeLoadsLoading());
+  Future<void> fetchPreviews({
+    bool includeAssigned = true,
+    bool silent = false,
+  }) async {
+    final previous = state;
+    if (!silent) {
+      emit(HomeLoadsLoading());
+    }
     try {
       final token = await _storage.getAccessToken();
       if (token == null || token.isEmpty) {
+        if (silent && previous is HomeLoadsSuccess) return;
         emit(const HomeLoadsFailure(errorMessage: 'Please login again'));
         return;
       }
@@ -80,6 +87,7 @@ class HomeLoadsCubit extends Cubit<HomeLoadsState> {
           assignedFuture != null ? await assignedFuture : null;
 
       if (!myResponse.isSuccess) {
+        if (silent && previous is HomeLoadsSuccess) return;
         emit(HomeLoadsFailure(
           errorMessage: myResponse.errorMessage ?? 'Failed to load my loads',
         ));
@@ -103,6 +111,7 @@ class HomeLoadsCubit extends Cubit<HomeLoadsState> {
       ));
     } catch (e) {
       debugPrint('❌ HomeLoadsCubit error: $e');
+      if (silent && previous is HomeLoadsSuccess) return;
       emit(HomeLoadsFailure(errorMessage: e.toString()));
     }
   }

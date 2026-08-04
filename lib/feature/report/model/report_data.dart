@@ -152,7 +152,8 @@ class DailyReport {
   }
 
   String get chartLabel {
-    final dayName = day.isNotEmpty ? day : weekdayShort(date.weekday);
+    // Always derive from calendar date so labels never drift from bars.
+    final dayName = weekdayShort(date.weekday);
     final dayNumber = date.day.toString().padLeft(2, '0');
     return '$dayName $dayNumber';
   }

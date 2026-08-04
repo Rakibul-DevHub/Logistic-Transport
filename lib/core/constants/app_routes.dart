@@ -88,6 +88,12 @@ class AppRoutes {
     // loadDetails: (context) => const LoadDetailsScreen(),
     loadDetails: (context) {
       final args = ModalRoute.of(context)?.settings.arguments;
+      if (args is LoadDetailsArgs) {
+        return LoadDetailsScreen(
+          load: args.load,
+          refreshHomeOnPop: args.refreshHomeOnPop,
+        );
+      }
       return LoadDetailsScreen(
         load: args is AddLoadData ? args : null,
       );

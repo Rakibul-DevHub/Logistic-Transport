@@ -61,6 +61,10 @@ class AppUrl {
     return "$baseUrl/load/my-loads?page=$page&limit=$limit&type=$type";
   }
 
+  static String getIdLoadDetails(String loadId) {
+    return "$baseUrl/load/$loadId";
+  }
+
   static const String addLoadExpense = "$baseUrl/load-expense";
 
   static String getLoadExpense(String id) {
@@ -81,6 +85,21 @@ class AppUrl {
   }
 
 
+
+
+  /// ------------------ notification ---------------
+  static String getAllNotification(String page, String limit) {
+    return "$baseUrl/notification?page=$page&limit=$limit&sortField=createdAt&sortOrder=desc";
+  }
+
+
+
+
+  /// ------------------ accountant ---------------
+  static const String addAccountant = "$baseUrl/user-setting/add-accountant";
+  static const String getAccountant = "$baseUrl/user-setting/accountant";
+  static const String removeAccountant = "$baseUrl/user-setting/accountant";
+  static const String sendReportAccountant = "$baseUrl/report/send-to-accountant";
 
 
   /// ------------------ profile terms-privacy help & support ---------------
