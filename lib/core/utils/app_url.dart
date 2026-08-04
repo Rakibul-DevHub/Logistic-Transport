@@ -61,6 +61,10 @@ class AppUrl {
     return "$baseUrl/load/my-loads?page=$page&limit=$limit&type=$type";
   }
 
+  static String getIdLoadDetails(String loadId) {
+    return "$baseUrl/load/$loadId";
+  }
+
   static const String addLoadExpense = "$baseUrl/load-expense";
 
   static String getLoadExpense(String id) {
@@ -78,6 +82,14 @@ class AppUrl {
     if (hasStart) params.add("startDate=$startDate");
     if (hasEnd) params.add("endDate=$endDate");
     return "$baseUrl/report?${params.join('&')}";
+  }
+
+
+
+
+  /// ------------------ notification ---------------
+  static String getAllNotification(String page, String limit) {
+    return "$baseUrl/notification?page=$page&limit=$limit&sortField=createdAt&sortOrder=desc";
   }
 
 
