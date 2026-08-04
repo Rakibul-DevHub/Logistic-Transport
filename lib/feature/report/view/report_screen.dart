@@ -151,14 +151,15 @@ class _ReportViewState extends State<_ReportView> {
     });
   }
 
-  /// Chart bottom label. Calendar range → `01 | AUG` under weekday.
+  /// Chart bottom label.
+  /// Calendar range → weekday / date / month (3 lines).
+  /// Otherwise → weekday / date.
   String _chartDayLabel(DateTime date) {
     final dayName = DailyReport.weekdayShort(date.weekday);
     final dayNumber = date.day.toString().padLeft(2, '0');
     if (_hasCustomRange) {
       final month = DateFormat('MMM').format(date).toUpperCase();
-      // Encoded as weekday§dateLine so UI can split reliably.
-      return '$dayName§$dayNumber | $month';
+      return '$dayName§$dayNumber§$month';
     }
     return '$dayName§$dayNumber';
   }
@@ -906,6 +907,8 @@ class _ReportViewState extends State<_ReportView> {
                         final dayName = parts.isNotEmpty ? parts[0] : '';
                         final dayNumber =
                             parts.length > 1 ? parts[1] : '';
+                        final monthName =
+                            parts.length > 2 ? parts[2] : '';
                         final income =
                             index < incomeData.length ? incomeData[index] : 0.0;
                         final expense = index < expenseData.length
@@ -971,8 +974,8 @@ class _ReportViewState extends State<_ReportView> {
                                 const SizedBox(height: 2),
                                 Text(
                                   dayNumber,
-                                  style: TextStyle(
-                                    fontSize: _hasCustomRange ? 9 : 12,
+                                  style: const TextStyle(
+                                    fontSize: 12,
                                     fontWeight: FontWeight.bold,
                                     color: Colors.black87,
                                   ),
@@ -980,6 +983,20 @@ class _ReportViewState extends State<_ReportView> {
                                   overflow: TextOverflow.ellipsis,
                                   textAlign: TextAlign.center,
                                 ),
+                                if (monthName.isNotEmpty) ...[
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    monthName,
+                                    style: const TextStyle(
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.black54,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
                               ],
                             ),
                           ),
