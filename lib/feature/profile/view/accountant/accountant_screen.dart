@@ -148,7 +148,12 @@ class _SendToAccountantScreenState extends State<SendToAccountantScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
+            onPressed: () {
+              Navigator.pop(dialogContext); // close popup
+              if (context.mounted) {
+                Navigator.pop(context); // back to Profile (bottom nav)
+              }
+            },
             style: TextButton.styleFrom(
               backgroundColor: const Color(0xFF213A63),
               foregroundColor: Colors.white,
