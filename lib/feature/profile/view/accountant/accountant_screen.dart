@@ -1,5 +1,8 @@
-
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:intl/intl.dart';
+import 'package:tag/feature/profile/view/accountant/cubit/accountant_cubit.dart';
+import 'package:tag/feature/profile/view/accountant/model/accountant_data.dart';
 import '../../../../shared/components/Custom_Elevated_Button.dart';
 
 class SendToAccountantScreen extends StatefulWidget {
@@ -10,14 +13,17 @@ class SendToAccountantScreen extends StatefulWidget {
       _SendToAccountantScreenState();
 }
 
-class _SendToAccountantScreenState
-    extends State<SendToAccountantScreen> {
-  // State for view switching
+class _SendToAccountantScreenState extends State<SendToAccountantScreen> {
   bool _isSetupComplete = false;
   String _selectedPeriod = 'month'; // 'month' or 'quarter'
+  bool _handledInitialLoad = false;
 
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _nameController = TextEditingController();
+
+  static final DateFormat _apiDate = DateFormat('yyyy-MM-dd');
+  static final DateFormat _labelDate = DateFormat('MMM d');
+  static final DateFormat _labelMonth = DateFormat('MMM');
 
   @override
   void dispose() {
@@ -26,8 +32,34 @@ class _SendToAccountantScreenState
     super.dispose();
   }
 
-  void _saveInfo() {
-    if (_emailController.text.trim().isEmpty) {
+  ({DateTime from, DateTime to}) _rangeForPeriod(String period) {
+    final now = DateTime.now();
+    final to = DateTime(now.year, now.month, now.day);
+    if (period == 'quarter') {
+      final qStartMonth = ((now.month - 1) ~/ 3) * 3 + 1;
+      return (from: DateTime(now.year, qStartMonth, 1), to: to);
+    }
+    return (from: DateTime(now.year, now.month, 1), to: to);
+  }
+
+  String _monthPeriodLabel() {
+    final range = _rangeForPeriod('month');
+    return '${_labelDate.format(range.from)} - Present';
+  }
+
+  String _quarterPeriodLabel() {
+    final now = DateTime.now();
+    final q = ((now.month - 1) ~/ 3) + 1;
+    final range = _rangeForPeriod('quarter');
+    final qEnd = DateTime(range.from.year, range.from.month + 2, 1);
+    return 'Q$q: ${_labelMonth.format(range.from)} - ${_labelMonth.format(qEnd)}';
+  }
+
+  Future<void> _saveInfo(AccountantCubit cubit) async {
+    final email = _emailController.text.trim();
+    final name = _nameController.text.trim();
+
+    if (email.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please enter accountant email'),
@@ -37,15 +69,36 @@ class _SendToAccountantScreenState
       return;
     }
 
-    // Transition to Financial Reporting view
-    setState(() => _isSetupComplete = true);
+    final emailOk = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email);
+    if (!emailOk) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter a valid email'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final ok = await cubit.addAccountant(name: name, email: email);
+    if (!mounted) return;
+    if (ok) {
+      setState(() => _isSetupComplete = true);
+    }
   }
 
-  void _handleSendBundle() {
+  Future<void> _handleSendBundle(AccountantCubit cubit) async {
+    final range = _rangeForPeriod(_selectedPeriod);
+    final result = await cubit.sendReport(
+      fromDate: _apiDate.format(range.from),
+      toDate: _apiDate.format(range.to),
+    );
+    if (!mounted || !result.ok) return;
+
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
         ),
@@ -74,25 +127,18 @@ class _SendToAccountantScreenState
             ),
           ],
         ),
-        content: const Text(
-          'The financial documents have been successfully emailed to your registered accountant.',
-          style: TextStyle(
+        content: Text(
+          result.sentTo != null && result.sentTo!.isNotEmpty
+              ? '${result.message}\n\nSent to: ${result.sentTo}'
+              : result.message,
+          style: const TextStyle(
             fontSize: 14,
             color: Color(0xFF5F6980),
           ),
         ),
         actions: [
           TextButton(
-            onPressed: () {
-              Navigator.pop(context); // Close dialog
-              // Reset to setup view
-              setState(() {
-                _isSetupComplete = false;
-                _emailController.clear();
-                _nameController.clear();
-                _selectedPeriod = 'month';
-              });
-            },
+            onPressed: () => Navigator.pop(dialogContext),
             style: TextButton.styleFrom(
               backgroundColor: const Color(0xFF213A63),
               foregroundColor: Colors.white,
@@ -110,27 +156,97 @@ class _SendToAccountantScreenState
     );
   }
 
+  void _applyLoadedAccountant(AccountantData data) {
+    _emailController.text = data.value.email;
+    _nameController.text = data.value.name;
+    if (!_isSetupComplete) {
+      setState(() => _isSetupComplete = true);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F7),
-      appBar: _buildAppBar(),
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 300),
-        transitionBuilder: (Widget child, Animation<double> animation) {
-          return FadeTransition(opacity: animation, child: child);
+    return BlocProvider(
+      create: (_) => AccountantCubit()..getAccountant(),
+      child: BlocConsumer<AccountantCubit, AccountantState>(
+        listener: (context, state) {
+          if (state is AccountantLoaded && !_handledInitialLoad) {
+            _handledInitialLoad = true;
+            _applyLoadedAccountant(state.data);
+          } else if (state is AccountantEmpty && !_handledInitialLoad) {
+            _handledInitialLoad = true;
+          } else if (state is AccountantLoaded &&
+              state.data.value.email.isNotEmpty &&
+              _emailController.text.trim().isEmpty) {
+            _applyLoadedAccountant(state.data);
+          }
+
+          if (state is AccountantFailure) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(state.errorMessage),
+                backgroundColor: Colors.red,
+              ),
+            );
+            // If we already had an accountant, stay on reporting.
+            if (state.data != null && state.data!.value.email.isNotEmpty) {
+              setState(() => _isSetupComplete = true);
+            }
+          }
         },
-        child: _isSetupComplete
-            ? _buildReportingView()
-            : _buildSetupView(),
+        builder: (context, state) {
+          final cubit = context.read<AccountantCubit>();
+          final isBootLoading =
+              state is AccountantLoading || state is AccountantInitial;
+          final isSaving = state is AccountantSaving;
+          final isSending = state is AccountantSending;
+
+          return Scaffold(
+            backgroundColor: const Color(0xFFF5F5F7),
+            appBar: _buildAppBar(),
+            body: isBootLoading
+                ? const Center(
+                    child: CircularProgressIndicator(
+                      color: Color(0xFF213A63),
+                    ),
+                  )
+                : AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 300),
+                    transitionBuilder:
+                        (Widget child, Animation<double> animation) {
+                      return FadeTransition(opacity: animation, child: child);
+                    },
+                    child: _isSetupComplete
+                        ? _buildReportingView(
+                            cubit: cubit,
+                            isSending: isSending,
+                            accountant: _currentAccountant(state),
+                          )
+                        : _buildSetupView(
+                            cubit: cubit,
+                            isSaving: isSaving,
+                          ),
+                  ),
+          );
+        },
       ),
     );
   }
 
+  AccountantData? _currentAccountant(AccountantState state) {
+    if (state is AccountantLoaded) return state.data;
+    if (state is AccountantSending) return state.data;
+    if (state is AccountantFailure) return state.data;
+    return null;
+  }
+
   // ─────────────────────────────────────────────────────────────
-  // VIEW 1: ACCOUNTANT SETUP (Original Design)
+  // VIEW 1: ACCOUNTANT SETUP
   // ─────────────────────────────────────────────────────────────
-  Widget _buildSetupView() {
+  Widget _buildSetupView({
+    required AccountantCubit cubit,
+    required bool isSaving,
+  }) {
     return SingleChildScrollView(
       key: const ValueKey('setup_view'),
       padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -138,8 +254,6 @@ class _SendToAccountantScreenState
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 12),
-
-          // HEADER
           const Text(
             'Accountant Setup',
             style: TextStyle(
@@ -158,8 +272,6 @@ class _SendToAccountantScreenState
             ),
           ),
           const SizedBox(height: 24),
-
-          // MAIN CARD
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(
@@ -176,7 +288,6 @@ class _SendToAccountantScreenState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // INFO BOX
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(
@@ -212,9 +323,9 @@ class _SendToAccountantScreenState
                       const Expanded(
                         child: Text(
                           'This email will be used to bundle\n'
-                              'and send your delivery documents,\n'
-                              'fuel receipts, and route manifests\n'
-                              'directly for tax preparation.',
+                          'and send your delivery documents,\n'
+                          'fuel receipts, and route manifests\n'
+                          'directly for tax preparation.',
                           style: TextStyle(
                             fontSize: 14,
                             height: 1.45,
@@ -227,8 +338,6 @@ class _SendToAccountantScreenState
                   ),
                 ),
                 const SizedBox(height: 28),
-
-                // EMAIL LABEL
                 const Text(
                   'Accountant Email',
                   style: TextStyle(
@@ -238,17 +347,14 @@ class _SendToAccountantScreenState
                   ),
                 ),
                 const SizedBox(height: 10),
-
-                // EMAIL FIELD
                 _buildTextField(
                   controller: _emailController,
                   hint: 'e.g. finance@firm.com',
                   icon: Icons.mail_outline_rounded,
                   keyboardType: TextInputType.emailAddress,
+                  enabled: !isSaving,
                 ),
                 const SizedBox(height: 22),
-
-                // NAME LABEL
                 const Text(
                   'Accountant Name (Optional)',
                   style: TextStyle(
@@ -258,19 +364,16 @@ class _SendToAccountantScreenState
                   ),
                 ),
                 const SizedBox(height: 10),
-
-                // NAME FIELD
                 _buildTextField(
                   controller: _nameController,
                   hint: 'Full name or firm name',
                   icon: Icons.person_outline_rounded,
+                  enabled: !isSaving,
                 ),
                 const SizedBox(height: 34),
-
-                // BUTTON
                 CustomElevatedButton(
-                  onPressed: _saveInfo,
-                  buttonText: 'Save Info.',
+                  onPressed: isSaving ? null : () => _saveInfo(cubit),
+                  buttonText: isSaving ? 'Saving...' : 'Save Info.',
                   backgroundColor: const Color(0xFF213A63),
                   foregroundColor: Colors.white,
                   height: 56,
@@ -284,8 +387,6 @@ class _SendToAccountantScreenState
             ),
           ),
           const SizedBox(height: 38),
-
-          // SECURE TRANSFER CARD
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(
@@ -347,9 +448,23 @@ class _SendToAccountantScreenState
   }
 
   // ─────────────────────────────────────────────────────────────
-  // VIEW 2: FINANCIAL REPORTING & BUNDLE SUMMARY
+  // VIEW 2: FINANCIAL REPORTING
   // ─────────────────────────────────────────────────────────────
-  Widget _buildReportingView() {
+  Widget _buildReportingView({
+    required AccountantCubit cubit,
+    required bool isSending,
+    AccountantData? accountant,
+  }) {
+    final range = _rangeForPeriod(_selectedPeriod);
+    final rangeLabel =
+        '${_labelDate.format(range.from)} - ${_labelDate.format(range.to)}, ${range.to.year}';
+    final email = accountant?.value.email.isNotEmpty == true
+        ? accountant!.value.email
+        : _emailController.text.trim();
+    final name = accountant?.value.name.isNotEmpty == true
+        ? accountant!.value.name
+        : _nameController.text.trim();
+
     return SingleChildScrollView(
       key: const ValueKey('reporting_view'),
       padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -357,8 +472,6 @@ class _SendToAccountantScreenState
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 12),
-
-          // HEADER
           const Text(
             'Financial Reporting',
             style: TextStyle(
@@ -376,9 +489,18 @@ class _SendToAccountantScreenState
               color: Color(0xFF73809A),
             ),
           ),
+          if (email.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Text(
+              name.isNotEmpty ? 'Sending to $name ($email)' : 'Sending to $email',
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF213A63),
+              ),
+            ),
+          ],
           const SizedBox(height: 24),
-
-          // FINANCIAL REPORTING CARD
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(
@@ -395,7 +517,6 @@ class _SendToAccountantScreenState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Period Selection Header
                 Row(
                   children: [
                     Container(
@@ -437,8 +558,6 @@ class _SendToAccountantScreenState
                   ],
                 ),
                 const SizedBox(height: 24),
-
-                // Period Selection Buttons
                 const Text(
                   'Select Period',
                   style: TextStyle(
@@ -450,10 +569,12 @@ class _SendToAccountantScreenState
                 const SizedBox(height: 12),
                 Row(
                   children: [
-                    // This Month
                     Expanded(
                       child: GestureDetector(
-                        onTap: () => setState(() => _selectedPeriod = 'month'),
+                        onTap: isSending
+                            ? null
+                            : () =>
+                                setState(() => _selectedPeriod = 'month'),
                         child: Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 14,
@@ -493,7 +614,7 @@ class _SendToAccountantScreenState
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                'Oct 1 - Present',
+                                _monthPeriodLabel(),
                                 style: TextStyle(
                                   fontSize: 11,
                                   color: _selectedPeriod == 'month'
@@ -508,10 +629,12 @@ class _SendToAccountantScreenState
                       ),
                     ),
                     const SizedBox(width: 10),
-                    // This Quarter
                     Expanded(
                       child: GestureDetector(
-                        onTap: () => setState(() => _selectedPeriod = 'quarter'),
+                        onTap: isSending
+                            ? null
+                            : () =>
+                                setState(() => _selectedPeriod = 'quarter'),
                         child: Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 14,
@@ -551,7 +674,7 @@ class _SendToAccountantScreenState
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                'Q4: Oct - Dec',
+                                _quarterPeriodLabel(),
                                 style: TextStyle(
                                   fontSize: 11,
                                   color: _selectedPeriod == 'quarter'
@@ -571,8 +694,6 @@ class _SendToAccountantScreenState
             ),
           ),
           const SizedBox(height: 20),
-
-          // BUNDLE SUMMARY CARD
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(
@@ -598,8 +719,6 @@ class _SendToAccountantScreenState
                   ),
                 ),
                 const SizedBox(height: 16),
-
-                // Total Loads Row
                 Row(
                   children: [
                     Container(
@@ -609,38 +728,38 @@ class _SendToAccountantScreenState
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: const Icon(
-                        Icons.local_shipping_rounded,
+                        Icons.date_range_rounded,
                         color: Color(0xFF213A63),
                         size: 20,
                       ),
                     ),
                     const SizedBox(width: 12),
-                    const Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Total Loads',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Color(0xFF73809A),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Report Period',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF73809A),
+                            ),
                           ),
-                        ),
-                        SizedBox(height: 2),
-                        Text(
-                          '12',
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF161B2F),
+                          const SizedBox(height: 2),
+                          Text(
+                            rangeLabel,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF161B2F),
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 14),
-
-                // Total Documents Row
                 Row(
                   children: [
                     Container(
@@ -656,39 +775,25 @@ class _SendToAccountantScreenState
                       ),
                     ),
                     const SizedBox(width: 12),
-                    Expanded(
+                    const Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'Total Documents',
+                          Text(
+                            'Documents Included',
                             style: TextStyle(
                               fontSize: 12,
                               color: Color(0xFF73809A),
                             ),
                           ),
-                          const SizedBox(height: 2),
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.baseline,
-                            textBaseline: TextBaseline.alphabetic,
-                            children: [
-                              const Text(
-                                '36',
-                                style: TextStyle(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.w700,
-                                  color: Color(0xFF161B2F),
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                '(BOL, POD, Expenses)',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: Color(0xFF73809A),
-                                ),
-                              ),
-                            ],
+                          SizedBox(height: 2),
+                          Text(
+                            'BOL, POD, Expenses',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF161B2F),
+                            ),
                           ),
                         ],
                       ),
@@ -708,8 +813,6 @@ class _SendToAccountantScreenState
             ),
           ),
           const SizedBox(height: 20),
-
-          // INFO BOX
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(
@@ -750,11 +853,10 @@ class _SendToAccountantScreenState
             ),
           ),
           const SizedBox(height: 28),
-
-          // SEND BUTTON
           CustomElevatedButton(
-            onPressed: _handleSendBundle,
-            buttonText: 'Send Bundle to Accountant',
+            onPressed: isSending ? null : () => _handleSendBundle(cubit),
+            buttonText:
+                isSending ? 'Sending...' : 'Send Bundle to Accountant',
             backgroundColor: const Color(0xFF213A63),
             foregroundColor: Colors.white,
             height: 56,
@@ -796,6 +898,7 @@ class _SendToAccountantScreenState
     required String hint,
     required IconData icon,
     TextInputType keyboardType = TextInputType.text,
+    bool enabled = true,
   }) {
     return Container(
       height: 60,
@@ -808,6 +911,7 @@ class _SendToAccountantScreenState
       ),
       child: TextField(
         controller: controller,
+        enabled: enabled,
         keyboardType: keyboardType,
         style: const TextStyle(
           fontSize: 15,
@@ -845,6 +949,7 @@ class _SendToAccountantScreenState
         child: GestureDetector(
           onTap: () {
             if (_isSetupComplete) {
+              // Edit accountant details
               setState(() => _isSetupComplete = false);
             } else {
               Navigator.pop(context);

@@ -50,12 +50,6 @@ class _HomeScreenState extends State<HomeScreen> {
     // Loads SharedPreferences cache first, then refreshes from API.
     _accountSettingsCubit = AccountSettingsCubit();
     _resolveParentDriverFlag();
-    _subscriptionTimer = Timer(const Duration(seconds: 2), () {
-      if (mounted && !_hasShownSubscription) {
-        _hasShownSubscription = true;
-        showSubscriptionModal(context);
-      }
-    });
   }
 
   Future<void> _resolveParentDriverFlag() async {
@@ -77,6 +71,17 @@ class _HomeScreenState extends State<HomeScreen> {
     });
 
     _homeLoadsCubit.fetchPreviews(includeAssigned: isParent);
+
+    // Subscription modal: only parent/owner drivers without a plan.
+    // Child drivers under a parent never see it.
+    if (isParent) {
+      _subscriptionTimer = Timer(const Duration(seconds: 2), () {
+        if (mounted && !_hasShownSubscription) {
+          _hasShownSubscription = true;
+          showSubscriptionModal(context);
+        }
+      });
+    }
   }
 
   @override

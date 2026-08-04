@@ -95,6 +95,12 @@ class AppUrl {
 
 
 
+  /// ------------------ accountant ---------------
+  static const String addAccountant = "$baseUrl/user-setting/add-accountant";
+  static const String getAccountant = "$baseUrl/user-setting/accountant";
+  static const String sendReportAccountant = "$baseUrl/report/send-to-accountant";
+
+
   /// ------------------ profile terms-privacy help & support ---------------
   static const String termsAndConditions = "$baseUrl/setting/terms-conditions";
   static const String privacyPolicy = "$baseUrl/setting/privacy-policy";

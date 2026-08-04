@@ -929,6 +929,8 @@ void showSubscriptionModal(BuildContext context) {
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:tag/core/constants/app_routes.dart';
+import 'package:tag/core/network/auth_session.dart';
+import 'package:tag/core/network/secure_storage_service.dart';
 import '../../feature/profile/view/subscription/cubit/subscription_cubit.dart';
 import '../../feature/profile/view/subscription/model/subscription_data.dart';
 
@@ -1417,9 +1419,16 @@ class _SubscriptionWidgetState extends State<SubscriptionWidget> {
   }
 }
 
-/// Shows modal only if user has NO active subscription.
+/// Shows modal only if:
+/// - user is a parent/owner driver (NOT under another parent), AND
+/// - user has NO active subscription / trial.
 /// After Continue / Free Trial confirm → opens Subscription screen.
 Future<void> showSubscriptionModal(BuildContext context) async {
+  // ✅ Child drivers under a parent should never see the subscription modal.
+  final isParentDriver = AuthSession.isParentDriver ??
+      await SecureStorageService.instance.getIsParentDriver();
+  if (!isParentDriver) return;
+
   // ✅ Skip modal if user already has a subscription / trial
   final activeCubit = MyActivePlanCubit();
   try {
@@ -1431,7 +1440,7 @@ Future<void> showSubscriptionModal(BuildContext context) async {
       return;
     }
   } catch (_) {
-    // If check fails, still allow showing modal
+    // If check fails, still allow showing modal for owners
   } finally {
     await activeCubit.close();
   }
