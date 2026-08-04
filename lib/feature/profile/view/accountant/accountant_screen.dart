@@ -17,7 +17,7 @@ class _SendToAccountantScreenState extends State<SendToAccountantScreen> {
   bool _isSetupComplete = false;
   String _selectedPeriod = 'month'; // 'month' or 'quarter'
   bool _handledInitialLoad = false;
-  bool _accountantDropdownExpanded = true;
+  bool _accountantDropdownExpanded = false;
 
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _nameController = TextEditingController();
@@ -214,7 +214,7 @@ class _SendToAccountantScreenState extends State<SendToAccountantScreen> {
     _nameController.clear();
     setState(() {
       _isSetupComplete = false;
-      _accountantDropdownExpanded = true;
+      _accountantDropdownExpanded = false;
     });
   }
 
