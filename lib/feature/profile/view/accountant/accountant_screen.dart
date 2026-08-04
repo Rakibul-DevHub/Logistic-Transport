@@ -17,6 +17,7 @@ class _SendToAccountantScreenState extends State<SendToAccountantScreen> {
   bool _isSetupComplete = false;
   String _selectedPeriod = 'month'; // 'month' or 'quarter'
   bool _handledInitialLoad = false;
+  bool _accountantDropdownExpanded = true;
 
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _nameController = TextEditingController();
@@ -156,6 +157,67 @@ class _SendToAccountantScreenState extends State<SendToAccountantScreen> {
     );
   }
 
+  Future<void> _handleRemoveAccountant(AccountantCubit cubit) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: const Text(
+          'Remove Accountant?',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF161B2F),
+          ),
+        ),
+        content: const Text(
+          'This will remove the saved accountant. You will need to set up a new one before sending reports.',
+          style: TextStyle(
+            fontSize: 14,
+            color: Color(0xFF5F6980),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Color(0xFF73809A)),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: TextButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(30),
+              ),
+            ),
+            child: const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text('Remove'),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true || !mounted) return;
+
+    final ok = await cubit.removeAccountant();
+    if (!mounted || !ok) return;
+
+    _emailController.clear();
+    _nameController.clear();
+    setState(() {
+      _isSetupComplete = false;
+      _accountantDropdownExpanded = true;
+    });
+  }
+
   void _applyLoadedAccountant(AccountantData data) {
     _emailController.text = data.value.email;
     _nameController.text = data.value.name;
@@ -175,10 +237,16 @@ class _SendToAccountantScreenState extends State<SendToAccountantScreen> {
             _applyLoadedAccountant(state.data);
           } else if (state is AccountantEmpty && !_handledInitialLoad) {
             _handledInitialLoad = true;
+            setState(() => _isSetupComplete = false);
           } else if (state is AccountantLoaded &&
               state.data.value.email.isNotEmpty &&
               _emailController.text.trim().isEmpty) {
             _applyLoadedAccountant(state.data);
+          } else if (state is AccountantEmpty && _handledInitialLoad) {
+            // After remove → back to setup
+            if (_isSetupComplete) {
+              setState(() => _isSetupComplete = false);
+            }
           }
 
           if (state is AccountantFailure) {
@@ -188,7 +256,6 @@ class _SendToAccountantScreenState extends State<SendToAccountantScreen> {
                 backgroundColor: Colors.red,
               ),
             );
-            // If we already had an accountant, stay on reporting.
             if (state.data != null && state.data!.value.email.isNotEmpty) {
               setState(() => _isSetupComplete = true);
             }
@@ -200,6 +267,7 @@ class _SendToAccountantScreenState extends State<SendToAccountantScreen> {
               state is AccountantLoading || state is AccountantInitial;
           final isSaving = state is AccountantSaving;
           final isSending = state is AccountantSending;
+          final isRemoving = state is AccountantRemoving;
 
           return Scaffold(
             backgroundColor: const Color(0xFFF5F5F7),
@@ -220,6 +288,7 @@ class _SendToAccountantScreenState extends State<SendToAccountantScreen> {
                         ? _buildReportingView(
                             cubit: cubit,
                             isSending: isSending,
+                            isRemoving: isRemoving,
                             accountant: _currentAccountant(state),
                           )
                         : _buildSetupView(
@@ -236,6 +305,7 @@ class _SendToAccountantScreenState extends State<SendToAccountantScreen> {
   AccountantData? _currentAccountant(AccountantState state) {
     if (state is AccountantLoaded) return state.data;
     if (state is AccountantSending) return state.data;
+    if (state is AccountantRemoving) return state.data;
     if (state is AccountantFailure) return state.data;
     return null;
   }
@@ -453,6 +523,7 @@ class _SendToAccountantScreenState extends State<SendToAccountantScreen> {
   Widget _buildReportingView({
     required AccountantCubit cubit,
     required bool isSending,
+    required bool isRemoving,
     AccountantData? accountant,
   }) {
     final range = _rangeForPeriod(_selectedPeriod);
@@ -464,6 +535,7 @@ class _SendToAccountantScreenState extends State<SendToAccountantScreen> {
     final name = accountant?.value.name.isNotEmpty == true
         ? accountant!.value.name
         : _nameController.text.trim();
+    final busy = isSending || isRemoving;
 
     return SingleChildScrollView(
       key: const ValueKey('reporting_view'),
@@ -489,18 +561,18 @@ class _SendToAccountantScreenState extends State<SendToAccountantScreen> {
               color: Color(0xFF73809A),
             ),
           ),
-          if (email.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Text(
-              name.isNotEmpty ? 'Sending to $name ($email)' : 'Sending to $email',
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: Color(0xFF213A63),
-              ),
-            ),
-          ],
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
+
+          // Saved accountant dropdown (shown only when setup exists)
+          _buildAccountantDropdown(
+            cubit: cubit,
+            name: name,
+            email: email,
+            isRemoving: isRemoving,
+            enabled: !busy,
+          ),
+          const SizedBox(height: 16),
+
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(
@@ -571,7 +643,7 @@ class _SendToAccountantScreenState extends State<SendToAccountantScreen> {
                   children: [
                     Expanded(
                       child: GestureDetector(
-                        onTap: isSending
+                        onTap: busy
                             ? null
                             : () =>
                                 setState(() => _selectedPeriod = 'month'),
@@ -631,7 +703,7 @@ class _SendToAccountantScreenState extends State<SendToAccountantScreen> {
                     const SizedBox(width: 10),
                     Expanded(
                       child: GestureDetector(
-                        onTap: isSending
+                        onTap: busy
                             ? null
                             : () =>
                                 setState(() => _selectedPeriod = 'quarter'),
@@ -854,7 +926,7 @@ class _SendToAccountantScreenState extends State<SendToAccountantScreen> {
           ),
           const SizedBox(height: 28),
           CustomElevatedButton(
-            onPressed: isSending ? null : () => _handleSendBundle(cubit),
+            onPressed: busy ? null : () => _handleSendBundle(cubit),
             buttonText:
                 isSending ? 'Sending...' : 'Send Bundle to Accountant',
             backgroundColor: const Color(0xFF213A63),
@@ -867,6 +939,177 @@ class _SendToAccountantScreenState extends State<SendToAccountantScreen> {
             fontWeight: FontWeight.w600,
           ),
           const SizedBox(height: 40),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAccountantDropdown({
+    required AccountantCubit cubit,
+    required String name,
+    required String email,
+    required bool isRemoving,
+    required bool enabled,
+  }) {
+    final title = name.isNotEmpty ? name : (email.isNotEmpty ? email : 'Accountant');
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE4E7EC)),
+      ),
+      child: Column(
+        children: [
+          InkWell(
+            borderRadius: BorderRadius.circular(18),
+            onTap: enabled
+                ? () => setState(
+                      () => _accountantDropdownExpanded =
+                          !_accountantDropdownExpanded,
+                    )
+                : null,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE8F0FE),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.person_outline_rounded,
+                      color: Color(0xFF213A63),
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Saved Accountant',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF73809A),
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          title,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF1B2235),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (name.isNotEmpty && email.isNotEmpty)
+                          Text(
+                            email,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF73809A),
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    _accountantDropdownExpanded
+                        ? Icons.keyboard_arrow_up_rounded
+                        : Icons.keyboard_arrow_down_rounded,
+                    color: const Color(0xFF7E8495),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (_accountantDropdownExpanded) ...[
+            const Divider(height: 1, color: Color(0xFFE4E7EC)),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Name',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF73809A),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    name.isNotEmpty ? name : '—',
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF1B2235),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Email',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF73809A),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    email.isNotEmpty ? email : '—',
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF1B2235),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 44,
+                    child: OutlinedButton.icon(
+                      onPressed: enabled
+                          ? () => _handleRemoveAccountant(cubit)
+                          : null,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.red,
+                        side: const BorderSide(color: Colors.red),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      icon: isRemoving
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.red,
+                              ),
+                            )
+                          : const Icon(Icons.delete_outline_rounded, size: 18),
+                      label: Text(
+                        isRemoving ? 'Removing...' : 'Remove Accountant',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -947,14 +1190,7 @@ class _SendToAccountantScreenState extends State<SendToAccountantScreen> {
       leading: Padding(
         padding: const EdgeInsets.only(left: 14),
         child: GestureDetector(
-          onTap: () {
-            if (_isSetupComplete) {
-              // Edit accountant details
-              setState(() => _isSetupComplete = false);
-            } else {
-              Navigator.pop(context);
-            }
-          },
+          onTap: () => Navigator.pop(context),
           child: Container(
             height: 42,
             width: 42,

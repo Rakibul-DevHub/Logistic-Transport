@@ -98,6 +98,7 @@ class AppUrl {
   /// ------------------ accountant ---------------
   static const String addAccountant = "$baseUrl/user-setting/add-accountant";
   static const String getAccountant = "$baseUrl/user-setting/accountant";
+  static const String removeAccountant = "$baseUrl/user-setting/accountant";
   static const String sendReportAccountant = "$baseUrl/report/send-to-accountant";
 
 

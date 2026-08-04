@@ -30,6 +30,15 @@ class AccountantLoaded extends AccountantState {
 
 class AccountantSaving extends AccountantState {}
 
+class AccountantRemoving extends AccountantState {
+  final AccountantData data;
+
+  const AccountantRemoving({required this.data});
+
+  @override
+  List<Object?> get props => [data];
+}
+
 class AccountantSending extends AccountantState {
   final AccountantData data;
 
@@ -62,6 +71,7 @@ class AccountantCubit extends Cubit<AccountantState> {
     final s = state;
     if (s is AccountantLoaded) return s.data;
     if (s is AccountantSending) return s.data;
+    if (s is AccountantRemoving) return s.data;
     if (s is AccountantFailure) return s.data;
     return null;
   }
@@ -159,6 +169,48 @@ class AccountantCubit extends Cubit<AccountantState> {
     } catch (e) {
       debugPrint('❌ addAccountant error: $e');
       emit(AccountantFailure(errorMessage: e.toString()));
+      return false;
+    }
+  }
+
+  Future<bool> removeAccountant() async {
+    final existing = _currentData;
+    if (existing == null) {
+      emit(AccountantEmpty());
+      return true;
+    }
+
+    emit(AccountantRemoving(data: existing));
+    try {
+      final token = await _token();
+      if (token == null) {
+        emit(AccountantFailure(
+          errorMessage: 'Please login again',
+          data: existing,
+        ));
+        return false;
+      }
+
+      final response = await _networkCaller.deleteRequest(
+        AppUrl.removeAccountant,
+        headers: {'Authorization': 'Bearer $token'},
+      );
+
+      if (!response.isSuccess &&
+          response.statusCode != 200 &&
+          response.statusCode != 204) {
+        final msg = response.jsonResponse?['message']?.toString() ??
+            response.errorMessage ??
+            'Failed to remove accountant';
+        emit(AccountantFailure(errorMessage: msg, data: existing));
+        return false;
+      }
+
+      emit(AccountantEmpty());
+      return true;
+    } catch (e) {
+      debugPrint('❌ removeAccountant error: $e');
+      emit(AccountantFailure(errorMessage: e.toString(), data: existing));
       return false;
     }
   }
