@@ -24,7 +24,6 @@ class _SendToAccountantScreenState extends State<SendToAccountantScreen> {
 
   static final DateFormat _apiDate = DateFormat('yyyy-MM-dd');
   static final DateFormat _labelDate = DateFormat('MMM d');
-  static final DateFormat _labelMonth = DateFormat('MMM');
 
   @override
   void dispose() {
@@ -35,25 +34,35 @@ class _SendToAccountantScreenState extends State<SendToAccountantScreen> {
 
   ({DateTime from, DateTime to}) _rangeForPeriod(String period) {
     final now = DateTime.now();
-    final to = DateTime(now.year, now.month, now.day);
     if (period == 'quarter') {
+      // Q1: Jan–Mar, Q2: Apr–Jun, Q3: Jul–Sep, Q4: Oct–Dec
       final qStartMonth = ((now.month - 1) ~/ 3) * 3 + 1;
-      return (from: DateTime(now.year, qStartMonth, 1), to: to);
+      final from = DateTime(now.year, qStartMonth, 1);
+      // Last day of the quarter's last month (qStartMonth + 2)
+      final to = DateTime(now.year, qStartMonth + 3, 0);
+      return (from: from, to: to);
     }
-    return (from: DateTime(now.year, now.month, 1), to: to);
+    // This month: 1st → last day of the month
+    final from = DateTime(now.year, now.month, 1);
+    final to = DateTime(now.year, now.month + 1, 0);
+    return (from: from, to: to);
   }
 
   String _monthPeriodLabel() {
     final range = _rangeForPeriod('month');
-    return '${_labelDate.format(range.from)} - Present';
+    return '${_labelDate.format(range.from)} - ${_labelDate.format(range.to)}';
   }
 
   String _quarterPeriodLabel() {
     final now = DateTime.now();
     final q = ((now.month - 1) ~/ 3) + 1;
-    final range = _rangeForPeriod('quarter');
-    final qEnd = DateTime(range.from.year, range.from.month + 2, 1);
-    return 'Q$q: ${_labelMonth.format(range.from)} - ${_labelMonth.format(qEnd)}';
+    const names = {
+      1: 'January – March',
+      2: 'April – June',
+      3: 'July – September',
+      4: 'October – December',
+    };
+    return 'Q$q: ${names[q]}';
   }
 
   Future<void> _saveInfo(AccountantCubit cubit) async {
