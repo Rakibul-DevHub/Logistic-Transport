@@ -220,8 +220,14 @@ class BottomNavState extends State<BottomNav> {
   }
 
   /// Silent home refresh from outside the tab tree (e.g. after creating a load).
-  void refreshHomeSilently({bool includeProfile = true}) {
-    _homeKey.currentState?.reloadSilently(includeProfile: includeProfile);
+  /// Does not touch profile header (avatar/name).
+  void refreshHomeSilently() {
+    _homeKey.currentState?.reloadSilently();
+  }
+
+  /// Sync home header from Account Settings cache after profile update.
+  void refreshHomeProfileFromAccountCache() {
+    _homeKey.currentState?.reloadProfileFromAccountCache();
   }
 
   @override

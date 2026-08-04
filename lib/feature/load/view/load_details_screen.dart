@@ -460,7 +460,7 @@ class _LoadDetailsScreenState extends State<LoadDetailsScreen> {
       canPop: true,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop && widget.refreshHomeOnPop) {
-          BottomNavState.instance?.refreshHomeSilently(includeProfile: false);
+          BottomNavState.instance?.refreshHomeSilently();
         }
       },
       child: BlocProvider.value(

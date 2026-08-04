@@ -53,26 +53,28 @@ class HomeScreenState extends State<HomeScreen> {
     _resolveParentDriverFlag();
   }
 
-  /// Silent refresh — no loading indicators.
-  /// [includeProfile] false skips app-bar avatar/name (account settings).
-  Future<void> reloadSilently({bool includeProfile = true}) async {
+  /// Silent refresh for loads + report — no loading indicators.
+  /// Profile header is NOT refreshed here; it updates when Account Settings saves.
+  Future<void> reloadSilently() async {
     if (!_roleLoaded || _isSilentRefreshing || !mounted) return;
     _isSilentRefreshing = true;
     try {
-      final tasks = <Future<void>>[
+      await Future.wait([
         _homeLoadsCubit.fetchPreviews(
           includeAssigned: _isParentDriver,
           silent: true,
         ),
         _homeReportCubit.fetch(silent: true),
-      ];
-      if (includeProfile) {
-        tasks.add(_accountSettingsCubit.refreshSilently());
-      }
-      await Future.wait(tasks);
+      ]);
     } finally {
       _isSilentRefreshing = false;
     }
+  }
+
+  /// Sync home app-bar name/avatar from Account Settings cache after a profile update.
+  Future<void> reloadProfileFromAccountCache() async {
+    if (!mounted) return;
+    await _accountSettingsCubit.reloadFromCache();
   }
 
   Future<void> _resolveParentDriverFlag() async {
