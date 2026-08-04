@@ -151,6 +151,18 @@ class _ReportViewState extends State<_ReportView> {
     });
   }
 
+  /// Chart bottom label. Calendar range → `01 | AUG` under weekday.
+  String _chartDayLabel(DateTime date) {
+    final dayName = DailyReport.weekdayShort(date.weekday);
+    final dayNumber = date.day.toString().padLeft(2, '0');
+    if (_hasCustomRange) {
+      final month = DateFormat('MMM').format(date).toUpperCase();
+      // Encoded as weekday§dateLine so UI can split reliably.
+      return '$dayName§$dayNumber | $month';
+    }
+    return '$dayName§$dayNumber';
+  }
+
   /// Chart ◀ / ▶ / swipe — scroll the 7-day window by 1 day.
   void _shiftChartByOneDay(int delta) {
     final next = _clampChartStart(
@@ -401,8 +413,9 @@ class _ReportViewState extends State<_ReportView> {
 
                 final data = (state as ReportSuccess).data;
                 final week = _visibleDays;
-                final weekDays =
-                    week.map((d) => d.chartLabel).toList(growable: false);
+                final weekDays = week
+                    .map((d) => _chartDayLabel(d.date))
+                    .toList(growable: false);
                 final incomeData =
                     week.map((d) => d.income).toList(growable: false);
                 final expenseData =
@@ -889,7 +902,7 @@ class _ReportViewState extends State<_ReportView> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: List.generate(weekDays.length, (index) {
                         final day = weekDays[index];
-                        final parts = day.split(' ');
+                        final parts = day.split('§');
                         final dayName = parts.isNotEmpty ? parts[0] : '';
                         final dayNumber =
                             parts.length > 1 ? parts[1] : '';
@@ -958,11 +971,14 @@ class _ReportViewState extends State<_ReportView> {
                                 const SizedBox(height: 2),
                                 Text(
                                   dayNumber,
-                                  style: const TextStyle(
-                                    fontSize: 12,
+                                  style: TextStyle(
+                                    fontSize: _hasCustomRange ? 9 : 12,
                                     fontWeight: FontWeight.bold,
                                     color: Colors.black87,
                                   ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  textAlign: TextAlign.center,
                                 ),
                               ],
                             ),
