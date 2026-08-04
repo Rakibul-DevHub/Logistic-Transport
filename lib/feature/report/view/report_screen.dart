@@ -270,27 +270,36 @@ class _ReportViewState extends State<_ReportView> {
       },
     };
 
-    final result = <String, dynamic>{
-      for (final e in defaults.entries)
-        e.key: Map<String, dynamic>.from(e.value),
+    final amounts = <String, double>{
+      for (final key in defaults.keys) key: 0.0,
     };
 
-    final totalExpenses = summary.totalExpenses;
-
+    // Sum amounts per UI category (multiple API rows can map to one card).
     for (final item in summary.expenseBreakdown) {
       final key = _mapCategoryKey(item.name);
-      final pct = item.percentage ??
-          (totalExpenses > 0 ? (item.amount / totalExpenses) * 100 : 0.0);
+      amounts[key] = (amounts[key] ?? 0) + item.amount;
+    }
+
+    final breakdownTotal =
+        amounts.values.fold<double>(0, (sum, v) => sum + v);
+    // Prefer summary total; if Fuel alone exceeds it, use breakdown sum
+    // so percentages stay within 0–100.
+    var base = summary.totalExpenses;
+    if (base <= 0 || (breakdownTotal > 0 && breakdownTotal > base + 0.01)) {
+      base = breakdownTotal;
+    }
+
+    final result = <String, dynamic>{};
+    for (final key in defaults.keys) {
+      final amount = amounts[key] ?? 0.0;
+      final pct = base > 0 ? ((amount / base) * 100).clamp(0.0, 100.0) : 0.0;
+      final defaultSubtitle = defaults[key]!['subtitle'] as String;
       result[key] = {
-        'amount': item.amount,
-        'subtitle': key == 'Fuel'
+        'amount': amount,
+        'subtitle': amount > 0
             ? '${pct.toStringAsFixed(0)}% of total expenses'
-            : (result[key]['subtitle'] as String),
+            : defaultSubtitle,
       };
-      if (key == 'Fuel' || item.percentage != null) {
-        result[key]['subtitle'] =
-            '${pct.toStringAsFixed(0)}% of total expenses';
-      }
     }
 
     return result;
