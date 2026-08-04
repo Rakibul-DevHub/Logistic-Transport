@@ -807,6 +807,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:tag/core/theme/app_colors.dart';
 import 'package:tag/core/theme/app_text_style.dart';
+import 'package:tag/feature/load/view/load_details_screen.dart';
 import 'package:tag/feature/map/location_coordinate_field.dart';
 import '../../../core/constants/app_routes.dart';
 import '../../../shared/components/Custom_Elevated_Button.dart';
@@ -1561,7 +1562,10 @@ class _AddLoadViewState extends State<_AddLoadView> {
           Navigator.pushReplacementNamed(
             context,
             AppRoutes.loadDetails,
-            arguments: state.data,
+            arguments: LoadDetailsArgs(
+              load: state.data,
+              refreshHomeOnPop: true,
+            ),
           );
         } else if (state is AddLoadFailure) {
           ScaffoldMessenger.of(context).showSnackBar(

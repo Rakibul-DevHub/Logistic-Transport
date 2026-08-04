@@ -14,12 +14,32 @@ import 'package:tag/feature/load/view/expense/model/load_expense_data.dart';
 import 'package:tag/feature/map/map_screen.dart';
 import '../../../core/theme/app_text_style.dart';
 import '../../../shared/components/Custom_Elevated_Button.dart';
+import '../../../shared/widget/bottom_nav.dart';
 import '../../../shared/widget/immersive_safe_area.dart';
+
+/// Route args for [LoadDetailsScreen].
+class LoadDetailsArgs {
+  final AddLoadData? load;
+  final bool refreshHomeOnPop;
+
+  const LoadDetailsArgs({
+    this.load,
+    this.refreshHomeOnPop = false,
+  });
+}
 
 class LoadDetailsScreen extends StatefulWidget {
   final AddLoadData? load;
 
-  const LoadDetailsScreen({super.key, this.load});
+  /// When true (new load create → details), popping back silently refreshes
+  /// Home load/report data (skips profile avatar/name).
+  final bool refreshHomeOnPop;
+
+  const LoadDetailsScreen({
+    super.key,
+    this.load,
+    this.refreshHomeOnPop = false,
+  });
 
   @override
   State<LoadDetailsScreen> createState() => _LoadDetailsScreenState();
@@ -50,6 +70,10 @@ class _LoadDetailsScreenState extends State<LoadDetailsScreen> {
   void dispose() {
     _expenseCubit.close();
     super.dispose();
+  }
+
+  void _popDetails() {
+    Navigator.pop(context);
   }
 
   Future<void> _fetchExpenses() async {
@@ -432,7 +456,14 @@ class _LoadDetailsScreenState extends State<LoadDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider.value(
+    return PopScope(
+      canPop: true,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop && widget.refreshHomeOnPop) {
+          BottomNavState.instance?.refreshHomeSilently(includeProfile: false);
+        }
+      },
+      child: BlocProvider.value(
       value: _expenseCubit,
       child: BlocListener<AddLoadExpenseCubit, AddLoadExpenseState>(
         listener: (context, state) {
@@ -595,6 +626,7 @@ class _LoadDetailsScreenState extends State<LoadDetailsScreen> {
           ),
         ),
       ),
+      ),
     );
   }
 
@@ -610,7 +642,7 @@ class _LoadDetailsScreenState extends State<LoadDetailsScreen> {
           clipBehavior: Clip.antiAlias,
           child: InkWell(
             customBorder: const CircleBorder(),
-            onTap: () => Navigator.pop(context),
+            onTap: _popDetails,
             child: Center(
               child: SvgPicture.asset(
                 'assets/icons/back_button_with_circle.svg',

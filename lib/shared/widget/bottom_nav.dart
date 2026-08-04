@@ -158,6 +158,9 @@ class BottomNav extends StatefulWidget {
 }
 
 class BottomNavState extends State<BottomNav> {
+  /// Allows pushed routes (e.g. Load Details after create) to refresh Home.
+  static BottomNavState? instance;
+
   int _selectedIndex = 0;
   late final List<Widget> _screens;
   final GlobalKey<HomeScreenState> _homeKey = GlobalKey<HomeScreenState>();
@@ -188,12 +191,19 @@ class BottomNavState extends State<BottomNav> {
   @override
   void initState() {
     super.initState();
+    instance = this;
     _screens = [
       HomeScreen(key: _homeKey),
       AppRoutes.routes[AppRoutes.load]!(context),
       AppRoutes.routes[AppRoutes.report]!(context),
       AppRoutes.routes[AppRoutes.profile]!(context),
     ];
+  }
+
+  @override
+  void dispose() {
+    if (identical(instance, this)) instance = null;
+    super.dispose();
   }
 
   /// Switch tab programmatically from any child screen:
@@ -207,6 +217,11 @@ class BottomNavState extends State<BottomNav> {
     if (index == 0) {
       _homeKey.currentState?.reloadSilently();
     }
+  }
+
+  /// Silent home refresh from outside the tab tree (e.g. after creating a load).
+  void refreshHomeSilently({bool includeProfile = true}) {
+    _homeKey.currentState?.reloadSilently(includeProfile: includeProfile);
   }
 
   @override

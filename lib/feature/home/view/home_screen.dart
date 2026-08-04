@@ -53,19 +53,23 @@ class HomeScreenState extends State<HomeScreen> {
     _resolveParentDriverFlag();
   }
 
-  /// Silent refresh from bottom-nav Home tap — no loading indicators.
-  Future<void> reloadSilently() async {
+  /// Silent refresh — no loading indicators.
+  /// [includeProfile] false skips app-bar avatar/name (account settings).
+  Future<void> reloadSilently({bool includeProfile = true}) async {
     if (!_roleLoaded || _isSilentRefreshing || !mounted) return;
     _isSilentRefreshing = true;
     try {
-      await Future.wait([
+      final tasks = <Future<void>>[
         _homeLoadsCubit.fetchPreviews(
           includeAssigned: _isParentDriver,
           silent: true,
         ),
         _homeReportCubit.fetch(silent: true),
-        _accountSettingsCubit.refreshSilently(),
-      ]);
+      ];
+      if (includeProfile) {
+        tasks.add(_accountSettingsCubit.refreshSilently());
+      }
+      await Future.wait(tasks);
     } finally {
       _isSilentRefreshing = false;
     }
