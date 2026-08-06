@@ -1653,7 +1653,6 @@ class DottedLinePainter extends CustomPainter {
 
 
 
-// feature/load/view/load_details_screen.dart
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -1661,6 +1660,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:shimmer/shimmer.dart';
 import 'package:tag/core/constants/app_routes.dart';
 import 'package:tag/core/theme/app_colors.dart';
 import 'package:tag/core/utils/app_url.dart';
@@ -2264,6 +2264,29 @@ class _LoadDetailsScreenState extends State<LoadDetailsScreen> {
       ),
     );
   }
+
+  // ==================== SHIMMER FOR IMAGE LOADING ====================
+
+  Widget _buildImageShimmerPlaceholder() {
+    return Shimmer.fromColors(
+      baseColor: Colors.grey[300]!,
+      highlightColor: Colors.grey[100]!,
+      child: Container(
+        width: double.infinity,
+        height: 180,
+        color: Colors.grey[300],
+        child: const Center(
+          child: Icon(
+            Icons.image_outlined,
+            size: 48,
+            color: Colors.grey,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ==================== BUILD METHOD ====================
 
   @override
   Widget build(BuildContext context) {
@@ -3235,34 +3258,16 @@ class _LoadDetailsScreenState extends State<LoadDetailsScreen> {
                     ),
                   ],
                 ),
-                Row(
-                  children: [
-                    if (hasImage)
-                      TextButton(
-                        onPressed: _viewFullBolImage,
-                        child: Text(
-                          'VIEW FULL',
-                          style: AppTextStyle.SFProDisplay_Regular.copyWith(
-                            fontSize: 11,
-                          ),
-                        ),
+                if (hasImage)
+                  TextButton(
+                    onPressed: _viewFullBolImage,
+                    child: Text(
+                      'VIEW FULL',
+                      style: AppTextStyle.SFProDisplay_Regular.copyWith(
+                        fontSize: 11,
                       ),
-                    if (hasImage) ...[
-                      const SizedBox(width: 4),
-                      TextButton(
-                        onPressed: _navigateToBOL,
-                        child: Text(
-                          _bolUploaded ? 'RE-SIGN' : 'SIGN',
-                          style: AppTextStyle.SFProDisplay_Regular.copyWith(
-                            fontSize: 11,
-                            color: Colors.blue,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -3287,15 +3292,11 @@ class _LoadDetailsScreenState extends State<LoadDetailsScreen> {
                 height: 180,
                 fit: BoxFit.cover,
                 loadingBuilder: (_, child, progress) {
-                  if (progress == null) return child;
-                  return Center(
-                    child: CircularProgressIndicator(
-                      value: progress.expectedTotalBytes != null
-                          ? progress.cumulativeBytesLoaded /
-                          progress.expectedTotalBytes!
-                          : null,
-                    ),
-                  );
+                  // Show shimmer while loading, otherwise show the image
+                  if (progress == null) {
+                    return child;
+                  }
+                  return _buildImageShimmerPlaceholder();
                 },
                 errorBuilder: (_, __, ___) => Image.asset(
                   'assets/images/demo_bol.jpg',
