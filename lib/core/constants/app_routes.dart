@@ -113,7 +113,7 @@ class AppRoutes {
       );
     },
     billOfLoad: (context) => const BOLScreen(),
-    proofOfDelivery: (context) => const PODScreen(),
+    // proofOfDelivery: (context) => const PODScreen(),
     addLoading: (context) => const AddLoadScreen(),
     camScan: (context) => const CameraScanScreen(),
     notification: (context) => const NotificationScreen(),

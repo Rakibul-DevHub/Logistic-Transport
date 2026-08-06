@@ -2,22 +2,19 @@ class AppUrl {
   AppUrl._();
 
   /// ------------------ Base URL -------------------
-  static const String baseUrl = "https://pjxppsdl-8083.inc1.devtunnels.ms/api/v1";
-  static const String imageBaseUrl = "https://pjxppsdl-8083.inc1.devtunnels.ms/uploads";
-
+  static const String baseUrl =
+      "https://pjxppsdl-8083.inc1.devtunnels.ms/api/v1";
+  static const String imageBaseUrl =
+      "https://pjxppsdl-8083.inc1.devtunnels.ms/uploads";
 
   /// ---------------- Image Upload ------------------------------
   static const String singleImageUpload = "$baseUrl/upload";
-  static const String updateMultipleImage = "uploads"; // not used into main coding
-
-
+  static const String updateMultipleImage =
+      "uploads"; // not used into main coding
 
   /// --------- Home -------------
 
   static const String homeReport = "$baseUrl/report/home";
-
-
-
 
   /// --------- Profile -------------
   static const String createAccount = "$baseUrl/auth/register";
@@ -32,29 +29,24 @@ class AppUrl {
   static const String deleteUserAccount = "$baseUrl/user/me";
   static const String userProfileImageUpload = "$baseUrl/upload";
 
-
-
   /// ----------- Subscription ----------------
   static const String activeSubscriptionPlans = "$baseUrl/plan";
   static const String myActivePlan = "$baseUrl/user-plan/me";
   static const String subscriptionFreeTrial = "$baseUrl/user-plan/start-trial";
   static const String subscriptionPurchase = "$baseUrl/user-plan/purchase";
 
-
   /// ----------------- Add Driver ----------------
   static const String addDriver = "$baseUrl/user/drivers/sub-drivers";
   static const String getDriverList = "$baseUrl/user/drivers/sub-drivers";
+
   static String deleteDriver(String subDriverId) {
     return "$baseUrl/user/drivers/sub-drivers/$subDriverId";
   }
-
 
   /// -------------- Document OCR --------------------
   static const String scanDocOcr = "$baseUrl/load/ocr";
   static const String createBillOfLoad = "$baseUrl/load/create-from-ocr";
   static const String addLoad = "$baseUrl/load/create-manual";
-
-
 
   /// -------------- Load ---------------------
   static String getLoad(String page, String limit, String type) {
@@ -66,6 +58,10 @@ class AppUrl {
   }
 
   static const String addLoadExpense = "$baseUrl/load-expense";
+
+  static String uploadPod(String loadId) {
+    return "$baseUrl/load/$loadId/pod";
+  }
 
   static String getLoadExpense(String id) {
     return "$baseUrl/load-expense/load/$id";
@@ -84,28 +80,20 @@ class AppUrl {
     return "$baseUrl/report?${params.join('&')}";
   }
 
-
-
-
   /// ------------------ notification ---------------
   static String getAllNotification(String page, String limit) {
     return "$baseUrl/notification?page=$page&limit=$limit&sortField=createdAt&sortOrder=desc";
   }
 
-
-
-
   /// ------------------ accountant ---------------
   static const String addAccountant = "$baseUrl/user-setting/add-accountant";
   static const String getAccountant = "$baseUrl/user-setting/accountant";
   static const String removeAccountant = "$baseUrl/user-setting/accountant";
-  static const String sendReportAccountant = "$baseUrl/report/send-to-accountant";
-
+  static const String sendReportAccountant =
+      "$baseUrl/report/send-to-accountant";
 
   /// ------------------ profile terms-privacy help & support ---------------
   static const String termsAndConditions = "$baseUrl/setting/terms-conditions";
   static const String privacyPolicy = "$baseUrl/setting/privacy-policy";
   static const String helpSupport = "$baseUrl/setting/support";
-
-
 }
