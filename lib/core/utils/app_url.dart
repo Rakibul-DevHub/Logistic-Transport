@@ -14,7 +14,7 @@ class AppUrl {
 
   /// --------- Home -------------
 
-  static const String homeReport = "$baseUrl/report/report";
+  static const String homeReport = "$baseUrl/report/home";
 
 
 
