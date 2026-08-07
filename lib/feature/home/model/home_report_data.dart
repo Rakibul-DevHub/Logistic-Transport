@@ -34,8 +34,8 @@ class HomeReportData {
           : HomeReportSummary.empty(),
       loadStatusCounts: json['loadStatusCounts'] is Map<String, dynamic>
           ? HomeLoadStatusCounts.fromJson(
-              json['loadStatusCounts'] as Map<String, dynamic>,
-            )
+        json['loadStatusCounts'] as Map<String, dynamic>,
+      )
           : HomeLoadStatusCounts.empty(),
     );
   }
@@ -55,11 +55,11 @@ class HomeReportSummary {
   });
 
   factory HomeReportSummary.empty() => const HomeReportSummary(
-        totalIncome: 0,
-        totalExpenses: 0,
-        totalProfit: 0,
-        profitMargin: 0,
-      );
+    totalIncome: 0,
+    totalExpenses: 0,
+    totalProfit: 0,
+    profitMargin: 0,
+  );
 
   factory HomeReportSummary.fromJson(Map<String, dynamic> json) {
     return HomeReportSummary(
@@ -77,6 +77,7 @@ class HomeLoadStatusCounts {
   final int inTransit;
   final int delivered;
   final int cancelled;
+  final int missingPod; // ✅ Added missing-pod field
 
   const HomeLoadStatusCounts({
     required this.draft,
@@ -84,23 +85,26 @@ class HomeLoadStatusCounts {
     required this.inTransit,
     required this.delivered,
     required this.cancelled,
+    required this.missingPod,
   });
 
   factory HomeLoadStatusCounts.empty() => const HomeLoadStatusCounts(
-        draft: 0,
-        pending: 0,
-        inTransit: 0,
-        delivered: 0,
-        cancelled: 0,
-      );
+    draft: 0,
+    pending: 0,
+    inTransit: 0,
+    delivered: 0,
+    cancelled: 0,
+    missingPod: 0,
+  );
 
   factory HomeLoadStatusCounts.fromJson(Map<String, dynamic> json) {
     return HomeLoadStatusCounts(
       draft: _toInt(json['draft']),
-      pending: _toInt(json['pending']),
+      pending: _toInt(json['pending']), // ✅ Correct mapping
       inTransit: _toInt(json['in_transit'] ?? json['inTransit']),
-      delivered: _toInt(json['delivered']),
+      delivered: _toInt(json['delivered']), // ✅ Correct mapping
       cancelled: _toInt(json['cancelled']),
+      missingPod: _toInt(json['missing-pod'] ?? json['missingPod']), // ✅ Added
     );
   }
 }

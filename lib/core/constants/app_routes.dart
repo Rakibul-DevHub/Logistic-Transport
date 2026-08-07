@@ -3,10 +3,10 @@ import 'package:tag/feature/auth/view/create_account_screen.dart';
 import 'package:tag/feature/auth/view/forgot_password_screen.dart';
 import 'package:tag/feature/auth/view/login_screen.dart';
 import 'package:tag/feature/auth/view/otp_verify_screen.dart';
-import 'package:tag/feature/bill_of_loading/add_loading.dart';
+import 'package:tag/feature/bill_of_loading/add_load.dart';
 import 'package:tag/feature/bill_of_loading/scan_bill_of_loading.dart';
 import 'package:tag/feature/home/model/camera_scanner.dart';
-import 'package:tag/feature/load/view/bol_screen.dart';
+import 'package:tag/feature/load/view/bill_of_loading/bol_screen.dart';
 import 'package:tag/feature/load/view/expense/expense_screen.dart';
 import 'package:tag/feature/load/view/expense/model/load_expense_data.dart';
 import 'package:tag/feature/load/view/load_details_screen.dart';
@@ -49,7 +49,7 @@ class AppRoutes {
   static const String scanBillOfLoading = '/scanBillOfLoading';
   static const String loadDetails = '/loadDetails';
   static const String addExpense = '/expense';
-  static const String billOfLoad = '/billOfLoad';
+  // static const String billOfLoad = '/billOfLoad';
   static const String proofOfDelivery = '/proofOfDelivery';
   static const String addLoading = '/addLoading';
   static const String camScan = '/camScan';
@@ -65,6 +65,7 @@ class AppRoutes {
   static const String drivers = '/drivers';
   static const String forgotPassword = '/forgotPassword';
   static const String resetPassword = '/resetPassword';
+  static const String billOfLoad = '/BOLScreen';
 
   ///
   /// ==============Route map
@@ -113,7 +114,7 @@ class AppRoutes {
       );
     },
     billOfLoad: (context) => const BOLScreen(),
-    proofOfDelivery: (context) => const PODScreen(),
+    // proofOfDelivery: (context) => const PODScreen(),
     addLoading: (context) => const AddLoadScreen(),
     camScan: (context) => const CameraScanScreen(),
     notification: (context) => const NotificationScreen(),
