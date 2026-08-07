@@ -187,20 +187,13 @@ class NavItem {
 
 
 
-
-///
-///
-/// todo:: caching data
 ///
 ///
 ///
-
-
-
-
-
-
-
+/// todo:: load screen data refresh
+///
+///
+///
 
 
 
@@ -208,6 +201,7 @@ class NavItem {
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:tag/feature/home/view/home_screen.dart';
+import 'package:tag/feature/load/view/load_screen.dart';
 import 'package:tag/feature/report/view/report_screen.dart';
 import '../../core/constants/app_routes.dart';
 import 'immersive_safe_area.dart';
@@ -226,6 +220,7 @@ class BottomNavState extends State<BottomNav> {
   int _selectedIndex = 0;
   late final List<Widget> _screens;
   final GlobalKey<HomeScreenState> _homeKey = GlobalKey<HomeScreenState>();
+  final GlobalKey _loadKey = GlobalKey(); // ✅ No type parameter
   final GlobalKey<ReportScreenState> _reportKey = GlobalKey<ReportScreenState>();
 
   final List<NavItem> _navItems = [
@@ -257,7 +252,7 @@ class BottomNavState extends State<BottomNav> {
     instance = this;
     _screens = [
       HomeScreen(key: _homeKey),
-      AppRoutes.routes[AppRoutes.load]!(context),
+      LoadScreen(key: _loadKey),
       ReportScreen(key: _reportKey),
       AppRoutes.routes[AppRoutes.profile]!(context),
     ];
@@ -281,6 +276,10 @@ class BottomNavState extends State<BottomNav> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (index == 0) {
         _homeKey.currentState?.reloadSilently();
+      } else if (index == 1) {
+        // ✅ Cast to LoadScreenState (the type exists, just not accessible as a type)
+        final loadState = _loadKey.currentState as dynamic;
+        loadState?.refreshLoads();
       } else if (index == 2) {
         _reportKey.currentState?.refreshDataSilently();
       }
