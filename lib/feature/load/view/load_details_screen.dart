@@ -2065,23 +2065,33 @@ class _LoadDetailsScreenState extends State<LoadDetailsScreen> {
                     width: double.infinity,
                     height: 180,
                     color: Colors.grey[200],
-                    child: const Center(
+                    child: Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(
+                          const Icon(
                             Icons.upload_file,
                             size: 48,
                             color: Colors.grey,
                           ),
-                          SizedBox(height: 8),
-                          Text(
+                          const SizedBox(height: 8),
+                          const Text(
                             'No POD image available',
                             style: TextStyle(
                               color: Colors.grey,
                               fontSize: 14,
                             ),
                           ),
+                          const SizedBox(height: 8),
+                          TextButton.icon(
+                            onPressed: _showImageSourceDialogForPOD,
+                            icon: const Icon(Icons.upload_file, size: 16),
+                            label: const Text('Upload POD'),
+                            style: TextButton.styleFrom(
+                              foregroundColor: AppColors.primaryColor,
+                            ),
+                          ),
+
                         ],
                       ),
                     ),
@@ -2119,20 +2129,6 @@ class _LoadDetailsScreenState extends State<LoadDetailsScreen> {
                 ),
             ],
           ),
-          if (!hasImage && !_isUploadingPod)
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Center(
-                child: TextButton.icon(
-                  onPressed: _showImageSourceDialogForPOD,
-                  icon: const Icon(Icons.upload_file, size: 16),
-                  label: const Text('Upload POD'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: AppColors.primaryColor,
-                  ),
-                ),
-              ),
-            ),
         ],
       ),
     );

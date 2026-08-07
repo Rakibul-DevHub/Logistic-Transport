@@ -3,7 +3,7 @@ import 'package:tag/feature/auth/view/create_account_screen.dart';
 import 'package:tag/feature/auth/view/forgot_password_screen.dart';
 import 'package:tag/feature/auth/view/login_screen.dart';
 import 'package:tag/feature/auth/view/otp_verify_screen.dart';
-import 'package:tag/feature/bill_of_loading/add_loading.dart';
+import 'package:tag/feature/bill_of_loading/add_load.dart';
 import 'package:tag/feature/bill_of_loading/scan_bill_of_loading.dart';
 import 'package:tag/feature/home/model/camera_scanner.dart';
 import 'package:tag/feature/load/view/bol_screen.dart';
