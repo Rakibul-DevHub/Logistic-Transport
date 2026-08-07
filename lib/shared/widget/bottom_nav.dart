@@ -1,7 +1,9 @@
 /**
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:tag/feature/home/view/home_screen.dart';
+import 'package:tag/feature/load/view/load_screen.dart';
 import 'package:tag/feature/report/view/report_screen.dart';
 import '../../core/constants/app_routes.dart';
 import 'immersive_safe_area.dart';
@@ -20,6 +22,10 @@ class BottomNavState extends State<BottomNav> {
   int _selectedIndex = 0;
   late final List<Widget> _screens;
   final GlobalKey<HomeScreenState> _homeKey = GlobalKey<HomeScreenState>();
+
+  // ✅ Typed GlobalKey - LoadScreenState is now accessible because it's exported
+  final GlobalKey<LoadScreenState> _loadKey = GlobalKey<LoadScreenState>();
+
   final GlobalKey<ReportScreenState> _reportKey = GlobalKey<ReportScreenState>();
 
   final List<NavItem> _navItems = [
@@ -51,7 +57,7 @@ class BottomNavState extends State<BottomNav> {
     instance = this;
     _screens = [
       HomeScreen(key: _homeKey),
-      AppRoutes.routes[AppRoutes.load]!(context),
+      LoadScreen(key: _loadKey), // ✅ Typed key attached to LoadScreen
       ReportScreen(key: _reportKey),
       AppRoutes.routes[AppRoutes.profile]!(context),
     ];
@@ -75,6 +81,9 @@ class BottomNavState extends State<BottomNav> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (index == 0) {
         _homeKey.currentState?.reloadSilently();
+      } else if (index == 1) {
+        // ✅ Type-safe access - LoadScreenState is now a valid type
+        _loadKey.currentState?.refreshLoads();
       } else if (index == 2) {
         _reportKey.currentState?.refreshDataSilently();
       }
@@ -187,14 +196,16 @@ class NavItem {
 
 
 
-///
-///
-///
-/// todo:: load screen data refresh
-///
-///
-///
 
+
+
+///
+///
+///
+/// todo:: updating the data internally hidden
+///
+///
+///
 
 
 
@@ -220,7 +231,10 @@ class BottomNavState extends State<BottomNav> {
   int _selectedIndex = 0;
   late final List<Widget> _screens;
   final GlobalKey<HomeScreenState> _homeKey = GlobalKey<HomeScreenState>();
-  final GlobalKey _loadKey = GlobalKey(); // ✅ No type parameter
+
+  // ✅ Typed GlobalKey - LoadScreenState is now accessible because it's exported
+  final GlobalKey<LoadScreenState> _loadKey = GlobalKey<LoadScreenState>();
+
   final GlobalKey<ReportScreenState> _reportKey = GlobalKey<ReportScreenState>();
 
   final List<NavItem> _navItems = [
@@ -252,7 +266,7 @@ class BottomNavState extends State<BottomNav> {
     instance = this;
     _screens = [
       HomeScreen(key: _homeKey),
-      LoadScreen(key: _loadKey),
+      LoadScreen(key: _loadKey), // ✅ Typed key attached to LoadScreen
       ReportScreen(key: _reportKey),
       AppRoutes.routes[AppRoutes.profile]!(context),
     ];
@@ -277,9 +291,8 @@ class BottomNavState extends State<BottomNav> {
       if (index == 0) {
         _homeKey.currentState?.reloadSilently();
       } else if (index == 1) {
-        // ✅ Cast to LoadScreenState (the type exists, just not accessible as a type)
-        final loadState = _loadKey.currentState as dynamic;
-        loadState?.refreshLoads();
+        // ✅ Silent refresh - no loading indicator
+        _loadKey.currentState?.refreshLoads();
       } else if (index == 2) {
         _reportKey.currentState?.refreshDataSilently();
       }
