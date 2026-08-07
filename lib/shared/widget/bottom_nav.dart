@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:tag/feature/home/view/home_screen.dart';
+import 'package:tag/feature/report/view/report_screen.dart';
 import '../../core/constants/app_routes.dart';
 import 'immersive_safe_area.dart';
 
@@ -19,6 +20,7 @@ class BottomNavState extends State<BottomNav> {
   int _selectedIndex = 0;
   late final List<Widget> _screens;
   final GlobalKey<HomeScreenState> _homeKey = GlobalKey<HomeScreenState>();
+  final GlobalKey<ReportScreenState> _reportKey = GlobalKey<ReportScreenState>();
 
   final List<NavItem> _navItems = [
     const NavItem(
@@ -50,7 +52,7 @@ class BottomNavState extends State<BottomNav> {
     _screens = [
       HomeScreen(key: _homeKey),
       AppRoutes.routes[AppRoutes.load]!(context),
-      AppRoutes.routes[AppRoutes.report]!(context),
+      ReportScreen(key: _reportKey),
       AppRoutes.routes[AppRoutes.profile]!(context),
     ];
   }
@@ -68,10 +70,15 @@ class BottomNavState extends State<BottomNav> {
     if (_selectedIndex != index) {
       setState(() => _selectedIndex = index);
     }
-    // Silent home refresh on Home tab tap (no visible spinner).
-    if (index == 0) {
-      _homeKey.currentState?.reloadSilently();
-    }
+
+    // Silent refresh based on tab
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (index == 0) {
+        _homeKey.currentState?.reloadSilently();
+      } else if (index == 2) {
+        _reportKey.currentState?.refreshDataSilently();
+      }
+    });
   }
 
   /// Silent home refresh from outside the tab tree (e.g. after creating a load).
@@ -83,6 +90,11 @@ class BottomNavState extends State<BottomNav> {
   /// Sync home header from Account Settings cache after profile update.
   void refreshHomeProfileFromAccountCache() {
     _homeKey.currentState?.reloadProfileFromAccountCache();
+  }
+
+  /// Silent report refresh from outside the tab tree
+  void refreshReportSilently() {
+    _reportKey.currentState?.refreshDataSilently();
   }
 
   @override
@@ -175,11 +187,19 @@ class NavItem {
 
 
 
+
 ///
 ///
-///todo:: updating for the internal refresh of report
+/// todo:: caching data
 ///
 ///
+///
+
+
+
+
+
+
 
 
 
