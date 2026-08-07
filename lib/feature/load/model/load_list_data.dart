@@ -1,3 +1,4 @@
+
 import 'package:tag/feature/bill_of_loading/model/add_load_data.dart';
 
 class LoadListPagination {
@@ -74,3 +75,6 @@ abstract final class LoadListType {
   /// Client-only: merges self + assigned (not sent to API as-is).
   static const String all = 'all';
 }
+
+
+

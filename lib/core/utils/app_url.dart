@@ -63,6 +63,10 @@ class AppUrl {
     return "$baseUrl/load/$loadId/pod";
   }
 
+  static String uploadSignedBol(String loadId) {
+    return "$baseUrl/load/$loadId/signed-bol";
+  }
+
   static String getLoadExpense(String id) {
     return "$baseUrl/load-expense/load/$id";
   }
