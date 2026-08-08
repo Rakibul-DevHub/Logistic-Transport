@@ -28,10 +28,7 @@ class HomeLoadsSuccess extends HomeLoadsState {
   final List<AddLoadData> myLoads;
   final List<AddLoadData> assignedLoads;
 
-  const HomeLoadsSuccess({
-    required this.myLoads,
-    required this.assignedLoads,
-  });
+  const HomeLoadsSuccess({required this.myLoads, required this.assignedLoads});
 
   @override
   List<Object?> get props => [myLoads, assignedLoads];
@@ -83,14 +80,17 @@ class HomeLoadsCubit extends Cubit<HomeLoadsState> {
           : null;
 
       final myResponse = await myFuture;
-      final assignedResponse =
-          assignedFuture != null ? await assignedFuture : null;
+      final assignedResponse = assignedFuture != null
+          ? await assignedFuture
+          : null;
 
       if (!myResponse.isSuccess) {
         if (silent && previous is HomeLoadsSuccess) return;
-        emit(HomeLoadsFailure(
-          errorMessage: myResponse.errorMessage ?? 'Failed to load my loads',
-        ));
+        emit(
+          HomeLoadsFailure(
+            errorMessage: myResponse.errorMessage ?? 'Failed to load my loads',
+          ),
+        );
         return;
       }
 
@@ -105,10 +105,7 @@ class HomeLoadsCubit extends Cubit<HomeLoadsState> {
         ).data;
       }
 
-      emit(HomeLoadsSuccess(
-        myLoads: myLoads,
-        assignedLoads: assignedLoads,
-      ));
+      emit(HomeLoadsSuccess(myLoads: myLoads, assignedLoads: assignedLoads));
     } catch (e) {
       debugPrint('❌ HomeLoadsCubit error: $e');
       if (silent && previous is HomeLoadsSuccess) return;
@@ -193,10 +190,7 @@ class LoadListCubit extends Cubit<LoadListState> {
 
   String get currentType => _type;
 
-  Future<void> fetchLoads({
-    required String type,
-    bool refresh = true,
-  }) async {
+  Future<void> fetchLoads({required String type, bool refresh = true}) async {
     _type = type;
     if (refresh) {
       emit(LoadListLoading());
@@ -225,10 +219,11 @@ class LoadListCubit extends Cubit<LoadListState> {
         final assignedResponse = await assignedFuture;
 
         if (!selfResponse.isSuccess && !assignedResponse.isSuccess) {
-          emit(LoadListFailure(
-            errorMessage:
-                selfResponse.errorMessage ?? 'Failed to load loads',
-          ));
+          emit(
+            LoadListFailure(
+              errorMessage: selfResponse.errorMessage ?? 'Failed to load loads',
+            ),
+          );
           return;
         }
 
@@ -244,21 +239,23 @@ class LoadListCubit extends Cubit<LoadListState> {
         _selfHasMore = selfParsed?.pagination.hasMore ?? false;
         _assignedHasMore = assignedParsed?.pagination.hasMore ?? false;
 
-        final merged = _mergeUnique([
+        final merged = _mergeAllLoads([
           ...?selfParsed?.data,
           ...?assignedParsed?.data,
         ]);
 
-        emit(LoadListSuccess(
-          loads: merged,
-          pagination: LoadListPagination(
-            totalCount: merged.length,
-            totalPages: (_selfHasMore || _assignedHasMore) ? 2 : 1,
-            currentPage: 1,
-            itemsPerPage: pageSize,
+        emit(
+          LoadListSuccess(
+            loads: merged,
+            pagination: LoadListPagination(
+              totalCount: merged.length,
+              totalPages: (_selfHasMore || _assignedHasMore) ? 2 : 1,
+              currentPage: 1,
+              itemsPerPage: pageSize,
+            ),
+            type: type,
           ),
-          type: type,
-        ));
+        );
 
         // Warm page 2 immediately so first scroll feels instant.
         _prefetchNextPageSilently();
@@ -271,18 +268,22 @@ class LoadListCubit extends Cubit<LoadListState> {
       );
 
       if (!response.isSuccess) {
-        emit(LoadListFailure(
-          errorMessage: response.errorMessage ?? 'Failed to load loads',
-        ));
+        emit(
+          LoadListFailure(
+            errorMessage: response.errorMessage ?? 'Failed to load loads',
+          ),
+        );
         return;
       }
 
       final parsed = LoadListResponse.fromJson(response.jsonResponse ?? {});
-      emit(LoadListSuccess(
-        loads: parsed.data,
-        pagination: parsed.pagination,
-        type: type,
-      ));
+      emit(
+        LoadListSuccess(
+          loads: parsed.data,
+          pagination: parsed.pagination,
+          type: type,
+        ),
+      );
 
       _prefetchNextPageSilently();
     } catch (e) {
@@ -335,8 +336,7 @@ class LoadListCubit extends Cubit<LoadListState> {
             headers: headers,
           );
           if (res.isSuccess) {
-            final parsed =
-                LoadListResponse.fromJson(res.jsonResponse ?? {});
+            final parsed = LoadListResponse.fromJson(res.jsonResponse ?? {});
             nextLoads.addAll(parsed.data);
             _selfPage = parsed.pagination.currentPage;
             _selfHasMore = parsed.pagination.hasMore;
@@ -352,8 +352,7 @@ class LoadListCubit extends Cubit<LoadListState> {
             headers: headers,
           );
           if (res.isSuccess) {
-            final parsed =
-                LoadListResponse.fromJson(res.jsonResponse ?? {});
+            final parsed = LoadListResponse.fromJson(res.jsonResponse ?? {});
             nextLoads.addAll(parsed.data);
             _assignedPage = parsed.pagination.currentPage;
             _assignedHasMore = parsed.pagination.hasMore;
@@ -362,18 +361,20 @@ class LoadListCubit extends Cubit<LoadListState> {
           }
         }
 
-        final merged = _mergeUnique([...current.loads, ...nextLoads]);
-        emit(LoadListSuccess(
-          loads: merged,
-          pagination: LoadListPagination(
-            totalCount: merged.length,
-            totalPages: (_selfHasMore || _assignedHasMore) ? 2 : 1,
-            currentPage: 1,
-            itemsPerPage: pageSize,
+        final merged = _mergeAllLoads([...current.loads, ...nextLoads]);
+        emit(
+          LoadListSuccess(
+            loads: merged,
+            pagination: LoadListPagination(
+              totalCount: merged.length,
+              totalPages: (_selfHasMore || _assignedHasMore) ? 2 : 1,
+              currentPage: 1,
+              itemsPerPage: pageSize,
+            ),
+            type: LoadListType.all,
+            isLoadingMore: false,
           ),
-          type: LoadListType.all,
-          isLoadingMore: false,
-        ));
+        );
         return;
       }
 
@@ -390,12 +391,14 @@ class LoadListCubit extends Cubit<LoadListState> {
       }
 
       final parsed = LoadListResponse.fromJson(response.jsonResponse ?? {});
-      emit(LoadListSuccess(
-        loads: [...current.loads, ...parsed.data],
-        pagination: parsed.pagination,
-        type: current.type,
-        isLoadingMore: false,
-      ));
+      emit(
+        LoadListSuccess(
+          loads: [...current.loads, ...parsed.data],
+          pagination: parsed.pagination,
+          type: current.type,
+          isLoadingMore: false,
+        ),
+      );
     } catch (e) {
       debugPrint('❌ LoadListCubit loadMore error: $e');
       emit(current.copyWith(isLoadingMore: false));
@@ -416,6 +419,23 @@ class LoadListCubit extends Cubit<LoadListState> {
       if (seen.add(key)) result.add(load);
     }
     return result;
+  }
+
+  /// Deduplicates self and assigned loads, then mixes them in API-date order
+  /// instead of keeping the current user's loads above all assigned loads.
+  List<AddLoadData> _mergeAllLoads(List<AddLoadData> loads) {
+    final merged = _mergeUnique(loads);
+    merged.sort((a, b) => _sortTime(b).compareTo(_sortTime(a)));
+    return merged;
+  }
+
+  DateTime _sortTime(AddLoadData load) {
+    for (final raw in [load.createdAt, load.updatedAt, load.pickupDate]) {
+      if (raw == null || raw.isEmpty) continue;
+      final parsed = DateTime.tryParse(raw);
+      if (parsed != null) return parsed.toLocal();
+    }
+    return DateTime.fromMillisecondsSinceEpoch(0);
   }
 }
 
@@ -493,8 +513,7 @@ abstract final class LoadDisplayHelper {
 
     // Completed loads often only have updatedAt as the delivery timestamp.
     final status = (load.status ?? '').toLowerCase().trim();
-    final isCompleted =
-        status == 'completed' || status == 'delivered';
+    final isCompleted = status == 'completed' || status == 'delivered';
     if (isCompleted) {
       final updated = load.updatedAt;
       if (updated != null && updated.isNotEmpty) {
