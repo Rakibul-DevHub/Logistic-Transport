@@ -5,102 +5,114 @@
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Android%20%7C%20iOS%20%7C%20Web-blue)]()
 
-A comprehensive Flutter-based logistics and fleet management application that enables real-time tracking of delivery trucks, team collaboration, and efficient transportation management.
+
+
+Flutter mobile app for owner-operators and small fleets: scan a Bill of Lading, pin every stop on Google Maps, track the load, log expenses, upload POD, and see real profit.
+
+Built as a production-style product — role-aware UI, secure sessions, OCR, live maps, and reporting — not a tutorial clone.
 
 ---
 
-## 📱 About the Project
+## What I built
 
-**Logistic Transport** is a powerful mobile application designed to streamline logistics operations. It provides end-to-end solutions for trucking companies, delivery services, and fleet managers to monitor operations, track vehicles, manage teams, and generate insightful reports—all from a single intuitive platform.
-
-### 🎯 Core Capabilities
-
-- **Live GPS Tracking**: Real-time location tracking of delivery trucks anywhere in the world
-- **Fleet Management**: Complete oversight of your entire vehicle fleet with detailed analytics
-- **Team Collaboration**: Seamless communication between drivers, managers, and support staff
-- **Smart Reporting**: Automated report generation for performance, expenses, and deliveries
-- **Trip Management**: End-to-end trip planning and execution with real-time updates
-- **Expense Tracking**: Monitor fuel costs, maintenance, and operational expenses
-- **Delivery Management**: Track shipments from pickup to final destination
-- **Driver Performance**: Evaluate driver efficiency and delivery metrics
+- End-to-end trucking workflow: auth → scan/create load → map stops → expenses → signed BOL / POD → reports
+- Owner vs sub-driver roles (fleet admin hidden from child drivers)
+- Google Maps location picker + multi-stop load map + live GPS
+- Backend-aligned coordinates `[lng, lat]` with Places, Geocoding, and Directions
+- Silent tab refresh so Home / Loads / Reports do not flicker after mutations
 
 ---
 
-## ✨ Key Features
+## Stack
 
-### 📍 Real-Time Truck Tracking
-- Live GPS location tracking of all delivery trucks
-- Geofencing and route deviation alerts
-- Historical route playback with timestamps
-- Estimated Time of Arrival (ETA) predictions
-- Speed monitoring and alerts
-- Fuel consumption tracking
-
-### 📊 Comprehensive Reporting
-- Delivery performance reports with visual charts
-- Expense and profitability analysis
-- Driver productivity metrics
-- Vehicle utilization statistics
-- Custom date-range reports
-- Export reports as PDF or Excel
-- Real-time analytics dashboard
-
-### 👥 Team Management
-- Driver assignment and scheduling
-- Team performance tracking
-- Shift management with attendance
-- Communication tools (in-app messaging)
-- Document management (licenses, permits)
-- Driver rating and feedback system
-- Team hierarchy and permissions
-
-### 🚚 Fleet Operations
-- Vehicle maintenance scheduling
-- Fuel consumption monitoring
-- Trip logging and analytics
-- Fleet utilization dashboard
-- Vehicle inspection checklists
-- Maintenance history tracking
-- Vehicle performance metrics
-
-### 💰 Accounting & Finance
-- Trip-wise revenue tracking
-- Expense categorization
-- Driver payment management
-- Invoice generation
-- Budget monitoring
-- Profit/Loss calculations
-- Tax management
+Flutter · Dart · BLoC/Cubit · Dio · Secure Storage · Google Maps · Geolocator · Places / Geocoding / Directions APIs · Image Picker · Signature · WebView
 
 ---
 
-## 🚀 Getting Started
+## Features (product)
 
-### Prerequisites
-- **Flutter SDK**: version 3.44.6 or higher
-- **Dart SDK**: version 3.12.2 or higher
-- **Android Studio** / **VS Code** with Flutter extensions
-- **iOS** or **Android** emulator/physical device
-- **Minimum Android**: 5.0 (API 21)
-- **Minimum iOS**: 12.0
+| Area | What it does |
+|---|---|
+| Auth | Login, register, OTP, forgot/reset password, encrypted tokens, splash token refresh |
+| Home | Status counts, assigned loads (owners), scan/add shortcuts, subscription prompt |
+| Loads | Filters, owner scopes (my loads / all drivers / per driver), search, pagination |
+| OCR | Camera/gallery BOL scan → auto-fill load ID, company, rate, stops |
+| Map | Pin picker, autocomplete, multi-stop markers, live “You” pin |
+| Accounting | Fuel / toll / maintenance / other + receipts; profit = rate − expenses |
+| Documents | Signature merge onto BOL; POD upload |
+| Reports | Week / month / custom range, charts, send to accountant |
+| Fleet | Manage sub-drivers, accountant, plans & WebView checkout |
 
-### Installation & Run
+---
 
-1. **Clone the repository**
+## Map & polyline (technical highlight)
+
+The map is used in **create load**, **OCR review**, and **load details** — not a standalone demo.
+
+**Location picker**
+- Center overlay pin (not a draggable marker) with a lift animation while panning
+- Reverse geocode only after camera idle + 280ms debounce
+- Nearby Search prefers a POI within ~55m (warehouse/shop), not Plus Codes
+- Request IDs drop stale geocode responses when the user pans fast
+
+**Stop fields**
+- Type → Places Autocomplete (500ms debounce) → Place Details
+- OCR text auto-resolves the first suggestion so coordinates exist without a tap
+- Map confirm writes `[lng, lat]` and suppresses a second search loop
+
+**Load map**
+- Blue pickups, red deliveries, green live GPS
+- Camera fits all stops (`LatLngBounds` + fallback zoom)
+- GPS stream throttled to **20m** so the pin does not jitter when parked
+
+**Road polyline**
+- Directions API → encoded `overview_polyline` → custom decoder (Google algorithm, 1e5 precision) → `Polyline` that follows roads, not a straight line
+- In-flight request IDs prevent an old route from overwriting a newer one
+- Live layer updates the driver pin without spamming Directions on every GPS tick
+
+---
+
+## Hard problems I solved
+
+1. **Stale async** — geocode, Places, and Directions all use version/request IDs so the last user action wins.
+2. **Coordinate contract** — API is `[lng, lat]`; widgets are `LatLng(lat, lng)`. One conversion path; no ocean pins.
+3. **OCR shape drift** — parser accepts singular or list addresses/coords from the backend.
+4. **Role flicker** — `isParentDriver` persisted at login, restored on splash into `AuthSession`.
+5. **Immersive UI vs notch** — sticky system UI zeroes padding; custom inset restores SafeArea.
+6. **Tab state** — `IndexedStack` + `GlobalKey`s for silent refresh after create/upload.
+7. **GPS noise / cost** — 20m filter, first-fix camera fit only, map still useful if permission is denied.
+
+---
+
+## Architecture
+
+Feature-first (`auth`, `home`, `load`, `map`, `bill_of_loading`, `report`, `profile`). Cubits own API calls. Secrets stay in `.env` (`MAP_API_KEY`), injected into Android as `com.google.android.geo.API_KEY`.
+
+---
+
+## Demo path (2 minutes)
+
+1. Login as owner → Home counts + assigned loads  
+2. Scan BOL → fields fill → adjust a stop on the map  
+3. Load Details → View Map → all stops + live pin  
+4. Add fuel expense → Reports profit updates  
+5. Upload POD → Missing POD drops  
+
+---
+## Image
+<table>
+  <tr>
+    <td><img width="360" height="808" alt="image" src="https://github.com/user-attachments/assets/1f66d5fb-afc9-4b3e-af2c-95ada97ea43a" /></td>
+    <td><img width="360" height="808" alt="image" src="https://github.com/user-attachments/assets/b551de87-2938-4ab5-9e6f-6f43ff071385" /></td>
+    <td><img width="360" height="808" alt="image" src="https://github.com/user-attachments/assets/7391a2de-5797-4e1c-8e33-1ba221c30def" /></td>
+    <td><img width="360" height="808" alt="image" src="https://github.com/user-attachments/assets/4b9f5a6a-acdd-484c-874a-72c65858efb0" /></td>
+  </tr>
+</table>
+
+---
+## Setup
+
 ```bash
-git clone https://github.com/yourusername/logistic_transport.git
-cd logistic_transport
 flutter pub get
-
-
-API_BASE_URL=your_api_endpoint
-MAPS_API_KEY=your_google_maps_api_key
-FIREBASE_OPTIONS=your_firebase_config
-
-
-
-# For development
+# add MAP_API_KEY to .env (Maps, Places, Geocoding, Directions)
 flutter run
-
-# For release mode
-flutter run --release
