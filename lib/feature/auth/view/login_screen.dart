@@ -21,7 +21,7 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController(text: 'dt14@yopmail.com');
-  final _passwordController = TextEditingController(text: 'dt14@yopmail.com');
+  final _passwordController = TextEditingController(text: 'dt14@yopmail');
   bool _obscurePassword = true;
 
   @override
@@ -87,7 +87,8 @@ class _LoginScreenState extends State<LoginScreen> {
                               SizedBox(
                                 height: 150,
                                 child: SvgPicture.asset(
-                                  'assets/images/splash_logo.svg',
+                                  // 'assets/images/splash_logo.svg',
+                                  'assets/images/logo.svg',
                                   fit: BoxFit.contain,
                                 ),
                               ),
