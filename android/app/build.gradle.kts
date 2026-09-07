@@ -60,7 +60,7 @@ plugins {
 }
 
 fun loadEnvMapApiKey(): String {
-    val envFile = rootProject.file("../.env")
+    val envFile = rootProject.file(".env")
     if (!envFile.exists()) return ""
 
     envFile.readLines().forEach { line ->

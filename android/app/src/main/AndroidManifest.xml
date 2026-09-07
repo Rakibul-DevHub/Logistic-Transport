@@ -4,6 +4,7 @@
     <uses-feature android:name="android.hardware.camera" android:required="true" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
     <!-- For older Android -->
@@ -58,7 +59,8 @@
         <!-- for google map -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="${MAP_API_KEY}" />
+            android:value="AIzaSyBc3dm4k6AZc0f4buzbcEmT6Ewn0Bvv_6I" />
+<!--            android:value="${MAP_API_KEY}" />-->
 
 
         <!-- for WebView -->
