@@ -3,7 +3,8 @@
 [![Flutter](https://img.shields.io/badge/Flutter-3.44.6+-blue.svg)](https://flutter.dev)
 [![Dart](https://img.shields.io/badge/Dart-3.12.2+-blue.svg)](https://dart.dev)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-Android%20%7C%20iOS%20%7C%20Web-blue)]()
+[![Platform](https://img.shields.io/badge/platform-Android%20%7C%20iOS-blue)]()
+
 
 
 
