@@ -70,6 +70,9 @@ The map is used in **create load**, **OCR review**, and **load details** — not
 - In-flight request IDs prevent an old route from overwriting a newer one
 - Live layer updates the driver pin without spamming Directions on every GPS tick
 
+**Map style**
+- A custom `map_style.json` is applied to filter out non‑essential map elements (e.g., transit, POI labels, administrative boundaries), giving the driver a clean, focused view of stops and routes.
+
 ---
 
 ## Hard problems I solved
@@ -104,7 +107,8 @@ Feature-first (`auth`, `home`, `load`, `map`, `bill_of_loading`, `report`, `prof
   <tr>
     <td><img width="360" height="808" alt="image" src="https://github.com/user-attachments/assets/1f66d5fb-afc9-4b3e-af2c-95ada97ea43a" /></td>
     <td><img width="360" height="808" alt="image" src="https://github.com/user-attachments/assets/b551de87-2938-4ab5-9e6f-6f43ff071385" /></td>
-    <td><img width="360" height="808" alt="image" src="https://github.com/user-attachments/assets/7391a2de-5797-4e1c-8e33-1ba221c30def" /></td>
+    <td><img width="360" height="808" alt="image" src="https://github.com/user-attachments/assets/1930d15f-1437-4861-a810-62ed92203efb" /></td>
+    <td><img width="360" height="808" alt="image" src="https://github.com/user-attachments/assets/e860d8fd-a818-45fd-a960-1ba1d2b000ff" /></td>
     <td><img width="360" height="808" alt="image" src="https://github.com/user-attachments/assets/4b9f5a6a-acdd-484c-874a-72c65858efb0" /></td>
   </tr>
 </table>
